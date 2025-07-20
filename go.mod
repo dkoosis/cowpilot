@@ -1,6 +1,6 @@
 module github.com/vcto/cowpilot
 
-go 1.24.2
+go 1.23
 
 require github.com/mark3labs/mcp-go v0.34.1-0.20250715114859-baa715326fab
 
