@@ -12,7 +12,7 @@ func TestHelloHandler_ReturnsSuccess_When_CalledWithValidContext(t *testing.T) {
 	
 	// Create request according to mark3labs API
 	req := mcp.CallToolRequest{
-		Params: mcp.CallToolRequestParams{
+		Params: mcp.CallToolParams{
 			Name:      "hello",
 			Arguments: map[string]interface{}{},
 		},
