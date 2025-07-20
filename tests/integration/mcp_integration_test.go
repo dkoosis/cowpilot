@@ -11,7 +11,7 @@ import (
 	"github.com/vcto/cowpilot/internal/transport"
 )
 
-func TestFullMCPFlow(t *testing.T) {
+func TestMCPIntegration_HandlesFullLifecycle_When_ClientMakesSequentialRequests(t *testing.T) {
 	// Create server and transport
 	mcpServer := mcp.NewServer()
 	httpTransport := transport.NewHTTPTransport(mcpServer)
@@ -88,8 +88,14 @@ func TestFullMCPFlow(t *testing.T) {
 				t.Fatalf("Request %d failed: %v", i, resp.Error)
 			}
 			
-			if resp.ID != i+10 {
-				t.Errorf("Expected ID %d, got %v", i+10, resp.ID)
+			// Check response ID matches request ID
+			respID, ok := resp.ID.(float64)
+			if !ok {
+				t.Fatalf("Response ID is not a number: %v", resp.ID)
+			}
+			
+			if int(respID) != i+10 {
+				t.Errorf("Expected ID %d, got %d", i+10, int(respID))
 			}
 		}
 	})

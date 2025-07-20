@@ -1,6 +1,6 @@
 # ADR-008: Go Test Naming Convention
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2025-04-19
 
 ## Context

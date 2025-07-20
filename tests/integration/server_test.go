@@ -8,7 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-func TestHealthEndpoint(t *testing.T) {
+func TestHealthEndpoint_ReturnsStatusOK_When_ServerIsRunning(t *testing.T) {
 	req := httptest.NewRequest("GET", "/health", nil)
 	rec := httptest.NewRecorder()
 
@@ -29,7 +29,7 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 }
 
-func TestMCPServerCreation(t *testing.T) {
+func TestMCPServer_CreationSucceeds_When_UsingValidParameters(t *testing.T) {
 	// Test server creation
 	s := server.NewMCPServer(
 		"test-server",

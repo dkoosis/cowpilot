@@ -3,10 +3,11 @@
 # Purpose: Machine-readable project state for Claude
 
 STATUS:
-  phase: ready_to_deploy
-  quality: tested
+  phase: deployed
+  quality: production
   blocker: none
-  target: fly_deployment
+  target: operational
+  live_url: https://cowpilot.fly.dev/
   
 CONTEXT:
   proj: cowpilot
@@ -76,8 +77,12 @@ NEXT_ACTIONS:
   3. ✓ Makefile ready with test targets
   4. ✓ Switched to SSE transport for Fly.io deployment
   5. ✓ Fixed Go version and API compatibility issues
-  6. → Deploy: fly deploy
-  7. → Test SSE endpoint at https://[app-name].fly.dev/
+  6. ✓ Deployed to Fly.io: https://cowpilot.fly.dev/
+  
+OPERATIONAL:
+  - Health check: https://cowpilot.fly.dev/health
+  - SSE endpoint: https://cowpilot.fly.dev/
+  - Connect via MCP client to test hello tool
   
 PARKED:
   - HTTP streaming transport implementation

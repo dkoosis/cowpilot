@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestNewServer(t *testing.T) {
+func TestServerCreation_SucceedsAndRegistersTools_When_NewServerIsCalled(t *testing.T) {
 	server := NewServer()
 	
 	if server == nil {
@@ -21,7 +21,7 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
-func TestHandleToolsList(t *testing.T) {
+func TestServer_ReturnsToolList_When_HandlingToolsListRequest(t *testing.T) {
 	server := NewServer()
 	
 	req := Request{
@@ -55,7 +55,7 @@ func TestHandleToolsList(t *testing.T) {
 	}
 }
 
-func TestHandleToolCall(t *testing.T) {
+func TestServer_ReturnsCorrectResult_When_HandlingValidToolCallRequest(t *testing.T) {
 	server := NewServer()
 	
 	params, _ := json.Marshal(map[string]interface{}{
@@ -99,7 +99,7 @@ func TestHandleToolCall(t *testing.T) {
 	}
 }
 
-func TestHandleUnknownMethod(t *testing.T) {
+func TestServer_ReturnsMethodNotFoundError_When_MethodIsUnknown(t *testing.T) {
 	server := NewServer()
 	
 	req := Request{
@@ -123,7 +123,7 @@ func TestHandleUnknownMethod(t *testing.T) {
 	}
 }
 
-func TestHandleInvalidToolCall(t *testing.T) {
+func TestServer_ReturnsInvalidParamsError_When_ToolNameIsUnknown(t *testing.T) {
 	server := NewServer()
 	
 	params, _ := json.Marshal(map[string]interface{}{
@@ -149,7 +149,7 @@ func TestHandleInvalidToolCall(t *testing.T) {
 	}
 }
 
-func TestHandleMalformedParams(t *testing.T) {
+func TestServer_ReturnsInvalidParamsError_When_ParamsAreMalformedJSON(t *testing.T) {
 	server := NewServer()
 	
 	req := Request{

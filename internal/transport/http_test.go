@@ -10,7 +10,7 @@ import (
 	"github.com/vcto/cowpilot/internal/mcp"
 )
 
-func TestHTTPTransport_HandleMCP_Success(t *testing.T) {
+func TestHTTPTransport_ReturnsSuccess_When_RequestIsValid(t *testing.T) {
 	server := mcp.NewServer()
 	transport := NewHTTPTransport(server)
 
@@ -41,7 +41,7 @@ func TestHTTPTransport_HandleMCP_Success(t *testing.T) {
 	}
 }
 
-func TestHTTPTransport_HandleMCP_MethodNotAllowed(t *testing.T) {
+func TestHTTPTransport_ReturnsMethodNotAllowed_When_RequestMethodIsGET(t *testing.T) {
 	server := mcp.NewServer()
 	transport := NewHTTPTransport(server)
 
@@ -55,7 +55,7 @@ func TestHTTPTransport_HandleMCP_MethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestHTTPTransport_HandleMCP_ParseError(t *testing.T) {
+func TestHTTPTransport_ReturnsParseError_When_RequestBodyIsInvalidJSON(t *testing.T) {
 	server := mcp.NewServer()
 	transport := NewHTTPTransport(server)
 
@@ -78,7 +78,7 @@ func TestHTTPTransport_HandleMCP_ParseError(t *testing.T) {
 	}
 }
 
-func TestHTTPTransport_HandleMCP_InvalidVersion(t *testing.T) {
+func TestHTTPTransport_ReturnsInvalidRequestError_When_JSONRPCVersionIsWrong(t *testing.T) {
 	server := mcp.NewServer()
 	transport := NewHTTPTransport(server)
 
@@ -108,7 +108,7 @@ func TestHTTPTransport_HandleMCP_InvalidVersion(t *testing.T) {
 	}
 }
 
-func TestStreamReader(t *testing.T) {
+func TestStreamReader_ReadsMultipleMessages_When_StreamContainsMultipleJSONObjects(t *testing.T) {
 	messages := []mcp.Request{
 		{JSONRPC: "2.0", Method: "tools/list", ID: 1},
 		{JSONRPC: "2.0", Method: "tools/call", ID: 2},

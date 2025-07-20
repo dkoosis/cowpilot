@@ -7,7 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-func TestHelloHandler(t *testing.T) {
+func TestHelloHandler_ReturnsSuccess_When_CalledWithValidContext(t *testing.T) {
 	ctx := context.Background()
 	
 	// Create request according to mark3labs API
