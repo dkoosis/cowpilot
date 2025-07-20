@@ -1,0 +1,49 @@
+# STATE.yaml - Claude-optimized context
+# Format: v3.0 | Updated: 2025-01-18T19:00:00Z
+# Purpose: Machine-readable project state for Claude
+
+STATUS:
+  phase: restart.planning
+  quality: greenfield
+  blocker: artifact_assessment
+  
+CONTEXT:
+  proj: cowpilot
+  stack: [golang, fly.io, mcp]
+  baseline: fresh_start
+  previous_stack: [ts, cf-workers, oauth, agents-mcp]
+  
+ARCH:
+  transport: [http_streaming]
+  auth: tbd
+  deployment: fly.io
+  
+PLAN:
+  →: assess_artifacts
+  ◯: [project_structure, core_implementation, deployment]
+  
+LEGACY_ARTIFACTS:
+  relevant:
+    - mcp_protocol_knowledge: /docs/MCP-PROTOCOL-STANDARDS.md
+    - architecture_decisions: /docs/adr/*
+    - assets: /docs/assets/*
+  
+  delete_candidates:
+    - ts_specific: [package.json, tsconfig.json, vitest.config.ts]
+    - cf_specific: [wrangler.toml, worker configs]
+    - old_tests: [*.test.ts files]
+    
+  review_needed:
+    - documentation: assess for golang relevance
+    - prompts: may be language-agnostic
+    
+FLAGS:
+  stack_change: ts_to_golang
+  platform_change: cf_to_fly
+  fresh_start: true
+  
+NEXT_ACTIONS:
+  1. Clean up TypeScript/CF artifacts
+  2. Initialize Go module structure
+  3. Adapt MCP protocol knowledge to Go
+  4. Design Fly.io deployment architecture
