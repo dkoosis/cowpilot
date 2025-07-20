@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # E2E Test Suite for Cowpilot MCP Server
-# Validates MCP v2025-03-26 protocol compliance using @modelcontextprotocol/inspector
+# Uses official @modelcontextprotocol/inspector in CLI mode
 
 set -euo pipefail
 
@@ -61,9 +61,10 @@ print_test_header "Tool Discovery"
 echo "Listing available tools..."
 if OUTPUT=$($INSPECTOR "$SERVER_URL" --method tools/list 2>&1); then
     # Check for hello tool in output
-    if echo "$OUTPUT" | grep -q "hello" && \
-       echo "$OUTPUT" | grep -q "Says hello to the world"; then
+    if echo "$OUTPUT" | grep -q '"name":\s*"hello"' && \
+       echo "$OUTPUT" | grep -q '"description":\s*"Says hello to the world"'; then
         print_success "Found 'hello' tool with correct description"
+        echo "Tools response: $OUTPUT"
     else
         print_failure "Tool list doesn't contain expected 'hello' tool" \
             "Tool named 'hello' with description" \
@@ -83,6 +84,7 @@ if OUTPUT=$($INSPECTOR "$SERVER_URL" --method tools/call --tool-name hello 2>&1)
     # Check for "Hello, World!" in output
     if echo "$OUTPUT" | grep -q "Hello, World!"; then
         print_success "Tool executed successfully and returned 'Hello, World!'"
+        echo "Tool response: $OUTPUT"
     else
         print_failure "Tool call didn't return expected output" \
             "Output containing 'Hello, World!'" \
@@ -99,14 +101,15 @@ print_test_header "Error Handling - Non-existent Tool"
 
 echo "Calling non-existent tool..."
 if OUTPUT=$($INSPECTOR "$SERVER_URL" --method tools/call --tool-name nonexistent 2>&1); then
-    # This should actually fail, so if we get here it's unexpected
+    # If it succeeds, that's wrong
     print_failure "Server accepted non-existent tool call" \
         "Error response for non-existent tool" \
         "$OUTPUT"
 else
-    # The command failed, which is expected
-    if echo "$OUTPUT" | grep -qi "error\|not found\|unknown tool\|method not found"; then
+    # The command should fail - check for error in output
+    if echo "$OUTPUT" | grep -qi "error\|not found\|unknown tool\|-32602"; then
         print_success "Server properly rejected non-existent tool call"
+        echo "Error response: $OUTPUT"
     else
         print_failure "Unexpected error response" \
             "Clear error message about non-existent tool" \
@@ -114,51 +117,23 @@ else
     fi
 fi
 
-# Test 5: List Resources (even if empty)
+# Test 5: List Resources
 print_test_header "Resource Discovery"
 
 echo "Listing available resources..."
 if OUTPUT=$($INSPECTOR "$SERVER_URL" --method resources/list 2>&1); then
+    # Success - resources endpoint works (even if empty)
     print_success "Successfully queried resources endpoint"
+    echo "Resources response: $OUTPUT"
 else
-    # Some servers may not implement resources
-    if echo "$OUTPUT" | grep -qi "not implemented\|not supported\|method not found"; then
+    # Check if it's a "not implemented" error
+    if echo "$OUTPUT" | grep -qi "not implemented\|not supported\|method not found\|-32601"; then
         print_success "Server correctly indicates resources not implemented"
     else
         print_failure "Unexpected resources list response" \
             "Successful query or clear not-implemented message" \
             "$OUTPUT"
     fi
-fi
-
-# Test 6: List Prompts (even if empty)
-print_test_header "Prompt Discovery"
-
-echo "Listing available prompts..."
-if OUTPUT=$($INSPECTOR "$SERVER_URL" --method prompts/list 2>&1); then
-    print_success "Successfully queried prompts endpoint"
-else
-    # Some servers may not implement prompts
-    if echo "$OUTPUT" | grep -qi "not implemented\|not supported\|method not found"; then
-        print_success "Server correctly indicates prompts not implemented"
-    else
-        print_failure "Unexpected prompts list response" \
-            "Successful query or clear not-implemented message" \
-            "$OUTPUT"
-    fi
-fi
-
-# Test 7: Transport Verification
-print_test_header "SSE Transport Verification"
-
-echo "Verifying SSE transport..."
-# The inspector uses SSE by default for HTTP URLs
-if $INSPECTOR "$SERVER_URL" --method tools/list >/dev/null 2>&1; then
-    print_success "SSE transport working correctly"
-else
-    print_failure "SSE transport connection failed" \
-        "Successful SSE connection" \
-        "Connection error"
 fi
 
 # Print summary

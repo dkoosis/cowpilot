@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,15 +39,15 @@ func TestMCPProtocolCompliance(t *testing.T) {
 	}
 
 	// Run the test script
-	cmd := exec.Command("/bin/bash", scriptPath, serverURL)
+	testCmd := exec.Command("/bin/bash", scriptPath, serverURL)
 	
 	// Capture output
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	testCmd.Stdout = &stdout
+	testCmd.Stderr = &stderr
 
 	// Run the command
-	err := cmd.Run()
+	err := testCmd.Run()
 	
 	// Always print the output for visibility
 	t.Logf("Test output:\n%s", stdout.String())
