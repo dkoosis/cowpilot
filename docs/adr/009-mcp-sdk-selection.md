@@ -1,3 +1,10 @@
+---
+title: "ADR-009: Use mark3labs/mcp-go for MCP Implementation"
+status: "Accepted"
+date: "2025-01-18"
+tags: ["go", "mcp", "sdk", "dependency", "architecture"]
+---
+
 # ADR-009: Use mark3labs/mcp-go for MCP Implementation
 
 ## Status

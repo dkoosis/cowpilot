@@ -1,35 +1,43 @@
-# Documentation Index
+# Cowpilot Documentation
 
-## When to Use Each Document
+## 📍 Document Map
 
-### 🤖 Machine Context (Claude reads first)
-- **STATE.yaml** - Current session state, what we're doing now
-- **STATE-RECIPE.yaml** - Step-by-step procedures (if exists)
+### Current State & Planning
+- **STATE.yaml** - Machine-readable session context
+- **roadmap.md** - Development phases
+- **todo.md** - Current task list
 
-### 🔍 Code Review
-- **prompts/** - Structured prompts for periodic code reviews
-- **reviews/** - Review outputs and history
-- **REVIEW-GUIDE.md** - How to run periodic reviews
+### Development Guides
+- **testing-guide.md** - How to test this project
+- **protocol-standards.md** - MCP protocol testing standards
+- **user-guide.md** - User documentation
+- **contributing.md** - Contribution guidelines
 
-### 📋 Development Planning
-- **ROADMAP.md** - Quality-first development phases
-- **KNOWN-ISSUES.md** - Dead-ends and version problems to avoid
+### Historical Context
+- **project-history.md** - Complete journey, lessons learned, dead ends
+- **known-issues.md** - Version problems and workarounds
 
-### 🧪 Testing Documentation
-- **MCP-PROTOCOL-STANDARDS.md** - MCP protocol testing rules (WHAT standards to follow)
-- **HOW-TO-TEST.md** - How to test THIS project (HOW to run tests)
+### Reference Materials
+- **reference/** - Protocol specifications
+  - `schema.ts` - MCP v2025-03-26 TypeScript definitions
+  - `schema.json` - JSON schema
+- **adr/** - Architecture Decision Records
+  - `009_mcp_sdk_selection.md` - Why mark3labs/mcp-go
 
-### 📁 Project Structure
+### Session Management
+- **sessions/** - Date-specific handoffs
+  - `2025-01-20-handoff.md` - Recent session summary
+  - `quick-start-next.md` - Quick reference for next session
+
+### Other
+- **llm.md** - LLM interaction guidelines
 - **tree.txt** - Directory structure snapshot
+- **assets/** - Images and diagrams
 
-## Quick Reference
+## 🚀 Quick Start
 
-**"How do I test this?"** → HOW-TO-TEST.md  
-**"What test patterns should I use?"** → MCP-PROTOCOL-STANDARDS.md  
 **"What are we working on?"** → STATE.yaml  
-**"What comes next?"** → ROADMAP.md  
-**"Why doesn't X work?"** → KNOWN-ISSUES.md  
-
-## Naming Conflicts
-- `MCP-PROTOCOL-STANDARDS.md` = Protocol standards (theory)
-- `HOW-TO-TEST.md` = Project testing guide (practice)
+**"How do I test?"** → testing-guide.md  
+**"What went wrong before?"** → project-history.md  
+**"What's next?"** → roadmap.md  
+**"Known problems?"** → known-issues.md

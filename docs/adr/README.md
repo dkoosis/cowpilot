@@ -1,5 +1,27 @@
 # Architectural Decision Records (ADRs) for Cowpilot
 
+### File Naming Convention
+
+All ADR files follow this pattern:
+```
+NNN-short-descriptive-title.md
+```
+
+Example: `009-mcp-sdk-selection.md`
+
+- Use 3-digit sequence (001-999)
+- All lowercase with hyphens
+- Never renumber existing ADRs
+- Include YAML frontmatter with metadata
+
+### Creating New ADRs
+
+Use `adr-template.md` as starting point. Update:
+1. Sequence number
+2. Title in frontmatter and heading
+3. Date and tags
+4. Status (start with "Draft")
+
 ## ADR-001: Migration from TypeScript to Go
 **Date**: 2025-01-18  
 **Status**: Implemented

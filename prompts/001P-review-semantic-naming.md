@@ -1,3 +1,20 @@
+---
+prompt_id: 001P
+title: "Semantic Naming & Conceptual Grouping Analysis"
+version: 1.0
+date: "2025-01-20"
+purpose: "Analyze project structure and naming for conceptual clarity and consistency"
+tags: ["review", "naming", "architecture", "typescript", "go"]
+inputs:
+  - name: "Directory tree output"
+    type: "tree command output"
+    description: "Project structure from tree -L 3 command"
+outputs:
+  - name: "Analysis report"
+    type: "Markdown"
+    description: "Quantitative summary, recommendations, detailed findings, cohesion assessment"
+---
+
 # Semantic Naming & Conceptual Grouping Analysis
 *Adapted for TypeScript/Cloudflare Workers MCP Projects*
 

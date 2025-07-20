@@ -1,3 +1,20 @@
+---
+prompt_id: 002P
+title: "Code Smell Analysis for TypeScript/Cloudflare Workers"
+version: 1.0
+date: "2025-01-20"
+purpose: "Analyze TypeScript source code for common and worker-specific code smells"
+tags: ["review", "code-quality", "typescript", "cloudflare-workers", "refactoring"]
+inputs:
+  - name: "Source code"
+    type: "TypeScript/TSX files"
+    description: "The source files to analyze (exclude node_modules, dist)"
+outputs:
+  - name: "Code smell report"
+    type: "Markdown"
+    description: "Executive summary, prioritized findings, refactoring recommendations"
+---
+
 # Code Smell Analysis for TypeScript/Cloudflare Workers
 *Focus on Worker-specific and TypeScript patterns*
 

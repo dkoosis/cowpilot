@@ -94,24 +94,40 @@ LEGACY_ARTIFACTS:
     - assets: /docs/assets/*
     - prompts: May be language-agnostic
 
-VALUABLE_PATTERNS_FROM_COWGNITION:
-  immediately_useful:
-    - ndjson_transport: stdio implementation pattern
-    - error_patterns: structured errors with context
-    - validation_patterns: message validation approach
+BEFORE_BUILDING_CHECK:
+  cowgnition_project:
+    location: Adjacent project (not in this tree)
+    valuable_patterns:
+      - FSM implementation (looplab/fsm) for state management
+      - Error handling with cockroachdb/errors
+      - Validation middleware patterns
+      - NDJSON transport implementation
+      - Router/middleware architecture
+    check_before: Building complex state management, error handling, or transport layers
     
-  worth_studying:
-    - fsm_implementation: state machine for connections (looplab/fsm)
-    - router_pattern: method dispatch architecture
-    - middleware_chain: validation and logging
-    - metrics_collection: prometheus integration
-    - config_management: yaml-based configuration
-    
-  architectural_insights:
-    - They built full MCP in Go before official SDK existed
-    - Used cockroachdb/errors for better error handling
-    - Comprehensive validation at transport layer
-    - Clean separation between transport and business logic
+  well_regarded_libraries:
+    state_management:
+      - looplab/fsm (used by cowgnition)
+      - finite (lightweight FSM)
+    error_handling:
+      - cockroachdb/errors (stack traces, wrapping)
+      - pkg/errors (simpler alternative)
+    validation:
+      - go-playground/validator
+      - ozzo-validation
+    observability:
+      - prometheus/client_golang
+      - opentelemetry-go
+      
+  principle: "Check existing solutions before building custom implementations"
+  
+CODE_REVIEW_PROMPTS:
+  location: /prompts/
+  files:
+    - semantic-naming-review.md
+    - code-smell-analysis.md
+    - REVIEW-GUIDE.md
+  purpose: Periodic code quality review
 
 TESTING_CAPABILITIES:
   unit: "make unit-test" (coverage enabled)
@@ -179,9 +195,10 @@ KEY_REFERENCES:
   sse_blog: https://blog.fka.dev/blog/2025-03-25-inspecting-mcp-servers-using-cli/
   
 SESSION_DOCS:
-  quick_start: /docs/QUICK_START_NEXT_SESSION.md
-  handoff: /docs/SESSION_HANDOFF_2025-01-20.md
+  quick_start: /docs/sessions/quick-start-next.md
+  recent_handoff: /docs/sessions/2025-01-20-handoff.md
   overview: /PROJECT_OVERVIEW_FOR_CLAUDE.md
+  doc_index: /docs/README.md
   
 ENVIRONMENT_VARS:
   MCP_SERVER_URL: Set for E2E tests (defaults to production)
