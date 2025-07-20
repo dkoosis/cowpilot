@@ -2,9 +2,9 @@
 
 ## Phase 1: Foundation ✓ Planning
 - Set up Go project structure
-- Define MCP protocol interfaces
-- Implement basic HTTP streaming transport
-- Create minimal viable MCP server
+- Integrate modelcontextprotocol/go-sdk
+- Implement HTTP transport adapter for Fly.io
+- Create minimal viable MCP server using SDK
 
 ## Phase 2: Core Tools
 - Implement basic tool registry

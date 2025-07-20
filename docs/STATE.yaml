@@ -3,24 +3,28 @@
 # Purpose: Machine-readable project state for Claude
 
 STATUS:
-  phase: restart.planning
-  quality: greenfield
-  blocker: artifact_assessment
+  phase: hello_world_complete
+  quality: tested
+  blocker: none
+  target: deploy_to_fly_with_sse
   
 CONTEXT:
   proj: cowpilot
   stack: [golang, fly.io, mcp]
   baseline: fresh_start
   previous_stack: [ts, cf-workers, oauth, agents-mcp]
+  mcp_sdk: github.com/modelcontextprotocol/go-sdk
   
 ARCH:
-  transport: [http_streaming]
+  transport: [stdio, sse]
   auth: tbd
   deployment: fly.io
+  deferred: [http_streaming]
   
 PLAN:
-  →: assess_artifacts
-  ◯: [project_structure, core_implementation, deployment]
+  ✓: [assess_artifacts, project_structure, hello_world_implementation, testing_setup]
+  →: fly_deployment
+  ◯: [http_transport, advanced_features]
   
 LEGACY_ARTIFACTS:
   relevant:
@@ -36,14 +40,55 @@ LEGACY_ARTIFACTS:
   review_needed:
     - documentation: assess for golang relevance
     - prompts: may be language-agnostic
+
+COWGNITION_ASSETS:
+  immediately_useful:
+    - ndjson_transport: internal/transport/transport.go (stdio implementation)
+    - error_patterns: structured error types with context
+    - validation_patterns: message validation approach
+    
+  assess_later:
+    - fsm_implementation: state machine for connection lifecycle
+    - router_pattern: method dispatch architecture  
+    - middleware_chain: validation and logging middleware
+    - service_registry: modular service architecture
+    - schema_validation: jsonschema/v5 usage
+    - testing_patterns: integration test structure
+    - metrics_collection: prometheus-style metrics
+    - config_management: yaml-based configuration
+    - secret_management: keyring integration
+    
+  architectural_insights:
+    - they built full MCP in Go before official SDK
+    - uses looplab/fsm for state management
+    - cockroachdb/errors for error handling
+    - comprehensive validation at transport layer
     
 FLAGS:
   stack_change: ts_to_golang
   platform_change: cf_to_fly
   fresh_start: true
+  sdk_choice: mark3labs/mcp-go
   
 NEXT_ACTIONS:
-  1. Clean up TypeScript/CF artifacts
-  2. Initialize Go module structure
-  3. Adapt MCP protocol knowledge to Go
-  4. Design Fly.io deployment architecture
+  1. ✓ Implemented MCP server with "hello" tool using mark3labs/mcp-go
+  2. ✓ Created unit and integration tests
+  3. ✓ Makefile ready with test targets
+  4. ✓ Switched to SSE transport for Fly.io deployment
+  5. → Run tests: make test
+  6. → Deploy to Fly.io: fly deploy
+  
+PARKED:
+  - HTTP streaming transport implementation
+
+REQUIREMENTS:
+  foundation:
+    - Single "hello" tool returning "Hello, World!"
+    - HTTP transport compatible with Fly.io
+    - Testing as standard part of build
+    - Clean separation of concerns
+  testing:
+    - Unit tests for business logic
+    - Integration tests for MCP protocol
+    - make test target
+    - CI pipeline ready
