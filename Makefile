@@ -19,7 +19,7 @@ INTEGRATION_TEST_DIR=./tests/integration
 E2E_TEST_DIR=./tests/e2e
 COVERAGE_FILE=coverage.out
 
-.PHONY: all build test unit-test integration-test e2e-test clean fmt vet lint coverage run help
+.PHONY: all build test unit-test integration-test e2e-test e2e-test-local e2e-test-prod e2e-test-raw clean fmt vet lint coverage run help
 
 # Default target
 all: clean fmt vet lint test build
@@ -46,7 +46,26 @@ integration-test:
 # Run e2e tests (for CI/staging)
 e2e-test:
 	@echo "Running e2e tests..."
+	@if [ -z "$(MCP_SERVER_URL)" ]; then \
+		echo "MCP_SERVER_URL not set. Using production server..."; \
+		export MCP_SERVER_URL="https://cowpilot.fly.dev/"; \
+	fi
 	$(GOTEST) -v $(E2E_TEST_DIR)/...
+
+# Run e2e tests against local server
+e2e-test-local:
+	@echo "Running e2e tests against local server..."
+	@export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(E2E_TEST_DIR)/...
+
+# Run e2e tests against production
+e2e-test-prod:
+	@echo "Running e2e tests against production..."
+	@export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(E2E_TEST_DIR)/...
+
+# Run raw SSE/JSON-RPC tests
+e2e-test-raw:
+	@echo "Running raw SSE/JSON-RPC tests..."
+	@bash $(E2E_TEST_DIR)/raw_sse_test.sh
 
 # Clean build artifacts
 clean:
@@ -99,7 +118,10 @@ help:
 	@echo "  test             - Run all tests"
 	@echo "  unit-test        - Run unit tests with coverage"
 	@echo "  integration-test - Run integration tests"
-	@echo "  e2e-test         - Run end-to-end tests"
+	@echo "  e2e-test         - Run end-to-end tests (uses MCP_SERVER_URL or production)"
+	@echo "  e2e-test-local   - Run e2e tests against local server (localhost:8080)"
+	@echo "  e2e-test-prod    - Run e2e tests against production (cowpilot.fly.dev)"
+	@echo "  e2e-test-raw     - Run raw SSE/JSON-RPC tests using curl and jq"
 	@echo "  clean            - Remove build artifacts"
 	@echo "  fmt              - Format code"
 	@echo "  vet              - Run go vet"

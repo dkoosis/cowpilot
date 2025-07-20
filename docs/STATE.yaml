@@ -1,100 +1,224 @@
 # STATE.yaml - Claude-optimized context
-# Format: v3.0 | Updated: 2025-01-18T19:00:00Z
-# Purpose: Machine-readable project state for Claude
+# Format: v4.1 | Updated: 2025-01-20T05:15:00Z
+# Purpose: Machine-readable project state for Claude sessions
 
-STATUS:
-  phase: deployed
-  quality: production
-  blocker: none
-  target: operational
-  live_url: https://cowpilot.fly.dev/
+CURRENT_STATE:
+  status: production_operational
+  server_url: https://cowpilot.fly.dev/
+  health_endpoint: https://cowpilot.fly.dev/health
+  transport: SSE
+  protocol_version: "2025-03-26"
+  implemented_tools: ["hello"]
   
-CONTEXT:
-  proj: cowpilot
-  stack: [golang, fly.io, mcp]
-  baseline: fresh_start
-  previous_stack: [ts, cf-workers, oauth, agents-mcp]
-  mcp_sdk: github.com/modelcontextprotocol/go-sdk
+QUICK_COMMANDS:
+  local_dev: "go run cmd/cowpilot/main.go"
+  test_all: "make test"
+  test_e2e_prod: "make e2e-test-prod"
+  test_e2e_raw: "make e2e-test-raw"
+  deploy: "fly deploy"
+  manual_test: |
+    npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list
+    echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"hello","arguments":{}},"id":1}' | curl -s -N -X POST https://cowpilot.fly.dev/ -H 'Content-Type: application/json' -H 'Accept: text/event-stream' -d @- | grep '^data: ' | sed 's/^data: //' | jq .
+
+PROJECT_STRUCTURE:
+  entry_point: /cmd/cowpilot/main.go
+  mcp_handler: helloHandler() in main.go
+  test_suite: /tests/e2e/ (16 files, dual approach)
+  docs: /docs/ (STATE.yaml, reference/schema.ts, HOW-TO-TEST.md)
+  sdk: github.com/mark3labs/mcp-go
   
-ARCH:
-  transport: [stdio, sse]
-  auth: tbd
-  deployment: fly.io
-  deferred: [http_streaming]
+HISTORICAL_CONTEXT:
+  original_stack: [typescript, cloudflare-workers, oauth, agents-mcp]
+  migration_reason: CF Workers incompatible with MCP stdio transport
+  stack_evolution:
+    v1: TS + CF Workers + OAuth (failed - transport incompatibility)
+    v2: Go + Fly.io + SSE (current - successful)
   
-PLAN:
-  ✓: [assess_artifacts, project_structure, hello_world_implementation, testing_setup, sse_transport]
-  →: fly_deployment
-  ◯: [http_streaming, advanced_features]
-  
+  why_go:
+    - mark3labs/mcp-go had SSE support
+    - Simpler than official SDK
+    - Better for server deployment
+    - Strong ecosystem for production services
+    
+  why_fly_io:
+    - Native SSE support
+    - Simple deployment
+    - Good Go support
+    - Health check integration
+
+ARCHITECTURAL_DECISIONS:
+  transport_choice:
+    rejected: [stdio (not web compatible), http_streaming (too complex initially)]
+    selected: SSE (Server-Sent Events)
+    rationale: Works with Fly.io, simple to implement, good browser support
+    
+  sdk_choice:
+    rejected: official modelcontextprotocol/go-sdk (complex, no SSE)
+    selected: mark3labs/mcp-go
+    rationale: Built-in SSE support, simpler API, actively maintained
+    
+  testing_strategy:
+    dual_approach: Inspector (high-level) + curl/jq (low-level)
+    rationale: Inspector for compliance, raw for debugging
+    lesson: Always RTFM - initially used wrong Inspector syntax
+
+LESSONS_LEARNED:
+  critical:
+    - CF Workers can't do stdio transport (wasted time on this)
+    - MCP Inspector requires --cli flag and specific syntax
+    - SSE format needs "data: " prefix and blank line termination
+    - Fly.io deployment needs FLY_APP_NAME env check
+    
+  valuable:
+    - mark3labs/mcp-go is excellent alternative to official SDK
+    - Dual testing approach provides best coverage
+    - Start minimal (just "hello" tool) then expand
+    - Raw SSE testing invaluable for protocol debugging
+
+DEAD_ENDS_TO_AVOID:
+  - Don't try stdio transport with web deployments
+  - Don't use Cloudflare Workers for MCP
+  - Don't implement auth before basic functionality
+  - Don't skip reading tool documentation (Inspector incident)
+  - Don't use official Go SDK if you need SSE
+
 LEGACY_ARTIFACTS:
-  relevant:
+  can_delete:
+    - ts_specific: [package.json, tsconfig.json, vitest.config.ts, *.test.ts]
+    - cf_specific: [wrangler.toml, worker configs]
+    - old_oauth: OAuth implementation from agents-mcp
+    
+  keep_for_reference:
     - mcp_protocol_knowledge: /docs/MCP-PROTOCOL-STANDARDS.md
     - architecture_decisions: /docs/adr/*
     - assets: /docs/assets/*
-  
-  delete_candidates:
-    - ts_specific: [package.json, tsconfig.json, vitest.config.ts]
-    - cf_specific: [wrangler.toml, worker configs]
-    - old_tests: [*.test.ts files]
-    
-  review_needed:
-    - documentation: assess for golang relevance
-    - prompts: may be language-agnostic
+    - prompts: May be language-agnostic
 
-COWGNITION_ASSETS:
+VALUABLE_PATTERNS_FROM_COWGNITION:
   immediately_useful:
-    - ndjson_transport: internal/transport/transport.go (stdio implementation)
-    - error_patterns: structured error types with context
+    - ndjson_transport: stdio implementation pattern
+    - error_patterns: structured errors with context
     - validation_patterns: message validation approach
     
-  assess_later:
-    - fsm_implementation: state machine for connection lifecycle
-    - router_pattern: method dispatch architecture  
-    - middleware_chain: validation and logging middleware
-    - service_registry: modular service architecture
-    - schema_validation: jsonschema/v5 usage
-    - testing_patterns: integration test structure
-    - metrics_collection: prometheus-style metrics
+  worth_studying:
+    - fsm_implementation: state machine for connections (looplab/fsm)
+    - router_pattern: method dispatch architecture
+    - middleware_chain: validation and logging
+    - metrics_collection: prometheus integration
     - config_management: yaml-based configuration
-    - secret_management: keyring integration
     
   architectural_insights:
-    - they built full MCP in Go before official SDK
-    - uses looplab/fsm for state management
-    - cockroachdb/errors for error handling
-    - comprehensive validation at transport layer
-    
-FLAGS:
-  stack_change: ts_to_golang
-  platform_change: cf_to_fly
-  fresh_start: true
-  sdk_choice: mark3labs/mcp-go
-  
-NEXT_ACTIONS:
-  1. ✓ Implemented MCP server with "hello" tool using mark3labs/mcp-go
-  2. ✓ Created unit and integration tests
-  3. ✓ Makefile ready with test targets
-  4. ✓ Switched to SSE transport for Fly.io deployment
-  5. ✓ Fixed Go version and API compatibility issues
-  6. ✓ Deployed to Fly.io: https://cowpilot.fly.dev/
-  
-OPERATIONAL:
-  - Health check: https://cowpilot.fly.dev/health
-  - SSE endpoint: https://cowpilot.fly.dev/
-  - Connect via MCP client to test hello tool
-  
-PARKED:
-  - HTTP streaming transport implementation
+    - They built full MCP in Go before official SDK existed
+    - Used cockroachdb/errors for better error handling
+    - Comprehensive validation at transport layer
+    - Clean separation between transport and business logic
 
-REQUIREMENTS:
-  foundation:
-    - Single "hello" tool returning "Hello, World!"
-    - HTTP transport compatible with Fly.io
-    - Testing as standard part of build
-    - Clean separation of concerns
+TESTING_CAPABILITIES:
+  unit: "make unit-test" (coverage enabled)
+  integration: "make integration-test"
+  e2e_inspector: "make e2e-test-prod" (uses @modelcontextprotocol/inspector)
+  e2e_raw: "make e2e-test-raw" (uses curl+jq for SSE/JSON-RPC)
+  local: "make e2e-test-local" (requires local server on :8080)
+  
+ESTABLISHED_PATTERNS:
+  error_handling: JSON-RPC error codes (-32601 for METHOD_NOT_FOUND)
+  transport: SSE with "data: " prefix for JSON-RPC messages
+  testing: Dual approach (high-level Inspector + low-level curl)
+  deployment: Fly.io with automatic health checks
+  ci_cd: GitHub Actions template ready in .github/workflows/ci.yml
+  
+NEXT_SESSION_CONTEXT:
+  ready_for:
+    - Adding new MCP tools beyond "hello"
+    - Implementing resources/prompts capabilities
+    - Adding authentication/authorization
+    - Performance monitoring and metrics
+    - Load testing and benchmarking
+    - Multi-tool workflows
+    
+  technical_debt:
+    - Only "hello" tool implemented
+    - No auth mechanism
+    - No resource/prompt support
+    - HTTP streaming deferred
+    - Windows compatibility (bash scripts)
+    
+  quick_wins:
+    - Add more tools with arguments
+    - Implement basic auth
+    - Add prometheus metrics endpoint
+    - Docker containerization
+    - Resource listing capability
+    
+  consider_from_cowgnition:
+    - FSM for connection management
+    - Middleware pattern for validation
+    - Structured error types
+    - Config management approach
+
+GOTCHAS_AND_WARNINGS:
+  deployment:
+    - Must check FLY_APP_NAME env to switch transports
+    - SSE requires specific headers
+    - Health endpoint critical for Fly.io
+    
+  protocol:
+    - SSE uses "data: " prefix (note the space!)
+    - Empty line terminates SSE message
+    - JSON-RPC id must be preserved in responses
+    
   testing:
-    - Unit tests for business logic
-    - Integration tests for MCP protocol
-    - make test target
-    - CI pipeline ready
+    - Inspector needs --cli flag always
+    - Raw tests need curl -N flag for SSE
+    - jq required for JSON parsing
+  
+KEY_REFERENCES:
+  mcp_spec: /docs/reference/schema.ts (authoritative v2025-03-26)
+  testing_guide: /tests/e2e/TESTING_GUIDE.md
+  inspector_docs: https://modelcontextprotocol.io/docs/tools/inspector
+  sse_blog: https://blog.fka.dev/blog/2025-03-25-inspecting-mcp-servers-using-cli/
+  
+SESSION_DOCS:
+  quick_start: /docs/QUICK_START_NEXT_SESSION.md
+  handoff: /docs/SESSION_HANDOFF_2025-01-20.md
+  overview: /PROJECT_OVERVIEW_FOR_CLAUDE.md
+  
+ENVIRONMENT_VARS:
+  MCP_SERVER_URL: Set for E2E tests (defaults to production)
+  FLY_APP_NAME: Auto-set by Fly.io (triggers SSE mode)
+  PORT: Server port (default 8080)
+  
+DEPENDENCIES:
+  go: 1.23
+  npm: "@modelcontextprotocol/inspector"
+  system: [curl, jq, bash]
+  go_modules: [mark3labs/mcp-go, fly.io SDK]
+  
+SESSION_PRIORITIES:
+  1. If adding tools: Follow helloHandler pattern in main.go
+  2. If debugging: Use raw SSE tests for protocol visibility  
+  3. If deploying: Run full test suite first (make test && make e2e-test-prod)
+  4. If refactoring: Maintain SSE transport compatibility
+  5. If documenting: Update this STATE.yaml for next session
+  
+COMPLETED_MILESTONES:
+  - [x] Go server with SSE transport
+  - [x] Single "hello" tool implementation  
+  - [x] Fly.io deployment
+  - [x] Comprehensive E2E test suite
+  - [x] CI/CD pipeline template
+  - [x] Full documentation
+  
+MIGRATION_HISTORY:
+  phase1_typescript_attempt:
+    - Built on Cloudflare Workers
+    - Added OAuth flow
+    - Hit dead end: stdio transport incompatible
+    - Lesson: Research transport requirements first
+    
+  phase2_go_success:
+    - Switched to Go + mark3labs/mcp-go
+    - Implemented SSE transport
+    - Deployed to Fly.io
+    - Added comprehensive testing
+    - Status: Production operational

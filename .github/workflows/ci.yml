@@ -1,0 +1,99 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  GO_VERSION: '1.23'
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: |
+        go mod download
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+    - name: Format check
+      run: |
+        gofmt -l .
+        test -z "$(gofmt -l .)"
+
+    - name: Lint
+      run: golangci-lint run
+
+    - name: Unit tests
+      run: make unit-test
+
+    - name: Integration tests
+      run: make integration-test
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.out
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Install mcp-inspector-cli
+      run: npm install -g @modelcontextprotocol/inspector
+
+    - name: Run E2E tests against production
+      env:
+        MCP_SERVER_URL: https://cowpilot.fly.dev/
+      run: make e2e-test
+
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+    needs: [test, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Fly.io
+      uses: superfly/flyctl-actions/setup-flyctl@master
+
+    - name: Deploy to production
+      run: flyctl deploy --remote-only
+
+    - name: Run post-deployment E2E tests
+      env:
+        MCP_SERVER_URL: https://cowpilot.fly.dev/
+      run: |
+        npm install -g @modelcontextprotocol/inspector
+        make e2e-test-prod
