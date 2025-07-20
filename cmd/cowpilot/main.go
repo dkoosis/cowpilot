@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -31,8 +30,8 @@ func main() {
 
 	// Check if we're running on Fly.io or locally
 	if os.Getenv("FLY_APP_NAME") != "" {
-		// Run SSE server for Fly.io
-		runSSEServer(s)
+		// Run HTTP server for Fly.io
+		runHTTPServer(s)
 	} else {
 		// Run stdio server for local development
 		if err := server.ServeStdio(s); err != nil {
@@ -45,7 +44,7 @@ func helloHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTo
 	return mcp.NewToolResultText("Hello, World!"), nil
 }
 
-func runSSEServer(mcpServer *server.MCPServer) {
+func runHTTPServer(mcpServer *server.MCPServer) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -53,21 +52,17 @@ func runSSEServer(mcpServer *server.MCPServer) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
-	mux.HandleFunc("/sse", func(w http.ResponseWriter, r *http.Request) {
-		// SSE endpoint using mark3labs SSE support
-		log.Printf("SSE connection from %s", r.RemoteAddr)
-		if err := server.ServeSSE(w, r, mcpServer); err != nil {
-			log.Printf("SSE error: %v", err)
-		}
-	})
+	
+	// Create SSE server and get its handler
+	sseServer := server.NewSSEServer(mcpServer)
+	mux.Handle("/", sseServer)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
 	}
 
-	log.Printf("Starting SSE server on port %s", port)
-	log.Printf("SSE endpoint: http://localhost:%s/sse", port)
+	log.Printf("Starting HTTP server on port %s", port)
 	
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

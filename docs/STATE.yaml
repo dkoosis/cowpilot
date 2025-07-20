@@ -3,10 +3,10 @@
 # Purpose: Machine-readable project state for Claude
 
 STATUS:
-  phase: hello_world_complete
+  phase: ready_to_deploy
   quality: tested
   blocker: none
-  target: deploy_to_fly_with_sse
+  target: fly_deployment
   
 CONTEXT:
   proj: cowpilot
@@ -22,9 +22,9 @@ ARCH:
   deferred: [http_streaming]
   
 PLAN:
-  ✓: [assess_artifacts, project_structure, hello_world_implementation, testing_setup]
+  ✓: [assess_artifacts, project_structure, hello_world_implementation, testing_setup, sse_transport]
   →: fly_deployment
-  ◯: [http_transport, advanced_features]
+  ◯: [http_streaming, advanced_features]
   
 LEGACY_ARTIFACTS:
   relevant:
@@ -75,8 +75,9 @@ NEXT_ACTIONS:
   2. ✓ Created unit and integration tests
   3. ✓ Makefile ready with test targets
   4. ✓ Switched to SSE transport for Fly.io deployment
-  5. → Run tests: make test
-  6. → Deploy to Fly.io: fly deploy
+  5. ✓ Fixed Go version and API compatibility issues
+  6. → Deploy: fly deploy
+  7. → Test SSE endpoint at https://[app-name].fly.dev/
   
 PARKED:
   - HTTP streaming transport implementation
