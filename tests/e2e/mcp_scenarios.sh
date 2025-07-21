@@ -25,13 +25,13 @@ INSPECTOR="npx @modelcontextprotocol/inspector --cli"
 # Function to print test header
 print_test_header() {
     echo -e "\n${YELLOW}=== TEST: $1 ===${NC}"
-    ((TOTAL_TESTS++))
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
 }
 
 # Function to print success
 print_success() {
     echo -e "${GREEN}✓ PASS${NC}: $1"
-    ((PASSED_TESTS++))
+    PASSED_TESTS=$((PASSED_TESTS + 1))
 }
 
 # Function to print failure
@@ -39,7 +39,7 @@ print_failure() {
     echo -e "${RED}✗ FAIL${NC}: $1"
     echo -e "${RED}Expected:${NC} $2"
     echo -e "${RED}Actual:${NC} $3"
-    ((FAILED_TESTS++))
+    FAILED_TESTS=$((FAILED_TESTS + 1))
 }
 
 # Test 1: Server Health Check

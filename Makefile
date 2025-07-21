@@ -18,8 +18,9 @@ UNIT_TEST_DIRS=./internal/...
 INTEGRATION_TEST_DIR=./tests/integration
 E2E_TEST_DIR=./tests/e2e
 COVERAGE_FILE=coverage.out
+GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
-.PHONY: all build test unit-test integration-test e2e-test e2e-test-local e2e-test-prod e2e-test-raw clean fmt vet lint coverage run help
+.PHONY: all build test unit-test integration-test e2e-test e2e-test-local e2e-test-prod e2e-test-raw test-ci clean fmt vet lint coverage run help
 
 # Default target
 all: clean fmt vet lint test build
@@ -36,12 +37,20 @@ test: unit-test integration-test
 # Run unit tests
 unit-test:
 	@echo "Running unit tests..."
-	$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS)
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		$(GOTESTSUM) --format testname -- -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+	else \
+		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+	fi
 
 # Run integration tests
 integration-test:
 	@echo "Running integration tests..."
-	$(GOTEST) -v -race $(INTEGRATION_TEST_DIR)/...
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		$(GOTESTSUM) --format testname -- -v -race $(INTEGRATION_TEST_DIR)/...; \
+	else \
+		$(GOTEST) -v -race $(INTEGRATION_TEST_DIR)/...; \
+	fi
 
 # Run e2e tests (for CI/staging)
 e2e-test:
@@ -50,17 +59,29 @@ e2e-test:
 		echo "MCP_SERVER_URL not set. Using production server..."; \
 		export MCP_SERVER_URL="https://cowpilot.fly.dev/"; \
 	fi
-	$(GOTEST) -v $(E2E_TEST_DIR)/...
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		$(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
+	else \
+		$(GOTEST) -v $(E2E_TEST_DIR)/...; \
+	fi
 
 # Run e2e tests against local server
 e2e-test-local:
 	@echo "Running e2e tests against local server..."
-	@export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(E2E_TEST_DIR)/...
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
+	else \
+		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(E2E_TEST_DIR)/...; \
+	fi
 
 # Run e2e tests against production
 e2e-test-prod:
 	@echo "Running e2e tests against production..."
-	@export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(E2E_TEST_DIR)/...
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
+	else \
+		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(E2E_TEST_DIR)/...; \
+	fi
 
 # Run raw SSE/JSON-RPC tests
 e2e-test-raw:
@@ -109,6 +130,15 @@ dev:
 deploy: test build
 	@echo "Deploying to Fly.io..."
 	fly deploy
+
+# CI-specific test with junit output
+test-ci:
+	@echo "Running tests for CI..."
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		$(GOTESTSUM) --junitfile test-results.xml --format testname -- -race -coverprofile=$(COVERAGE_FILE) ./...; \
+	else \
+		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) ./...; \
+	fi
 
 # Show help
 help:
