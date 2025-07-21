@@ -16,7 +16,7 @@ OUTPUT_DIR=./bin
 # Test variables
 UNIT_TEST_DIRS=./internal/...
 INTEGRATION_TEST_DIR=./tests/integration
-E2E_TEST_DIR=./tests/e2e
+SCENARIO_TEST_DIR=./tests/scenarios
 COVERAGE_FILE=coverage.out
 GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
@@ -60,9 +60,9 @@ scenario-test:
 		export MCP_SERVER_URL="https://cowpilot.fly.dev/"; \
 	fi
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
+		$(GOTESTSUM) --format dots-v2 -- -v $(SCENARIO_TEST_DIR)/...; \
 	else \
-		$(GOTEST) -v $(E2E_TEST_DIR)/...; \
+		$(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi
 
 # Run scenario tests against local server
@@ -76,9 +76,9 @@ scenario-test-local:
 	sleep 3; \
 	echo "Server started with PID $$SERVER_PID"; \
 	if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTESTSUM) --format dots-v2 -- -v $(SCENARIO_TEST_DIR)/...; \
 	else \
-		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(E2E_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi; \
 	TEST_EXIT=$$?; \
 	echo "Stopping server with PID $$SERVER_PID"; \
@@ -90,15 +90,15 @@ scenario-test-local:
 scenario-test-prod:
 	@echo "Running scenario tests against production..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format dots-v2 -- -v $(SCENARIO_TEST_DIR)/...; \
 	else \
-		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(E2E_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi
 
 # Run raw SSE/JSON-RPC tests
 scenario-test-raw:
 	@echo "Running raw SSE/JSON-RPC tests..."
-	@bash $(E2E_TEST_DIR)/raw_sse_test.sh
+	@bash $(SCENARIO_TEST_DIR)/raw_sse_test.sh
 
 # Clean build artifacts
 clean:

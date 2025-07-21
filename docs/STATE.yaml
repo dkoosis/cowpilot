@@ -12,9 +12,9 @@ CURRENT_STATE:
 QUICK_COMMANDS:
   local_dev: "FLY_APP_NAME=local go run cmd/cowpilot/main.go"
   test_all: "make test"
-  test_e2e_local: "make scenario-test-local"
-  test_e2e_prod: "make scenario-test-prod"
-  test_e2e_raw: "make scenario-test-raw"
+  test_scenario_local: "make scenario-test-local"
+  test_scenario_prod: "make scenario-test-prod"
+  test_scenario_raw: "make scenario-test-raw"
   deploy: "fly deploy"
   manual_test: |
     npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list
@@ -23,7 +23,7 @@ QUICK_COMMANDS:
 PROJECT_STRUCTURE:
   entry_point: /cmd/cowpilot/main.go
   mcp_handler: helloHandler() in main.go
-  test_suite: /tests/e2e/ (16 files, dual approach)
+  test_suite: /tests/scenarios/ (16 files, dual approach)
   docs: /docs/ (STATE.yaml, reference/schema.ts, HOW-TO-TEST.md)
   sdk: github.com/mark3labs/mcp-go
   
@@ -132,9 +132,9 @@ CODE_REVIEW_PROMPTS:
 TESTING_CAPABILITIES:
   unit: "make unit-test" (coverage enabled, gotestsum auto-detected)
   integration: "make integration-test" (gotestsum testname format)
-  e2e_inspector: "make e2e-test-prod" (uses @modelcontextprotocol/inspector)
-  e2e_raw: "make e2e-test-raw" (uses curl+jq for SSE/JSON-RPC)
-  local: "make e2e-test-local" (requires local server on :8080)
+  scenario_inspector: "make scenario-test-prod" (uses @modelcontextprotocol/inspector)
+  scenario_raw: "make scenario-test-raw" (uses curl+jq for SSE/JSON-RPC)
+  local: "make scenario-test-local" (requires local server on :8080)
   ci: "make test-ci" (JUnit XML output for CI systems)
   
   test_formatting:
@@ -142,7 +142,7 @@ TESTING_CAPABILITIES:
     install: "go install gotest.tools/gotestsum@latest"
     formats:
       unit_integration: testname (clean test names)
-      e2e: dots-v2 (compact progress dots)
+      scenario: dots-v2 (compact progress dots)
       ci: junitfile (XML for CI integration)
     watch_mode: "gotestsum --watch ./..." (for development)
   
@@ -201,7 +201,7 @@ GOTCHAS_AND_WARNINGS:
   
 KEY_REFERENCES:
   mcp_spec: /docs/reference/schema.ts (authoritative v2025-03-26)
-  testing_guide: /tests/e2e/TESTING_GUIDE.md
+  testing_guide: /tests/scenarios/TESTING_GUIDE.md
   inspector_docs: https://modelcontextprotocol.io/docs/tools/inspector
   sse_blog: https://blog.fka.dev/blog/2025-03-25-inspecting-mcp-servers-using-cli/
   
@@ -213,7 +213,7 @@ SESSION_DOCS:
   test_formatting: /docs/test-formatting.md
   
 ENVIRONMENT_VARS:
-  MCP_SERVER_URL: Set for E2E tests (defaults to production)
+  MCP_SERVER_URL: Set for scenario tests (defaults to production)
   FLY_APP_NAME: Auto-set by Fly.io (triggers SSE mode)
   PORT: Server port (default 8080)
   
@@ -228,7 +228,7 @@ DEPENDENCIES:
 SESSION_PRIORITIES:
   1. If adding tools: Follow helloHandler pattern in main.go
   2. If debugging: Use raw SSE tests for protocol visibility  
-  3. If deploying: Run full test suite first (make test && make e2e-test-prod)
+  3. If deploying: Run full test suite first (make test && make scenario-test-prod)
   4. If refactoring: Maintain SSE transport compatibility
   5. If documenting: Update this STATE.yaml for next session
   
@@ -236,7 +236,7 @@ COMPLETED_MILESTONES:
   - [x] Go server with SSE transport
   - [x] Single "hello" tool implementation  
   - [x] Fly.io deployment
-  - [x] Comprehensive E2E test suite
+  - [x] Comprehensive scenario test suite
   - [x] CI/CD pipeline template
   - [x] Full documentation
   - [x] Enhanced test formatting with gotestsum

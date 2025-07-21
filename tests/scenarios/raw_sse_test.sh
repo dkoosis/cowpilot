@@ -73,8 +73,8 @@ send_jsonrpc() {
     echo "$response"
 }
 
-# Test 1: Initialize Connection
-print_test_header "Raw JSON-RPC Initialize"
+# As an MCP Client, I want to initialize a connection so that I can establish communication with the server.
+print_test_header "As an MCP Client, I want to initialize a connection"
 
 INIT_JSON=$(cat <<EOF
 {
@@ -115,8 +115,8 @@ else
         "Empty or timeout"
 fi
 
-# Test 2: List Tools
-print_test_header "Raw JSON-RPC List Tools"
+# As an MCP Client, I want to list tools via raw JSON-RPC so that I can verify the protocol works correctly.
+print_test_header "As an MCP Client, I want to list tools via raw JSON-RPC"
 
 TOOLS_JSON=$(cat <<EOF
 {
@@ -153,8 +153,8 @@ else
         "Empty or timeout"
 fi
 
-# Test 3: Call Hello Tool
-print_test_header "Raw JSON-RPC Call Tool"
+# As an MCP Client, I want to call a tool via raw JSON-RPC so that I can execute server functionality.
+print_test_header "As an MCP Client, I want to call a tool via raw JSON-RPC"
 
 CALL_JSON=$(cat <<EOF
 {
@@ -191,8 +191,8 @@ else
         "Empty or timeout"
 fi
 
-# Test 4: Error Handling
-print_test_header "Raw JSON-RPC Error Handling"
+# As an MCP Client, I want to receive proper error responses so that I can handle failures gracefully.
+print_test_header "As an MCP Client, I want to receive proper error responses"
 
 ERROR_JSON=$(cat <<EOF
 {
@@ -233,8 +233,8 @@ else
         "Empty or timeout"
 fi
 
-# Test 5: Batch Request (if supported)
-print_test_header "Raw JSON-RPC Batch Request"
+# As an MCP Client, I want to test batch requests so that I can verify advanced protocol features.
+print_test_header "As an MCP Client, I want to test batch requests"
 
 BATCH_JSON=$(cat <<EOF
 [
@@ -275,8 +275,8 @@ else
     print_success "Batch requests may not be supported (no response)"
 fi
 
-# Test 6: SSE Stream Test
-print_test_header "SSE Stream Connection Test"
+# As an MCP Client, I want to verify SSE stream formatting so that I can confirm transport compliance.
+print_test_header "As an MCP Client, I want to verify SSE stream formatting"
 
 echo "Testing SSE stream with multiple messages..."
 

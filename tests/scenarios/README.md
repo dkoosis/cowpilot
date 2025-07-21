@@ -10,9 +10,9 @@ echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
     -H 'Content-Type: application/json' \
     -H 'Accept: text/event-stream' \
     -d @- | grep '^data: ' | sed 's/^data: //' | jq .
-```# E2E Tests for Cowpilot
+```# Scenario Tests for Cowpilot
 
-This directory contains end-to-end tests that validate MCP protocol compliance for the cowpilot server.
+This directory contains scenario tests that validate MCP protocol compliance for the cowpilot server.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ Direct protocol testing using `curl` and `jq` based on the approach from [this b
 ### Against Production (Fly.io)
 
 ```bash
-MCP_SERVER_URL=https://cowpilot.fly.dev/ go test -v ./tests/e2e/
+MCP_SERVER_URL=https://cowpilot.fly.dev/ go test -v ./tests/scenarios/
 ```
 
 ### Against Local Server
@@ -50,23 +50,23 @@ MCP_SERVER_URL=https://cowpilot.fly.dev/ go test -v ./tests/e2e/
 go run cmd/cowpilot/main.go
 
 # Terminal 2: Run tests
-go test -v ./tests/e2e/
+go test -v ./tests/scenarios/
 ```
 
 ### Direct Shell Script Execution
 
 ```bash
 # Make script executable
-chmod +x tests/e2e/mcp_scenarios.sh
+chmod +x tests/scenarios/mcp_scenarios.sh
 
 # Run against production
-./tests/e2e/mcp_scenarios.sh https://cowpilot.fly.dev/
+./tests/scenarios/mcp_scenarios.sh https://cowpilot.fly.dev/
 
 # Raw SSE tests
-./tests/e2e/raw_sse_test.sh https://cowpilot.fly.dev/
+./tests/scenarios/raw_sse_test.sh https://cowpilot.fly.dev/
 
 # Run against local
-./tests/e2e/mcp_scenarios.sh http://localhost:8080/
+./tests/scenarios/mcp_scenarios.sh http://localhost:8080/
 ```
 
 ## Test Scenarios
@@ -83,12 +83,12 @@ chmod +x tests/e2e/mcp_scenarios.sh
 Add to your CI pipeline:
 
 ```yaml
-- name: Run E2E Tests
+- name: Run Scenario Tests
   env:
     MCP_SERVER_URL: https://cowpilot.fly.dev/
   run: |
     npm install -g @modelcontextprotocol/inspector
-    go test -v ./tests/e2e/
+    go test -v ./tests/scenarios/
 ```
 
 ## Troubleshooting

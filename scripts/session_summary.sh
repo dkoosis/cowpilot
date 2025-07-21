@@ -1,16 +1,16 @@
 #!/bin/bash
 # Summary of changes made in this session
 
-echo "Files created/modified in E2E testing session:"
+echo "Files created/modified in scenario testing session:"
 echo "============================================="
 echo ""
 
-echo "Test Suite (tests/e2e/):"
+echo "Test Suite (tests/scenarios/):"
 echo "  - mcp_scenarios.sh (MCP Inspector tests)"
 echo "  - raw_sse_test.sh (Raw SSE/JSON-RPC tests)"
 echo "  - e2e_test.go (Go test integration)"
 echo "  - TESTING_GUIDE.md (Comprehensive guide)"
-echo "  - README.md (E2E documentation)"
+echo "  - README.md (Scenario documentation)"
 echo "  - setup.sh, quick-setup.sh (Setup scripts)"
 echo "  - verify-inspector.sh (Dependency check)"
 echo "  - manual-test-examples.sh, raw_examples.sh (Examples)"
@@ -22,7 +22,7 @@ echo "  - FILE_INVENTORY.md (Complete file list)"
 echo ""
 
 echo "Integration:"
-echo "  - Makefile (Added e2e-test targets)"
+echo "  - Makefile (Added scenario-test targets)"
 echo "  - .github/workflows/ci.yml (CI/CD pipeline)"
 echo ""
 
@@ -35,12 +35,12 @@ echo "  - .gitignore (Added for Go project)"
 echo ""
 
 echo "Key Commands Added:"
-echo "  make e2e-test-prod    # Test production"
-echo "  make e2e-test-raw     # Raw protocol tests"
-echo "  make e2e-test-local   # Test local server"
+echo "  make scenario-test-prod    # Test production"
+echo "  make scenario-test-raw     # Raw protocol tests"
+echo "  make scenario-test-local   # Test local server"
 echo ""
 
 echo "Current Status:"
 echo "  ✅ Server live at https://cowpilot.fly.dev/"
-echo "  ✅ E2E tests passing"
+echo "  ✅ Scenario tests passing"
 echo "  ✅ Ready for feature development"

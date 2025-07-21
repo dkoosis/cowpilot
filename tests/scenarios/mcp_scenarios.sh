@@ -42,8 +42,8 @@ print_failure() {
     FAILED_TESTS=$((FAILED_TESTS + 1))
 }
 
-# Test 1: Server Health Check
-print_test_header "Server Health Check"
+# As an MCP Client, I want to verify server health so that I know the server is operational.
+print_test_header "As an MCP Client, I want to verify server health"
 
 echo "Checking server health endpoint..."
 HEALTH_URL="${SERVER_URL%/}/health"
@@ -55,8 +55,8 @@ else
         "No response or error"
 fi
 
-# Test 2: Tool Discovery
-print_test_header "Tool Discovery"
+# As an MCP Client, I want to list available tools so that I know what capabilities the server offers.
+print_test_header "As an MCP Client, I want to list available tools"
 
 echo "Listing available tools..."
 if OUTPUT=$($INSPECTOR "$SERVER_URL" --method tools/list 2>&1); then
@@ -76,8 +76,8 @@ else
         "$OUTPUT"
 fi
 
-# Test 3: Tool Execution
-print_test_header "Tool Execution"
+# As an MCP Client, I want to call a tool so that I can execute server-side functionality.
+print_test_header "As an MCP Client, I want to call the 'hello' tool"
 
 echo "Calling 'hello' tool..."
 if OUTPUT=$($INSPECTOR "$SERVER_URL" --method tools/call --tool-name hello 2>&1); then
@@ -96,8 +96,8 @@ else
         "$OUTPUT"
 fi
 
-# Test 4: Error Handling - Non-existent Tool
-print_test_header "Error Handling - Non-existent Tool"
+# As an MCP Client, I want to receive a clear error when calling a non-existent tool so that I can handle the failure gracefully.
+print_test_header "As an MCP Client, I want to receive an error for a non-existent tool"
 
 echo "Calling non-existent tool..."
 if OUTPUT=$($INSPECTOR "$SERVER_URL" --method tools/call --tool-name nonexistent 2>&1); then
@@ -117,8 +117,8 @@ else
     fi
 fi
 
-# Test 5: List Resources
-print_test_header "Resource Discovery"
+# As an MCP Client, I want to query the resources endpoint so that I can discover available data sources.
+print_test_header "As an MCP Client, I want to query the resources endpoint"
 
 echo "Listing available resources..."
 if OUTPUT=$($INSPECTOR "$SERVER_URL" --method resources/list 2>&1); then

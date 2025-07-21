@@ -55,8 +55,8 @@ jobs:
       with:
         file: ./coverage.out
 
-  e2e:
-    name: E2E Tests
+  scenario:
+    name: Scenario Tests
     runs-on: ubuntu-latest
     needs: test
     steps:
@@ -71,15 +71,15 @@ jobs:
     - name: Install mcp-inspector-cli
       run: npm install -g @modelcontextprotocol/inspector
 
-    - name: Run E2E tests against production
+    - name: Run scenario tests against production
       env:
         MCP_SERVER_URL: https://cowpilot.fly.dev/
-      run: make e2e-test
+      run: make scenario-test-prod
 
   deploy:
     name: Deploy to Fly.io
     runs-on: ubuntu-latest
-    needs: [test, e2e]
+    needs: [test, scenario]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
     - name: Checkout code
@@ -91,9 +91,9 @@ jobs:
     - name: Deploy to production
       run: flyctl deploy --remote-only
 
-    - name: Run post-deployment E2E tests
+    - name: Run post-deployment scenario tests
       env:
         MCP_SERVER_URL: https://cowpilot.fly.dev/
       run: |
         npm install -g @modelcontextprotocol/inspector
-        make e2e-test-prod
+        make scenario-test-prod
