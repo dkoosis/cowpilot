@@ -228,7 +228,7 @@ func addHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 	if !ok {
 		return mcp.NewToolResultError("parameter 'b' is required and must be a number"), nil
 	}
-	
+
 	result := a + b
 	return mcp.NewToolResultText(fmt.Sprintf("%.2f + %.2f = %.2f", a, b, result)), nil
 }
@@ -327,7 +327,7 @@ func jsonFormatterHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 	} else {
 		result, err = json.MarshalIndent(data, "", "  ")
 	}
-	
+
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to format JSON: %v", err)), nil
 	}
@@ -346,11 +346,11 @@ func longRunningHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 	}
 
 	stepDuration := time.Duration(duration*1000/steps) * time.Millisecond
-	
+
 	// Note: Progress notifications would need to be implemented through the server API
 	// For now, we just simulate the delay
 	log.Printf("Starting long-running operation: %.0f seconds, %.0f steps", duration, steps)
-	
+
 	for i := 1; i <= int(steps); i++ {
 		select {
 		case <-ctx.Done():
@@ -369,7 +369,7 @@ func listResourcesToolHandler(ctx context.Context, request mcp.CallToolRequest) 
 	for _, resource := range sampleResources {
 		resourceList = append(resourceList, fmt.Sprintf("- %s (%s): %s", resource.Name, resource.URI, resource.Description))
 	}
-	
+
 	result := "Available resources:\n" + strings.Join(resourceList, "\n")
 	return mcp.NewToolResultText(result), nil
 }
@@ -379,11 +379,11 @@ func readResourceToolHandler(ctx context.Context, request mcp.CallToolRequest) (
 	if !ok {
 		return mcp.NewToolResultError("uri parameter is required"), nil
 	}
-	
+
 	switch uri {
 	case "example://text/hello":
 		return mcp.NewToolResultText("Hello, World! This is a simple text resource from the everything server."), nil
-		
+
 	case "example://text/readme":
 		content := `# Everything Server
 
@@ -399,11 +399,11 @@ This is an example MCP server that implements all basic capabilities:
 
 Connect to this server using any MCP client to explore its capabilities.`
 		return mcp.NewToolResultText(content), nil
-		
+
 	case "example://image/logo":
 		// Return base64 image data with description
 		return mcp.NewToolResultText(fmt.Sprintf("Image data (base64): %s", tinyImageBase64)), nil
-		
+
 	default:
 		return mcp.NewToolResultError(fmt.Sprintf("Resource not found: %s", uri)), nil
 	}
@@ -427,7 +427,7 @@ func listPromptsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*
 		}
 		promptList = append(promptList, fmt.Sprintf("- %s: %s%s", prompt.Name, prompt.Description, args))
 	}
-	
+
 	result := "Available prompts:\n" + strings.Join(promptList, "\n")
 	return mcp.NewToolResultText(result), nil
 }
@@ -437,30 +437,30 @@ func getPromptToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 	if !ok {
 		return mcp.NewToolResultError("name parameter is required"), nil
 	}
-	
+
 	arguments, _ := request.Params.Arguments["arguments"].(map[string]interface{})
-	
+
 	switch name {
 	case "simple_greeting":
 		result := "Prompt: simple_greeting\n" +
 			"Description: A friendly greeting\n" +
 			"Message: Please provide a friendly greeting for a new user joining our community."
 		return mcp.NewToolResultText(result), nil
-		
+
 	case "code_review":
 		language, _ := arguments["language"].(string)
 		code, _ := arguments["code"].(string)
-		
+
 		if language == "" || code == "" {
 			return mcp.NewToolResultError("language and code arguments are required"), nil
 		}
-		
+
 		result := fmt.Sprintf("Prompt: code_review\n"+
 			"Description: Code review for %s\n"+
-			"Message: Please review the following %s code for improvements, potential bugs, and best practices:\n\n```%s\n%s\n```", 
+			"Message: Please review the following %s code for improvements, potential bugs, and best practices:\n\n```%s\n%s\n```",
 			language, language, language, code)
 		return mcp.NewToolResultText(result), nil
-		
+
 	default:
 		return mcp.NewToolResultError(fmt.Sprintf("Prompt not found: %s", name)), nil
 	}
@@ -473,12 +473,12 @@ func getTestImageHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to decode image: %v", err)), nil
 	}
-	
+
 	// Return as image content
 	return &mcp.CallToolResult{
 		Content: []interface{}{
 			mcp.TextContent{
-				Type: "text", 
+				Type: "text",
 				Text: "Here's a tiny test image (1x1 transparent PNG):",
 			},
 			mcp.ImageContent{
@@ -496,7 +496,7 @@ func getResourceContentHandler(ctx context.Context, request mcp.CallToolRequest)
 	if !ok {
 		return mcp.NewToolResultError("uri parameter is required"), nil
 	}
-	
+
 	// Find the resource
 	var foundResource *mcp.Resource
 	for _, resource := range sampleResources {
@@ -505,11 +505,11 @@ func getResourceContentHandler(ctx context.Context, request mcp.CallToolRequest)
 			break
 		}
 	}
-	
+
 	if foundResource == nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Resource not found: %s", uri)), nil
 	}
-	
+
 	// Return embedded resource content
 	content := []interface{}{
 		mcp.TextContent{
@@ -517,7 +517,7 @@ func getResourceContentHandler(ctx context.Context, request mcp.CallToolRequest)
 			Text: fmt.Sprintf("Returning embedded resource: %s", foundResource.Name),
 		},
 	}
-	
+
 	// Add the actual resource content based on URI
 	switch uri {
 	case "example://text/hello":
@@ -529,7 +529,7 @@ func getResourceContentHandler(ctx context.Context, request mcp.CallToolRequest)
 				Text:     "Hello, World! This is a simple text resource from the everything server.",
 			},
 		})
-		
+
 	case "example://text/readme":
 		readmeContent := `# Everything Server
 
@@ -542,7 +542,7 @@ This is an example MCP server that implements all basic capabilities.`
 				Text:     readmeContent,
 			},
 		})
-		
+
 	case "example://image/logo":
 		content = append(content, mcp.EmbeddedResource{
 			Type: "resource",
@@ -553,7 +553,7 @@ This is an example MCP server that implements all basic capabilities.`
 			},
 		})
 	}
-	
+
 	return &mcp.CallToolResult{
 		Content: content,
 	}, nil
