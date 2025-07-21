@@ -1,6 +1,6 @@
 # STATE.yaml - Claude-optimized context
-# Format: v4.1 | Updated: 2025-01-20T05:15:00Z
-# Purpose: Machine-readable project state for Claude sessions
+# Format: v4.2 | Updated: 2025-01-20T16:30:00Z
+# Purpose: Claude-optimized project state for sessions
 
 CURRENT_STATE:
   status: production_operational
@@ -130,11 +130,21 @@ CODE_REVIEW_PROMPTS:
   purpose: Periodic code quality review
 
 TESTING_CAPABILITIES:
-  unit: "make unit-test" (coverage enabled)
-  integration: "make integration-test"
+  unit: "make unit-test" (coverage enabled, gotestsum auto-detected)
+  integration: "make integration-test" (gotestsum testname format)
   e2e_inspector: "make e2e-test-prod" (uses @modelcontextprotocol/inspector)
   e2e_raw: "make e2e-test-raw" (uses curl+jq for SSE/JSON-RPC)
   local: "make e2e-test-local" (requires local server on :8080)
+  ci: "make test-ci" (JUnit XML output for CI systems)
+  
+  test_formatting:
+    tool: gotestsum (auto-detected, falls back to go test)
+    install: "go install gotest.tools/gotestsum@latest"
+    formats:
+      unit_integration: testname (clean test names)
+      e2e: dots-v2 (compact progress dots)
+      ci: junitfile (XML for CI integration)
+    watch_mode: "gotestsum --watch ./..." (for development)
   
 ESTABLISHED_PATTERNS:
   error_handling: JSON-RPC error codes (-32601 for METHOD_NOT_FOUND)
@@ -142,6 +152,7 @@ ESTABLISHED_PATTERNS:
   testing: Dual approach (high-level Inspector + low-level curl)
   deployment: Fly.io with automatic health checks
   ci_cd: GitHub Actions template ready in .github/workflows/ci.yml
+  test_output: gotestsum for better formatting (auto-detected in Makefile)
   
 NEXT_SESSION_CONTEXT:
   ready_for:
@@ -199,6 +210,7 @@ SESSION_DOCS:
   recent_handoff: /docs/sessions/2025-01-20-handoff.md
   overview: /PROJECT_OVERVIEW_FOR_CLAUDE.md
   doc_index: /docs/README.md
+  test_formatting: /docs/test-formatting.md
   
 ENVIRONMENT_VARS:
   MCP_SERVER_URL: Set for E2E tests (defaults to production)
@@ -210,6 +222,8 @@ DEPENDENCIES:
   npm: "@modelcontextprotocol/inspector"
   system: [curl, jq, bash]
   go_modules: [mark3labs/mcp-go, fly.io SDK]
+  optional:
+    gotestsum: "gotest.tools/gotestsum@latest" (better test output)
   
 SESSION_PRIORITIES:
   1. If adding tools: Follow helloHandler pattern in main.go
@@ -225,6 +239,7 @@ COMPLETED_MILESTONES:
   - [x] Comprehensive E2E test suite
   - [x] CI/CD pipeline template
   - [x] Full documentation
+  - [x] Enhanced test formatting with gotestsum
   
 MIGRATION_HISTORY:
   phase1_typescript_attempt:
