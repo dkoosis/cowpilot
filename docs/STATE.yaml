@@ -1,6 +1,5 @@
-# STATE.yaml - Claude-optimized context
+# STATE.yaml - LLM-optimized context
 # Format: v4.2 | Updated: 2025-01-20T16:30:00Z
-# Purpose: Claude-optimized project state for sessions
 
 CURRENT_STATE:
   status: production_operational
@@ -11,10 +10,11 @@ CURRENT_STATE:
   implemented_tools: ["hello"]
   
 QUICK_COMMANDS:
-  local_dev: "go run cmd/cowpilot/main.go"
+  local_dev: "FLY_APP_NAME=local go run cmd/cowpilot/main.go"
   test_all: "make test"
-  test_e2e_prod: "make e2e-test-prod"
-  test_e2e_raw: "make e2e-test-raw"
+  test_e2e_local: "make scenario-test-local"
+  test_e2e_prod: "make scenario-test-prod"
+  test_e2e_raw: "make scenario-test-raw"
   deploy: "fly deploy"
   manual_test: |
     npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list

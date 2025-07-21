@@ -40,7 +40,7 @@ func TestMCPProtocolCompliance(t *testing.T) {
 
 	// Run the test script
 	testCmd := exec.Command("/bin/bash", scriptPath, serverURL)
-	
+
 	// Capture output
 	var stdout, stderr bytes.Buffer
 	testCmd.Stdout = &stdout
@@ -48,10 +48,10 @@ func TestMCPProtocolCompliance(t *testing.T) {
 
 	// Run the command
 	err := testCmd.Run()
-	
+
 	// Always print the output for visibility
 	t.Logf("Test output:\n%s", stdout.String())
-	
+
 	// Print stderr if there was any
 	if stderr.Len() > 0 {
 		t.Logf("Error output:\n%s", stderr.String())
@@ -60,10 +60,10 @@ func TestMCPProtocolCompliance(t *testing.T) {
 	// Check if tests failed
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			t.Fatalf("E2E tests failed with exit code %d\nOutput:\n%s\nErrors:\n%s", 
+			t.Fatalf("E2E tests failed with exit code %d\nOutput:\n%s\nErrors:\n%s",
 				exitErr.ExitCode(), stdout.String(), stderr.String())
 		} else {
-			t.Fatalf("Failed to run E2E tests: %v\nOutput:\n%s\nErrors:\n%s", 
+			t.Fatalf("Failed to run E2E tests: %v\nOutput:\n%s\nErrors:\n%s",
 				err, stdout.String(), stderr.String())
 		}
 	}
@@ -87,7 +87,7 @@ func TestMCPServerHealth(t *testing.T) {
 	// Use curl to check health endpoint
 	cmd := exec.Command("curl", "-s", "-f", "-o", "/dev/null", "-w", "%{http_code}", healthURL)
 	output, err := cmd.Output()
-	
+
 	if err != nil {
 		t.Fatalf("Health check failed: %v", err)
 	}
@@ -116,8 +116,8 @@ func TestLocalServer(t *testing.T) {
 	}
 
 	// Set environment variable and run tests
-	os.Setenv("MCP_SERVER_URL", "http://localhost:8080/")
-	defer os.Unsetenv("MCP_SERVER_URL")
+	_ = os.Setenv("MCP_SERVER_URL", "http://localhost:8080/")
+	defer func() { _ = os.Unsetenv("MCP_SERVER_URL") }()
 
 	t.Run("LocalProtocolCompliance", TestMCPProtocolCompliance)
 }

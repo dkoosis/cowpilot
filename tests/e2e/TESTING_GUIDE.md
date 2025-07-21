@@ -1,124 +1,72 @@
-# Comprehensive MCP Testing Guide
+# MCP Testing Guide
 
-This guide shows all the different ways to test the Cowpilot MCP server, from high-level to low-level approaches.
+## Testing Philosophy
 
-## Testing Approaches Overview
+Every build must verify that MCP conversations work correctly. We test at two levels:
 
-### 1. High-Level: MCP Inspector CLI
-Best for: Quick protocol compliance checks, standard testing
+1. **MCP Protocol Scenarios** - Primary verification that conversations work
+2. **Go Unit Tests** - Safety net for our implementation
 
-```bash
-# List tools
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list
+We trust the underlying libraries (mark3labs/mcp-go) for transport details.
 
-# Call a tool
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/call --tool-name hello
-```
-
-### 2. Low-Level: Raw curl with JSON-RPC
-Best for: Protocol debugging, understanding SSE format, custom testing
+## Quick Build Verification
 
 ```bash
-# Send raw JSON-RPC over SSE
-echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: text/event-stream' \
-    -d @- | grep '^data: ' | sed 's/^data: //' | jq .
+# 1. Run MCP conversation tests
+make e2e-test-prod    # Against production
+# OR
+make e2e-test-local   # Against local server
+
+# 2. Run unit tests
+make unit-test
+
+# Both together
+make test && make e2e-test-prod
 ```
 
-### 3. Automated: Test Suites
-Best for: CI/CD, regression testing, comprehensive validation
+## MCP Conversation Scenarios
 
+These test real user interactions with the MCP server:
+
+### Current Scenarios
+- **Tool Discovery**: Can clients list available tools?
+- **Tool Execution**: Can clients call the hello tool?
+- **Error Handling**: Does server properly reject invalid requests?
+- **Resource Discovery**: Does server respond to resource queries?
+
+### Adding New Scenarios
+When you add capabilities, add corresponding MCP scenarios:
 ```bash
-# Inspector-based tests
-make e2e-test-prod
-
-# Raw SSE tests
-make e2e-test-raw
-
-# All tests
-make e2e-test-prod && make e2e-test-raw
+# Example: After adding a "calculate" tool
+# Add test in mcp_scenarios.sh:
+# - List tools shows "calculate" 
+# - Call calculate with valid args
+# - Call calculate with invalid args
 ```
 
-## Complete Testing Matrix
+## Test Commands Reference
 
-| Test Type | Command | What It Tests |
-|-----------|---------|---------------|
-| Unit Tests | `make unit-test` | Individual functions |
-| Integration Tests | `make integration-test` | Component interactions |
-| E2E Inspector Tests | `make e2e-test-prod` | Protocol compliance via Inspector |
-| E2E Raw Tests | `make e2e-test-raw` | Direct SSE/JSON-RPC protocol |
-| Manual Inspector | `npx @modelcontextprotocol/inspector --cli ...` | Interactive testing |
-| Manual Raw | `curl + jq` | Protocol debugging |
+| Purpose | Command | When to Use |
+|---------|---------|-------------|
+| MCP Scenarios (prod) | `make e2e-test-prod` | Before deployment |
+| MCP Scenarios (local) | `make e2e-test-local` | During development |
+| Unit Tests | `make unit-test` | Every build |
+| All Tests | `make test && make e2e-test-prod` | Pre-commit |
 
-## Understanding SSE Format
+## Development Workflow
 
-MCP over SSE uses Server-Sent Events format:
+1. Make changes
+2. Run `make unit-test` - Verify functions work
+3. Run `make e2e-test-local` - Verify MCP conversation works
+4. Commit
+5. CI runs `make test && make e2e-test-prod`
 
-```
-data: {"jsonrpc":"2.0","id":1,"result":{...}}
+## Debugging (When Needed)
 
-data: [DONE]
-
-```
-
-Each JSON-RPC response is prefixed with `data: ` and terminated with a blank line.
-
-## Common Test Scenarios
-
-### 1. Basic Connectivity Test
+If MCP tests fail, use Inspector directly:
 ```bash
-# Health check
-curl -s https://cowpilot.fly.dev/health
-
-# SSE endpoint test
-curl -s -N https://cowpilot.fly.dev/ -H 'Accept: text/event-stream' --max-time 2
+# Interactive testing
+npx @modelcontextprotocol/inspector --cli http://localhost:8080/ --method tools/list
 ```
 
-### 2. Full Protocol Flow
-```bash
-# Initialize
-echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: text/event-stream' \
-    -d @- | grep '^data: ' | sed 's/^data: //' | jq .
-
-# List tools
-echo '{"jsonrpc":"2.0","method":"tools/list","id":2}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: text/event-stream' \
-    -d @- | grep '^data: ' | sed 's/^data: //' | jq .
-
-# Call tool
-echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"hello","arguments":{}},"id":3}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: text/event-stream' \
-    -d @- | grep '^data: ' | sed 's/^data: //' | jq .
-```
-
-### 3. Error Testing
-```bash
-# Non-existent method
-echo '{"jsonrpc":"2.0","method":"invalid/method","id":4}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: text/event-stream' \
-    -d @- | grep '^data: ' | sed 's/^data: //' | jq .
-```
-
-## Debugging Tips
-
-1. **View Raw SSE Stream**: Remove the `grep` and `jq` to see raw output
-2. **Test Timeouts**: Use `--max-time` with curl to handle hanging connections
-3. **Verbose Output**: Add `-v` to curl for connection details
-4. **Save Responses**: Use `tee` to save while viewing: `... | tee response.txt | jq .`
-
-## References
-
-- [MCP Inspector Docs](https://modelcontextprotocol.io/docs/tools/inspector)
-- [MCP Protocol Specification](https://spec.modelcontextprotocol.io/)
-- [SSE Testing Blog Post](https://blog.fka.dev/blog/2025-03-25-inspecting-mcp-servers-using-cli/)
+For protocol-level debugging, see [DEBUG_GUIDE.md](./DEBUG_GUIDE.md).

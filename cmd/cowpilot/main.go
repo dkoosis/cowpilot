@@ -52,7 +52,7 @@ func runHTTPServer(mcpServer *server.MCPServer) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
-	
+
 	// Create SSE server and get its handler
 	sseServer := server.NewSSEServer(mcpServer)
 	mux.Handle("/", sseServer)
@@ -63,7 +63,7 @@ func runHTTPServer(mcpServer *server.MCPServer) {
 	}
 
 	log.Printf("Starting HTTP server on port %s", port)
-	
+
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
@@ -76,10 +76,10 @@ func runHTTPServer(mcpServer *server.MCPServer) {
 	<-sigChan
 
 	log.Println("Shutting down...")
-	srv.Close()
+	_ = srv.Close()
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }

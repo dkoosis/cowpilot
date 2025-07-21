@@ -20,10 +20,10 @@ E2E_TEST_DIR=./tests/e2e
 COVERAGE_FILE=coverage.out
 GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
-.PHONY: all build test unit-test integration-test e2e-test e2e-test-local e2e-test-prod e2e-test-raw test-ci clean fmt vet lint coverage run help
+.PHONY: all build test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help
 
 # Default target
-all: clean fmt vet lint test build
+all: clean fmt vet lint test scenario-test-local build
 
 # Build the application
 build:
@@ -52,9 +52,9 @@ integration-test:
 		$(GOTEST) -v -race $(INTEGRATION_TEST_DIR)/...; \
 	fi
 
-# Run e2e tests (for CI/staging)
-e2e-test:
-	@echo "Running e2e tests..."
+# Run scenario tests (for CI/staging)
+scenario-test:
+	@echo "Running scenario tests..."
 	@if [ -z "$(MCP_SERVER_URL)" ]; then \
 		echo "MCP_SERVER_URL not set. Using production server..."; \
 		export MCP_SERVER_URL="https://cowpilot.fly.dev/"; \
@@ -65,18 +65,30 @@ e2e-test:
 		$(GOTEST) -v $(E2E_TEST_DIR)/...; \
 	fi
 
-# Run e2e tests against local server
-e2e-test-local:
-	@echo "Running e2e tests against local server..."
-	@if [ -n "$(GOTESTSUM)" ]; then \
+# Run scenario tests against local server
+scenario-test-local:
+	@echo "Starting local server and running scenario tests..."
+	@# Build the binary first
+	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
+	@# Start server in background
+	FLY_APP_NAME=local-test $(OUTPUT_DIR)/$(BINARY_NAME) & \
+	SERVER_PID=$$!; \
+	sleep 3; \
+	echo "Server started with PID $$SERVER_PID"; \
+	if [ -n "$(GOTESTSUM)" ]; then \
 		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
 	else \
 		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(E2E_TEST_DIR)/...; \
-	fi
+	fi; \
+	TEST_EXIT=$$?; \
+	echo "Stopping server with PID $$SERVER_PID"; \
+	kill $$SERVER_PID 2>/dev/null || true; \
+	wait $$SERVER_PID 2>/dev/null || true; \
+	exit $$TEST_EXIT
 
-# Run e2e tests against production
-e2e-test-prod:
-	@echo "Running e2e tests against production..."
+# Run scenario tests against production
+scenario-test-prod:
+	@echo "Running scenario tests against production..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
 		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format dots-v2 -- -v $(E2E_TEST_DIR)/...; \
 	else \
@@ -84,7 +96,7 @@ e2e-test-prod:
 	fi
 
 # Run raw SSE/JSON-RPC tests
-e2e-test-raw:
+scenario-test-raw:
 	@echo "Running raw SSE/JSON-RPC tests..."
 	@bash $(E2E_TEST_DIR)/raw_sse_test.sh
 
@@ -148,10 +160,10 @@ help:
 	@echo "  test             - Run all tests"
 	@echo "  unit-test        - Run unit tests with coverage"
 	@echo "  integration-test - Run integration tests"
-	@echo "  e2e-test         - Run end-to-end tests (uses MCP_SERVER_URL or production)"
-	@echo "  e2e-test-local   - Run e2e tests against local server (localhost:8080)"
-	@echo "  e2e-test-prod    - Run e2e tests against production (cowpilot.fly.dev)"
-	@echo "  e2e-test-raw     - Run raw SSE/JSON-RPC tests using curl and jq"
+	@echo "  scenario-test    - Run scenario tests (uses MCP_SERVER_URL or production)"
+	@echo "  scenario-test-local - Run scenario tests against local server (localhost:8080)"
+	@echo "  scenario-test-prod - Run scenario tests against production (cowpilot.fly.dev)"
+	@echo "  scenario-test-raw - Run raw SSE/JSON-RPC tests using curl and jq"
 	@echo "  clean            - Remove build artifacts"
 	@echo "  fmt              - Format code"
 	@echo "  vet              - Run go vet"

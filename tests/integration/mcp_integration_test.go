@@ -26,16 +26,16 @@ func TestMCPIntegration_HandlesFullLifecycle_When_ClientMakesSequentialRequests(
 			Method:  "tools/list",
 			ID:      1,
 		}
-		
+
 		resp := makeRequest(t, ts.URL, req)
-		
+
 		if resp.Error != nil {
 			t.Fatalf("Unexpected error: %v", resp.Error)
 		}
-		
+
 		result := resp.Result.(map[string]interface{})
 		tools := result["tools"].([]interface{})
-		
+
 		if len(tools) != 1 {
 			t.Errorf("Expected 1 tool, got %d", len(tools))
 		}
@@ -46,27 +46,27 @@ func TestMCPIntegration_HandlesFullLifecycle_When_ClientMakesSequentialRequests(
 			"name":      "hello",
 			"arguments": map[string]interface{}{},
 		})
-		
+
 		req := mcp.Request{
 			JSONRPC: "2.0",
 			Method:  "tools/call",
 			Params:  params,
 			ID:      2,
 		}
-		
+
 		resp := makeRequest(t, ts.URL, req)
-		
+
 		if resp.Error != nil {
 			t.Fatalf("Unexpected error: %v", resp.Error)
 		}
-		
+
 		result := resp.Result.(map[string]interface{})
 		content := result["content"].([]interface{})
-		
+
 		if len(content) != 1 {
 			t.Errorf("Expected 1 content item, got %d", len(content))
 		}
-		
+
 		item := content[0].(map[string]interface{})
 		if item["text"] != "Hello, World!" {
 			t.Errorf("Expected 'Hello, World!', got '%s'", item["text"])
@@ -81,19 +81,19 @@ func TestMCPIntegration_HandlesFullLifecycle_When_ClientMakesSequentialRequests(
 				Method:  "tools/list",
 				ID:      i + 10,
 			}
-			
+
 			resp := makeRequest(t, ts.URL, req)
-			
+
 			if resp.Error != nil {
 				t.Fatalf("Request %d failed: %v", i, resp.Error)
 			}
-			
+
 			// Check response ID matches request ID
 			respID, ok := resp.ID.(float64)
 			if !ok {
 				t.Fatalf("Response ID is not a number: %v", resp.ID)
 			}
-			
+
 			if int(respID) != i+10 {
 				t.Errorf("Expected ID %d, got %d", i+10, int(respID))
 			}
@@ -111,7 +111,7 @@ func makeRequest(t *testing.T, url string, req mcp.Request) mcp.Response {
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var mcpResp mcp.Response
 	if err := json.NewDecoder(resp.Body).Decode(&mcpResp); err != nil {

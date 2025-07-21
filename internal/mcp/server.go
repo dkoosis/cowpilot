@@ -58,7 +58,7 @@ func NewServer() *Server {
 	s := &Server{
 		tools: make(map[string]Tool),
 	}
-	
+
 	// Register hello tool
 	s.RegisterTool(Tool{
 		Name:        "hello",
@@ -68,7 +68,7 @@ func NewServer() *Server {
 			Properties: make(map[string]Property),
 		},
 	})
-	
+
 	return s
 }
 
@@ -101,7 +101,7 @@ func (s *Server) handleToolsList(req Request) Response {
 	for _, tool := range s.tools {
 		tools = append(tools, tool)
 	}
-	
+
 	return Response{
 		JSONRPC: "2.0",
 		Result: map[string]interface{}{
@@ -116,7 +116,7 @@ func (s *Server) handleToolCall(req Request) Response {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
 	}
-	
+
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return Response{
 			JSONRPC: "2.0",
@@ -127,7 +127,7 @@ func (s *Server) handleToolCall(req Request) Response {
 			ID: req.ID,
 		}
 	}
-	
+
 	if params.Name != "hello" {
 		return Response{
 			JSONRPC: "2.0",
@@ -138,7 +138,7 @@ func (s *Server) handleToolCall(req Request) Response {
 			ID: req.ID,
 		}
 	}
-	
+
 	// Execute hello tool
 	return Response{
 		JSONRPC: "2.0",

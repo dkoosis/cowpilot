@@ -20,7 +20,9 @@ github.com/vcto/cowpilot/internal/transport/http.go:33.2,38.9 4 3
 github.com/vcto/cowpilot/internal/transport/http.go:38.9,41.3 2 0
 github.com/vcto/cowpilot/internal/transport/http.go:44.2,45.16 2 3
 github.com/vcto/cowpilot/internal/transport/http.go:45.16,48.3 2 0
-github.com/vcto/cowpilot/internal/transport/http.go:49.2,53.51 3 3
+github.com/vcto/cowpilot/internal/transport/http.go:49.2,49.15 1 3
+github.com/vcto/cowpilot/internal/transport/http.go:49.15,49.37 1 3
+github.com/vcto/cowpilot/internal/transport/http.go:52.2,53.51 2 3
 github.com/vcto/cowpilot/internal/transport/http.go:53.51,56.3 2 1
 github.com/vcto/cowpilot/internal/transport/http.go:59.2,59.26 1 2
 github.com/vcto/cowpilot/internal/transport/http.go:59.26,62.3 2 1

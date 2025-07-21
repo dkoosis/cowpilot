@@ -32,7 +32,7 @@ func (t *HTTPTransport) HandleMCP(w http.ResponseWriter, r *http.Request) {
 	// Set headers for streaming
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	
+
 	// Enable flushing for streaming
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -46,7 +46,7 @@ func (t *HTTPTransport) HandleMCP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, -32700, "Parse error")
 		return
 	}
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	// Parse JSON-RPC request
 	var req mcp.Request
@@ -69,7 +69,7 @@ func (t *HTTPTransport) HandleMCP(w http.ResponseWriter, r *http.Request) {
 		// Can't write error at this point, just log it
 		return
 	}
-	
+
 	flusher.Flush()
 }
 
@@ -81,7 +81,7 @@ func writeError(w http.ResponseWriter, code int, message string) {
 			Message: message,
 		},
 	}
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // StreamReader handles streaming JSON-RPC messages

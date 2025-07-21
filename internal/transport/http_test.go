@@ -117,7 +117,7 @@ func TestStreamReader_ReadsMultipleMessages_When_StreamContainsMultipleJSONObjec
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	for _, msg := range messages {
-		encoder.Encode(msg)
+		_ = encoder.Encode(msg)
 	}
 
 	reader := NewStreamReader(&buf)

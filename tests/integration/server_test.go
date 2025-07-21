@@ -15,9 +15,9 @@ func TestHealthEndpoint_ReturnsStatusOK_When_ServerIsRunning(t *testing.T) {
 	// Direct handler test
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
-	
+
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
