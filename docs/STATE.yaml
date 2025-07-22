@@ -1,18 +1,19 @@
-# STATE.yaml v5.1-claude-optimized
-# λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical
+# STATE.yaml v6.0-claude-optimized
+# λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=native
 
 ∞STATUS:
-  MODE: everything_server[tools-only†]
+  MODE: everything_server[tools+resources+prompts✓]
   BUILD: go build -o bin/cowpilot cmd/cowpilot/main.go
   RUN: ./bin/cowpilot
   TEST: npx @modelcontextprotocol/inspector ./bin/cowpilot
+  FIXED: [resource_handler→[]mcp.ResourceContents,prompt_Arguments→map[string]string,MimeType→MIMEType]✓
   
 λMCP-GO:
   VERSION: v0.34.1-0.20250715114859-baa715326fab
-  ∅MISSING: [SetResourceHandler,SetPromptHandler,SetCompletionHandler,SetLoggingHandler,ProgressNotifications]
-  EXISTS: [NewMCPServer,AddTool,ServeStdio,NewSSEServer]
+  ∅MISSING: [SetCompletionHandler,SetLoggingHandler,ProgressNotifications]
+  ✓EXISTS: [NewMCPServer,AddTool,AddResource,AddResourceTemplate,AddPrompt,ServeStdio,NewSSEServer]
   
-∇TOOLS[15]:
+∇TOOLS[11]:
   hello→"Hello,World!"
   echo[message:string]→"Echo:$message"
   add[a,b:number]→a+b
@@ -22,16 +23,22 @@
   string_operation[text,operation:upper|lower|reverse|length]→transform(text)
   format_json[json:string,minify?:bool]→prettify|minify
   long_running_operation[duration?,steps?:number]→simulate_progress
-  †list_resources[]→["example://text/hello","example://text/readme","example://image/logo"]
-  †read_resource[uri:string]→content_by_uri
-  †list_prompts[]→["simple_greeting","code_review[language,code]"]
-  †get_prompt[name,arguments?:object]→prompt_template
   get_test_image[]→ImageContent{base64,image/png}
   get_resource_content[uri]→EmbeddedResource{TextResourceContents|BlobResourceContents}
 
-†SIMULATIONS:
-  RESOURCES: ∇via_tools{list_resources,read_resource,get_resource_content}
-  PROMPTS: ∇via_tools{list_prompts,get_prompt}
+✓RESOURCES[4]:
+  example://text/hello→TextResourceContents{text/plain}
+  example://text/readme→TextResourceContents{text/markdown}
+  example://image/logo→BlobResourceContents{image/png}
+  example://dynamic/{id}→TextResourceContents{application/json}[template]
+
+✓PROMPTS[2]:
+  simple_greeting→PromptMessage{user:greeting_request}
+  code_review[language,code:required]→PromptMessage{user:review_request}
+
+✓NATIVE_SUPPORT:
+  RESOURCES: ✓native{AddResource,AddResourceTemplate,WithResourceCapabilities}
+  PROMPTS: ✓native{AddPrompt,WithPromptCapabilities}
   COMPLETIONS: ∅not_implemented
   LOGGING: ∅not_implemented
   PROGRESS: ∅not_implemented[λno_api]
@@ -43,14 +50,14 @@
   PATTERN_EMBED: EmbeddedResource{Type:"resource",Resource:TextResourceContents{URI,MimeType,Text}}
 
 ‡DECISIONS:
-  λLIBRARY: mcp-go[minimal]→tools_only
-  †APPROACH: simulate_via_tools>fork_library>custom_jsonrpc>switch_library
-  RATIONALE: quick_implementation+no_modifications+demonstrates_concepts
+  ✓LIBRARY: mcp-go[native_support]→tools+resources+prompts
+  ✓APPROACH: native_api_usage>no_workarounds_needed
+  RATIONALE: library_supports_features+clean_implementation
   
 ‡BLOCKERS:
-  1. λmcp-go∅[resources,prompts,completions,logging,progress]
-  2. †tools!=native_capabilities
-  3. ∅protocol_compliance[partial]
+  1. λmcp-go∅[completions,logging,progress]
+  2. ✓resources+prompts=native
+  3. ∅protocol_compliance[mostly_complete]
 
 SAMPLE_DATA:
   RES: {
@@ -69,20 +76,22 @@ SAMPLE_DATA:
   ENHANCE: [+tools,+examples,+docs,?auth,?ratelimit,?metrics]
   
 ‡VERIFY:
-  ✓tools.len==15
+  ✓tools.len==11
   ✓echo("test")=="Echo: test"
   ✓add(2,3)==5
   ✓string_operation("hello","upper")=="HELLO"
   ✓base64_encode("test")==base64_decode("dGVzdA==")
   ✓get_test_image().Content[1].Type=="image"
-  ✓list_resources().includes("example://text/hello")
-  ✓get_prompt("code_review",{language:"go",code:"..."}).includes("review")
+  ✓resources.list().includes("example://text/hello")
+  ✓prompts.get("code_review",{language:"go",code:"..."}).includes("review")
   ✓get_resource_content("example://image/logo").Content[1].Type=="resource"
+  ✓FIXED: resource_handlers→return[]mcp.ResourceContents[interface]
 
 ≈CONTEXT[next_session]:
-  WHERE: cowpilot/cmd/cowpilot/main.go[everything_server,15_tools,†simulated_capabilities]
-  WHAT: mcp-go[tools_only]→workarounds_implemented
-  WHY: demonstrate_all_mcp_capabilities_despite_library_limitations
-  HOW: tools_simulate_resources+prompts,multi_content_for_richness
-  BLOCKERS: λmcp-go_missing_features
-  OPTIONS: [live_with_it|extend_lib|new_approach]
+  WHERE: cowpilot/cmd/cowpilot/main.go[everything_server,11_tools,✓native_resources,✓native_prompts]
+  WHAT: mcp-go[native_support]→resources+prompts+tools
+  WHY: library_actually_supports_these_features
+  HOW: native_AddResource+AddPrompt,fixed_handler_signatures
+  BLOCKERS: λmcp-go_missing[completions,logging,progress]
+  OPTIONS: [implement_completions|add_logging|test_comprehensive|accept_current]
+  FIXED: resource_handler_signature_mismatch✓

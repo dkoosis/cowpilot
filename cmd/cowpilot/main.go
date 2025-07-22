@@ -30,19 +30,19 @@ var (
 			URI:         "example://text/hello",
 			Name:        "Hello World Text",
 			Description: "A simple text resource",
-			MimeType:    "text/plain",
+			MIMEType:    "text/plain",
 		},
 		{
 			URI:         "example://text/readme",
 			Name:        "README",
 			Description: "Project documentation",
-			MimeType:    "text/markdown",
+			MIMEType:    "text/markdown",
 		},
 		{
 			URI:         "example://image/logo",
 			Name:        "Logo Image",
 			Description: "A small example image",
-			MimeType:    "image/png",
+			MIMEType:    "image/png",
 		},
 	}
 
@@ -82,10 +82,18 @@ func main() {
 		serverName,
 		serverVersion,
 		server.WithToolCapabilities(false),
+		server.WithResourceCapabilities(true, true),
+		server.WithPromptCapabilities(true),
 	)
 
 	// Add all tools
 	setupTools(s)
+
+	// Add native resources
+	setupResources(s)
+
+	// Add native prompts
+	setupPrompts(s)
 
 	// Check if we're running on Fly.io or locally
 	if os.Getenv("FLY_APP_NAME") != "" {
@@ -97,6 +105,153 @@ func main() {
 			log.Fatalf("Server error: %v\n", err)
 		}
 	}
+}
+
+func setupResources(s *server.MCPServer) {
+	// Add static text resource
+	s.AddResource(mcp.NewResource("example://text/hello",
+		"Hello World Text",
+		mcp.WithResourceDescription("A simple text resource"),
+		mcp.WithMIMEType("text/plain"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      "example://text/hello",
+				MIMEType: "text/plain",
+				Text:     "Hello, World! This is a simple text resource from the everything server.",
+			},
+		}, nil
+	})
+
+	// Add README resource
+	s.AddResource(mcp.NewResource("example://text/readme",
+		"README",
+		mcp.WithResourceDescription("Project documentation"),
+		mcp.WithMIMEType("text/markdown"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		content := `# Everything Server
+
+This is an example MCP server that implements all basic capabilities:
+
+- **Tools**: Various utility functions
+- **Resources**: Text and binary content  
+- **Prompts**: Template-based interactions
+- **Logging**: Server-side logging
+- **Completions**: Argument suggestions
+
+## Usage
+
+Connect to this server using any MCP client to explore its capabilities.`
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      "example://text/readme",
+				MIMEType: "text/markdown",
+				Text:     content,
+			},
+		}, nil
+	})
+
+	// Add image resource
+	s.AddResource(mcp.NewResource("example://image/logo",
+		"Logo Image",
+		mcp.WithResourceDescription("A small example image"),
+		mcp.WithMIMEType("image/png"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		return []mcp.ResourceContents{
+			mcp.BlobResourceContents{
+				URI:      "example://image/logo",
+				MIMEType: "image/png",
+				Blob:     tinyImageBase64,
+			},
+		}, nil
+	})
+
+	// Add a dynamic resource template
+	s.AddResourceTemplate(mcp.NewResourceTemplate(
+		"example://dynamic/{id}",
+		"Dynamic Resource",
+		mcp.WithTemplateDescription("A dynamic resource that accepts an ID"),
+		mcp.WithTemplateMIMEType("application/json"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		// Extract ID from URI
+		id := strings.TrimPrefix(request.Params.URI, "example://dynamic/")
+		data := map[string]interface{}{
+			"id":        id,
+			"timestamp": time.Now().Format(time.RFC3339),
+			"message":   fmt.Sprintf("This is dynamic content for ID: %s", id),
+		}
+
+		jsonData, _ := json.MarshalIndent(data, "", "  ")
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      request.Params.URI,
+				MIMEType: "application/json",
+				Text:     string(jsonData),
+			},
+		}, nil
+	})
+}
+
+func setupPrompts(s *server.MCPServer) {
+	// Simple greeting prompt
+	simplePrompt := mcp.Prompt{
+		Name:        "simple_greeting",
+		Description: "A simple greeting prompt",
+	}
+	s.AddPrompt(simplePrompt, func(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		return &mcp.GetPromptResult{
+			Messages: []mcp.PromptMessage{
+				{
+					Role: mcp.RoleUser,
+					Content: mcp.TextContent{
+						Type: "text",
+						Text: "Please provide a friendly greeting for a new user joining our community.",
+					},
+				},
+			},
+		}, nil
+	})
+
+	// Code review prompt with arguments
+	codeReviewPrompt := mcp.Prompt{
+		Name:        "code_review",
+		Description: "Review code for improvements",
+		Arguments: []mcp.PromptArgument{
+			{
+				Name:        "language",
+				Description: "Programming language",
+				Required:    true,
+			},
+			{
+				Name:        "code",
+				Description: "Code to review",
+				Required:    true,
+			},
+		},
+	}
+	s.AddPrompt(codeReviewPrompt, func(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		language := request.Params.Arguments["language"]
+		code := request.Params.Arguments["code"]
+
+		if language == "" || code == "" {
+			return nil, fmt.Errorf("language and code arguments are required")
+		}
+
+		message := fmt.Sprintf("Please review the following %s code for improvements, potential bugs, and best practices:\n\n```%s\n%s\n```",
+			language, language, code)
+
+		return &mcp.GetPromptResult{
+			Messages: []mcp.PromptMessage{
+				{
+					Role: mcp.RoleUser,
+					Content: mcp.TextContent{
+						Type: "text",
+						Text: message,
+					},
+				},
+			},
+		}, nil
+	})
 }
 
 func setupTools(s *server.MCPServer) {
@@ -165,32 +320,36 @@ func setupTools(s *server.MCPServer) {
 	)
 	s.AddTool(longRunningTool, longRunningHandler)
 
-	// List resources tool
-	listResourcesTool := mcp.NewTool("list_resources",
-		mcp.WithDescription("Lists available resources"),
-	)
-	s.AddTool(listResourcesTool, listResourcesToolHandler)
+	// DEPRECATED: Resource/Prompt tools - now using native resources/prompts
+	// Keeping these commented for reference during migration
+	/*
+		// List resources tool
+		listResourcesTool := mcp.NewTool("list_resources",
+			mcp.WithDescription("Lists available resources"),
+		)
+		s.AddTool(listResourcesTool, listResourcesToolHandler)
 
-	// Read resource tool
-	readResourceTool := mcp.NewTool("read_resource",
-		mcp.WithDescription("Reads a specific resource"),
-		mcp.WithString("uri", mcp.Required(), mcp.Description("Resource URI")),
-	)
-	s.AddTool(readResourceTool, readResourceToolHandler)
+		// Read resource tool
+		readResourceTool := mcp.NewTool("read_resource",
+			mcp.WithDescription("Reads a specific resource"),
+			mcp.WithString("uri", mcp.Required(), mcp.Description("Resource URI")),
+		)
+		s.AddTool(readResourceTool, readResourceToolHandler)
 
-	// List prompts tool
-	listPromptsTool := mcp.NewTool("list_prompts",
-		mcp.WithDescription("Lists available prompts"),
-	)
-	s.AddTool(listPromptsTool, listPromptsToolHandler)
+		// List prompts tool
+		listPromptsTool := mcp.NewTool("list_prompts",
+			mcp.WithDescription("Lists available prompts"),
+		)
+		s.AddTool(listPromptsTool, listPromptsToolHandler)
 
-	// Get prompt tool
-	getPromptTool := mcp.NewTool("get_prompt",
-		mcp.WithDescription("Gets a specific prompt"),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Prompt name")),
-		mcp.WithObject("arguments", mcp.Description("Arguments for the prompt")),
-	)
-	s.AddTool(getPromptTool, getPromptToolHandler)
+		// Get prompt tool
+		getPromptTool := mcp.NewTool("get_prompt",
+			mcp.WithDescription("Gets a specific prompt"),
+			mcp.WithString("name", mcp.Required(), mcp.Description("Prompt name")),
+			mcp.WithObject("arguments", mcp.Description("Arguments for the prompt")),
+		)
+		s.AddTool(getPromptTool, getPromptToolHandler)
+	*/
 
 	// Test image tool
 	getImageTool := mcp.NewTool("get_test_image",
@@ -484,7 +643,7 @@ func getTestImageHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 			mcp.ImageContent{
 				Type:     "image",
 				Data:     base64.StdEncoding.EncodeToString(imageData),
-				MimeType: "image/png",
+				MIMEType: "image/png",
 			},
 		},
 	}, nil
@@ -525,7 +684,7 @@ func getResourceContentHandler(ctx context.Context, request mcp.CallToolRequest)
 			Type: "resource",
 			Resource: mcp.TextResourceContents{
 				URI:      uri,
-				MimeType: "text/plain",
+				MIMEType: "text/plain",
 				Text:     "Hello, World! This is a simple text resource from the everything server.",
 			},
 		})
@@ -538,7 +697,7 @@ This is an example MCP server that implements all basic capabilities.`
 			Type: "resource",
 			Resource: mcp.TextResourceContents{
 				URI:      uri,
-				MimeType: "text/markdown",
+				MIMEType: "text/markdown",
 				Text:     readmeContent,
 			},
 		})
@@ -548,7 +707,7 @@ This is an example MCP server that implements all basic capabilities.`
 			Type: "resource",
 			Resource: mcp.BlobResourceContents{
 				URI:      uri,
-				MimeType: "image/png",
+				MIMEType: "image/png",
 				Blob:     tinyImageBase64,
 			},
 		})

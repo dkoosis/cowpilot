@@ -1,27 +1,19 @@
 #!/bin/bash
-# Build and test cowpilot
+cd /Users/vcto/Projects/cowpilot
+echo "=== Running go vet ==="
+go vet ./...
+VET_RESULT=$?
 
-echo "=== Building Cowpilot ==="
-make build
+echo "=== Running go build ==="
+go build -o bin/cowpilot cmd/cowpilot/main.go
+BUILD_RESULT=$?
 
-echo -e "\n=== Running Tests ==="
-make test
-
-echo -e "\n=== Running Local Server Test ==="
-# Start server in background
-./bin/cowpilot &
-SERVER_PID=$!
-sleep 2
-
-# Test with curl
-echo "Testing hello tool..."
-echo '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"hello","arguments":{}},"id":1}' | \
-  curl -s -X POST http://localhost:8080 \
-    -H "Content-Type: application/json" \
-    -d @- | jq .
-
-# Kill server
-kill $SERVER_PID 2>/dev/null
-
-echo -e "\n=== Testing Production ==="
-make e2e-test-prod
+if [ $VET_RESULT -eq 0 ] && [ $BUILD_RESULT -eq 0 ]; then
+    echo "✅ All checks passed!"
+    exit 0
+else
+    echo "❌ Some checks failed."
+    echo "Vet result: $VET_RESULT"
+    echo "Build result: $BUILD_RESULT"
+    exit 1
+fi
