@@ -23,56 +23,6 @@ const (
 	serverVersion = "1.0.0"
 )
 
-// Sample data for demonstrating capabilities
-var (
-	sampleResources = []mcp.Resource{
-		{
-			URI:         "example://text/hello",
-			Name:        "Hello World Text",
-			Description: "A simple text resource",
-			MIMEType:    "text/plain",
-		},
-		{
-			URI:         "example://text/readme",
-			Name:        "README",
-			Description: "Project documentation",
-			MIMEType:    "text/markdown",
-		},
-		{
-			URI:         "example://image/logo",
-			Name:        "Logo Image",
-			Description: "A small example image",
-			MIMEType:    "image/png",
-		},
-	}
-
-	samplePrompts = []mcp.Prompt{
-		{
-			Name:        "simple_greeting",
-			Description: "A simple greeting prompt",
-		},
-		{
-			Name:        "code_review",
-			Description: "Review code for improvements",
-			Arguments: []mcp.PromptArgument{
-				{
-					Name:        "language",
-					Description: "Programming language",
-					Required:    true,
-				},
-				{
-					Name:        "code",
-					Description: "Code to review",
-					Required:    true,
-				},
-			},
-		},
-	}
-
-	// Subscriptions tracking
-	subscriptions = make(map[string]bool)
-)
-
 // Tiny example image (1x1 transparent PNG)
 const tinyImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 
@@ -320,37 +270,6 @@ func setupTools(s *server.MCPServer) {
 	)
 	s.AddTool(longRunningTool, longRunningHandler)
 
-	// DEPRECATED: Resource/Prompt tools - now using native resources/prompts
-	// Keeping these commented for reference during migration
-	/*
-		// List resources tool
-		listResourcesTool := mcp.NewTool("list_resources",
-			mcp.WithDescription("Lists available resources"),
-		)
-		s.AddTool(listResourcesTool, listResourcesToolHandler)
-
-		// Read resource tool
-		readResourceTool := mcp.NewTool("read_resource",
-			mcp.WithDescription("Reads a specific resource"),
-			mcp.WithString("uri", mcp.Required(), mcp.Description("Resource URI")),
-		)
-		s.AddTool(readResourceTool, readResourceToolHandler)
-
-		// List prompts tool
-		listPromptsTool := mcp.NewTool("list_prompts",
-			mcp.WithDescription("Lists available prompts"),
-		)
-		s.AddTool(listPromptsTool, listPromptsToolHandler)
-
-		// Get prompt tool
-		getPromptTool := mcp.NewTool("get_prompt",
-			mcp.WithDescription("Gets a specific prompt"),
-			mcp.WithString("name", mcp.Required(), mcp.Description("Prompt name")),
-			mcp.WithObject("arguments", mcp.Description("Arguments for the prompt")),
-		)
-		s.AddTool(getPromptTool, getPromptToolHandler)
-	*/
-
 	// Test image tool
 	getImageTool := mcp.NewTool("get_test_image",
 		mcp.WithDescription("Returns a test image"),
@@ -371,19 +290,27 @@ func helloHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTo
 }
 
 func echoHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	message, ok := request.Params.Arguments["message"].(string)
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
-		return mcp.NewToolResultError("message parameter is required"), nil
+		return mcp.NewToolResultError("invalid arguments format"), nil
+	}
+	message, ok := args["message"].(string)
+	if !ok {
+		return mcp.NewToolResultError("message parameter is required and must be a string"), nil
 	}
 	return mcp.NewToolResultText(fmt.Sprintf("Echo: %s", message)), nil
 }
 
 func addHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	a, ok := getNumber(request.Params.Arguments, "a")
+	args, ok := request.Params.Arguments.(map[string]any)
+	if !ok {
+		return mcp.NewToolResultError("invalid arguments format"), nil
+	}
+	a, ok := getNumber(args, "a")
 	if !ok {
 		return mcp.NewToolResultError("parameter 'a' is required and must be a number"), nil
 	}
-	b, ok := getNumber(request.Params.Arguments, "b")
+	b, ok := getNumber(args, "b")
 	if !ok {
 		return mcp.NewToolResultError("parameter 'b' is required and must be a number"), nil
 	}
@@ -393,7 +320,11 @@ func addHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTool
 }
 
 func timeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	format, _ := request.Params.Arguments["format"].(string)
+	args, ok := request.Params.Arguments.(map[string]any)
+	if !ok {
+		args = make(map[string]any) // No arguments is valid for this handler
+	}
+	format, _ := args["format"].(string)
 	if format == "" {
 		format = "iso"
 	}
@@ -416,18 +347,26 @@ func timeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 }
 
 func base64EncodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	text, ok := request.Params.Arguments["text"].(string)
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
-		return mcp.NewToolResultError("text parameter is required"), nil
+		return mcp.NewToolResultError("invalid arguments format"), nil
+	}
+	text, ok := args["text"].(string)
+	if !ok {
+		return mcp.NewToolResultError("text parameter is required and must be a string"), nil
 	}
 	encoded := base64.StdEncoding.EncodeToString([]byte(text))
 	return mcp.NewToolResultText(encoded), nil
 }
 
 func base64DecodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	data, ok := request.Params.Arguments["data"].(string)
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
-		return mcp.NewToolResultError("data parameter is required"), nil
+		return mcp.NewToolResultError("invalid arguments format"), nil
+	}
+	data, ok := args["data"].(string)
+	if !ok {
+		return mcp.NewToolResultError("data parameter is required and must be a string"), nil
 	}
 	decoded, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
@@ -437,13 +376,17 @@ func base64DecodeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 }
 
 func stringOperationHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	text, ok := request.Params.Arguments["text"].(string)
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
-		return mcp.NewToolResultError("text parameter is required"), nil
+		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
-	operation, ok := request.Params.Arguments["operation"].(string)
+	text, ok := args["text"].(string)
 	if !ok {
-		return mcp.NewToolResultError("operation parameter is required"), nil
+		return mcp.NewToolResultError("text parameter is required and must be a string"), nil
+	}
+	operation, ok := args["operation"].(string)
+	if !ok {
+		return mcp.NewToolResultError("operation parameter is required and must be a string"), nil
 	}
 
 	var result string
@@ -468,11 +411,15 @@ func stringOperationHandler(ctx context.Context, request mcp.CallToolRequest) (*
 }
 
 func jsonFormatterHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	jsonStr, ok := request.Params.Arguments["json"].(string)
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
-		return mcp.NewToolResultError("json parameter is required"), nil
+		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
-	minify, _ := request.Params.Arguments["minify"].(bool)
+	jsonStr, ok := args["json"].(string)
+	if !ok {
+		return mcp.NewToolResultError("json parameter is required and must be a string"), nil
+	}
+	minify, _ := args["minify"].(bool)
 
 	var data interface{}
 	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
@@ -495,11 +442,15 @@ func jsonFormatterHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 }
 
 func longRunningHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	duration, _ := getNumber(request.Params.Arguments, "duration")
+	args, ok := request.Params.Arguments.(map[string]any)
+	if !ok {
+		args = make(map[string]any) // No arguments is valid, will use defaults
+	}
+	duration, _ := getNumber(args, "duration")
 	if duration <= 0 {
 		duration = 5
 	}
-	steps, _ := getNumber(request.Params.Arguments, "steps")
+	steps, _ := getNumber(args, "steps")
 	if steps <= 0 {
 		steps = 5
 	}
@@ -522,109 +473,6 @@ func longRunningHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 	return mcp.NewToolResultText(fmt.Sprintf("Completed long-running operation: %.0f seconds, %.0f steps", duration, steps)), nil
 }
 
-// Resource-related tool handlers
-func listResourcesToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	var resourceList []string
-	for _, resource := range sampleResources {
-		resourceList = append(resourceList, fmt.Sprintf("- %s (%s): %s", resource.Name, resource.URI, resource.Description))
-	}
-
-	result := "Available resources:\n" + strings.Join(resourceList, "\n")
-	return mcp.NewToolResultText(result), nil
-}
-
-func readResourceToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	uri, ok := request.Params.Arguments["uri"].(string)
-	if !ok {
-		return mcp.NewToolResultError("uri parameter is required"), nil
-	}
-
-	switch uri {
-	case "example://text/hello":
-		return mcp.NewToolResultText("Hello, World! This is a simple text resource from the everything server."), nil
-
-	case "example://text/readme":
-		content := `# Everything Server
-
-This is an example MCP server that implements all basic capabilities:
-
-- **Tools**: Various utility functions
-- **Resources**: Text and binary content  
-- **Prompts**: Template-based interactions
-- **Logging**: Server-side logging
-- **Completions**: Argument suggestions
-
-## Usage
-
-Connect to this server using any MCP client to explore its capabilities.`
-		return mcp.NewToolResultText(content), nil
-
-	case "example://image/logo":
-		// Return base64 image data with description
-		return mcp.NewToolResultText(fmt.Sprintf("Image data (base64): %s", tinyImageBase64)), nil
-
-	default:
-		return mcp.NewToolResultError(fmt.Sprintf("Resource not found: %s", uri)), nil
-	}
-}
-
-// Prompt-related tool handlers
-func listPromptsToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	var promptList []string
-	for _, prompt := range samplePrompts {
-		args := ""
-		if len(prompt.Arguments) > 0 {
-			var argList []string
-			for _, arg := range prompt.Arguments {
-				req := ""
-				if arg.Required {
-					req = " (required)"
-				}
-				argList = append(argList, fmt.Sprintf("%s%s", arg.Name, req))
-			}
-			args = fmt.Sprintf(" [args: %s]", strings.Join(argList, ", "))
-		}
-		promptList = append(promptList, fmt.Sprintf("- %s: %s%s", prompt.Name, prompt.Description, args))
-	}
-
-	result := "Available prompts:\n" + strings.Join(promptList, "\n")
-	return mcp.NewToolResultText(result), nil
-}
-
-func getPromptToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	name, ok := request.Params.Arguments["name"].(string)
-	if !ok {
-		return mcp.NewToolResultError("name parameter is required"), nil
-	}
-
-	arguments, _ := request.Params.Arguments["arguments"].(map[string]interface{})
-
-	switch name {
-	case "simple_greeting":
-		result := "Prompt: simple_greeting\n" +
-			"Description: A friendly greeting\n" +
-			"Message: Please provide a friendly greeting for a new user joining our community."
-		return mcp.NewToolResultText(result), nil
-
-	case "code_review":
-		language, _ := arguments["language"].(string)
-		code, _ := arguments["code"].(string)
-
-		if language == "" || code == "" {
-			return mcp.NewToolResultError("language and code arguments are required"), nil
-		}
-
-		result := fmt.Sprintf("Prompt: code_review\n"+
-			"Description: Code review for %s\n"+
-			"Message: Please review the following %s code for improvements, potential bugs, and best practices:\n\n```%s\n%s\n```",
-			language, language, language, code)
-		return mcp.NewToolResultText(result), nil
-
-	default:
-		return mcp.NewToolResultError(fmt.Sprintf("Prompt not found: %s", name)), nil
-	}
-}
-
 // Image handler
 func getTestImageHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Decode the base64 image
@@ -635,7 +483,7 @@ func getTestImageHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 
 	// Return as image content
 	return &mcp.CallToolResult{
-		Content: []interface{}{
+		Content: []mcp.Content{
 			mcp.TextContent{
 				Type: "text",
 				Text: "Here's a tiny test image (1x1 transparent PNG):",
@@ -651,29 +499,20 @@ func getTestImageHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 
 // Resource content handler - demonstrates embedded resources
 func getResourceContentHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	uri, ok := request.Params.Arguments["uri"].(string)
+	args, ok := request.Params.Arguments.(map[string]any)
 	if !ok {
-		return mcp.NewToolResultError("uri parameter is required"), nil
+		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
-
-	// Find the resource
-	var foundResource *mcp.Resource
-	for _, resource := range sampleResources {
-		if resource.URI == uri {
-			foundResource = &resource
-			break
-		}
-	}
-
-	if foundResource == nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Resource not found: %s", uri)), nil
+	uri, ok := args["uri"].(string)
+	if !ok {
+		return mcp.NewToolResultError("uri parameter is required and must be a string"), nil
 	}
 
 	// Return embedded resource content
-	content := []interface{}{
+	content := []mcp.Content{
 		mcp.TextContent{
 			Type: "text",
-			Text: fmt.Sprintf("Returning embedded resource: %s", foundResource.Name),
+			Text: fmt.Sprintf("Returning embedded resource: %s", uri),
 		},
 	}
 
@@ -711,6 +550,9 @@ This is an example MCP server that implements all basic capabilities.`
 				Blob:     tinyImageBase64,
 			},
 		})
+
+	default:
+		return mcp.NewToolResultError(fmt.Sprintf("Resource not found: %s", uri)), nil
 	}
 
 	return &mcp.CallToolResult{
@@ -719,7 +561,7 @@ This is an example MCP server that implements all basic capabilities.`
 }
 
 // Helper functions
-func getNumber(args map[string]interface{}, key string) (float64, bool) {
+func getNumber(args map[string]any, key string) (float64, bool) {
 	if val, ok := args[key]; ok {
 		switch v := val.(type) {
 		case float64:

@@ -6,7 +6,8 @@
   BUILD: go build -o bin/cowpilot cmd/cowpilot/main.go
   RUN: ./bin/cowpilot
   TEST: npx @modelcontextprotocol/inspector ./bin/cowpilot
-  FIXED: [resource_handler→[]mcp.ResourceContents,prompt_Arguments→map[string]string,MimeType→MIMEType]✓
+  FIXED: [resource_handler→[]mcp.ResourceContents,prompt_Arguments→map[string]string,MimeType→MIMEType,CallToolRequest.Params.Arguments→type_assert_map[string]any]✓
+  CLEANED: [removed_unused_vars(samplePrompts,sampleResources,subscriptions),removed_deprecated_handlers(4),cleaned_comments]✓
   
 λMCP-GO:
   VERSION: v0.34.1-0.20250715114859-baa715326fab
@@ -91,7 +92,7 @@ SAMPLE_DATA:
   WHERE: cowpilot/cmd/cowpilot/main.go[everything_server,11_tools,✓native_resources,✓native_prompts]
   WHAT: mcp-go[native_support]→resources+prompts+tools
   WHY: library_actually_supports_these_features
-  HOW: native_AddResource+AddPrompt,fixed_handler_signatures
+  HOW: native_AddResource+AddPrompt,fixed_handler_signatures,cleaned_deprecated_code
   BLOCKERS: λmcp-go_missing[completions,logging,progress]
   OPTIONS: [implement_completions|add_logging|test_comprehensive|accept_current]
-  FIXED: resource_handler_signature_mismatch✓
+  FIXED: resource_handler_signature_mismatch✓,unused_code_removed✓,linter_issues_resolved✓
