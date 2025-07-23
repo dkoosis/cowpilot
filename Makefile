@@ -100,6 +100,18 @@ scenario-test-raw:
 	@echo "Running raw SSE/JSON-RPC tests..."
 	@bash $(SCENARIO_TEST_DIR)/raw_sse_test.sh
 
+# Enhanced test output
+GOTESTSUM := $(shell which gotestsum 2>/dev/null)
+ifdef GOTESTSUM
+	GOTEST = gotestsum --format testname --format-hide-empty-pkg --
+else
+	GOTEST = go test
+endif
+
+test-verbose:
+	@echo "🧪 Running tests with human-readable output..."
+	@$(GOTEST) -v ./... | grep -E "(✓|✗|SCENARIO:|GIVEN:|WHEN:|THEN:|📋 TESTED:|⚡|⏱)" || true
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
