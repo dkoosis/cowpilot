@@ -19,6 +19,9 @@ We strive for clean, readable, and idiomatic Go code. Please adhere to the follo
 - **Logging:** Use the `logging` package for structured logging. Provide context in your log messages.
 - **Concurrency:** Write concurrency-safe code. Use mutexes or channels appropriately.
 - **Testing:** Write unit tests for your code. Aim for high test coverage.
+- **Common Go Pitfalls:**
+  - Multiple `package main` files conflict - keep test executables in `tests/` or `cmd/` subdirs
+  - Use `go mod tidy` after adding dependencies
 - **Naming:**
   - Use clear, descriptive names. Avoid abbreviations unless they are widely understood.
   - Follow Go's naming conventions (e.g., `camelCase` for functions, `PascalCase` for types).

@@ -34,15 +34,15 @@ func (l ValidationLevel) String() string {
 
 // ValidationResult represents the result of a validation check
 type ValidationResult struct {
-	ID          string            `json:"id"`
-	Level       ValidationLevel   `json:"level"`
-	Message     string            `json:"message"`
-	Field       string            `json:"field,omitempty"`
-	Expected    interface{}       `json:"expected,omitempty"`
-	Actual      interface{}       `json:"actual,omitempty"`
-	Suggestion  string            `json:"suggestion,omitempty"`
-	Timestamp   time.Time         `json:"timestamp"`
-	Context     map[string]string `json:"context,omitempty"`
+	ID         string            `json:"id"`
+	Level      ValidationLevel   `json:"level"`
+	Message    string            `json:"message"`
+	Field      string            `json:"field,omitempty"`
+	Expected   interface{}       `json:"expected,omitempty"`
+	Actual     interface{}       `json:"actual,omitempty"`
+	Suggestion string            `json:"suggestion,omitempty"`
+	Timestamp  time.Time         `json:"timestamp"`
+	Context    map[string]string `json:"context,omitempty"`
 }
 
 // ValidationReport contains all validation results for a message
@@ -68,30 +68,30 @@ func (r *ValidationReport) AddResult(result ValidationResult) {
 // AddError adds an error-level validation result
 func (r *ValidationReport) AddError(id, message string, context map[string]string) {
 	r.AddResult(ValidationResult{
-		ID:        id,
-		Level:     LevelError,
-		Message:   message,
-		Context:   context,
+		ID:      id,
+		Level:   LevelError,
+		Message: message,
+		Context: context,
 	})
 }
 
 // AddWarning adds a warning-level validation result
 func (r *ValidationReport) AddWarning(id, message string, context map[string]string) {
 	r.AddResult(ValidationResult{
-		ID:        id,
-		Level:     LevelWarning,
-		Message:   message,
-		Context:   context,
+		ID:      id,
+		Level:   LevelWarning,
+		Message: message,
+		Context: context,
 	})
 }
 
 // AddCritical adds a critical-level validation result
 func (r *ValidationReport) AddCritical(id, message string, context map[string]string) {
 	r.AddResult(ValidationResult{
-		ID:        id,
-		Level:     LevelCritical,
-		Message:   message,
-		Context:   context,
+		ID:      id,
+		Level:   LevelCritical,
+		Message: message,
+		Context: context,
 	})
 }
 
@@ -208,7 +208,7 @@ func (e *ValidationEngine) RegisterValidator(validator Validator) {
 			return
 		}
 	}
-	
+
 	e.validators = append(e.validators, validator)
 }
 
@@ -216,11 +216,11 @@ func (e *ValidationEngine) RegisterValidator(validator Validator) {
 func (e *ValidationEngine) ValidateMessage(sessionID, messageID string, messageData []byte, context map[string]string) (*ValidationReport, error) {
 	if !e.config.Enabled {
 		return &ValidationReport{
-			SessionID:   sessionID,
-			MessageID:   messageID,
-			Score:       100.0,
-			IsValid:     true,
-			Timestamp:   time.Now(),
+			SessionID: sessionID,
+			MessageID: messageID,
+			Score:     100.0,
+			IsValid:   true,
+			Timestamp: time.Now(),
 		}, nil
 	}
 
@@ -230,9 +230,9 @@ func (e *ValidationEngine) ValidateMessage(sessionID, messageID string, messageD
 	var message MCPMessage
 	if err := json.Unmarshal(messageData, &message); err != nil {
 		return &ValidationReport{
-			SessionID:    sessionID,
-			MessageID:    messageID,
-			MessageType:  "invalid",
+			SessionID:   sessionID,
+			MessageID:   messageID,
+			MessageType: "invalid",
 			Results: []ValidationResult{{
 				ID:        "json_parse_error",
 				Level:     LevelCritical,
@@ -278,7 +278,7 @@ func (e *ValidationEngine) ValidateMessage(sessionID, messageID string, messageD
 
 	// Update final score and validity
 	report.updateScore()
-	
+
 	// Apply strict mode
 	if e.config.StrictMode && len(report.GetByLevel(LevelWarning)) > 0 {
 		report.IsValid = false
@@ -320,12 +320,12 @@ func IsValidMCPMethod(method string) bool {
 	if method == "" {
 		return false
 	}
-	
+
 	// MCP method names should not contain spaces or special characters
 	if strings.Contains(method, " ") || strings.ContainsAny(method, "!@#$%^&*()") {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -334,7 +334,7 @@ func IsValidID(id interface{}) bool {
 	if id == nil {
 		return true // null is valid
 	}
-	
+
 	switch id.(type) {
 	case string, int, int64, float64:
 		return true

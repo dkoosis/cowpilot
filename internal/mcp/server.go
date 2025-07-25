@@ -5,19 +5,22 @@ import (
 	"fmt"
 )
 
-// Server implements the MCP server
+// Server implements the MCP server, managing available tools and handling JSON-RPC requests.
+// Maintains a registry of tools that can be called by MCP clients.
 type Server struct {
 	tools map[string]Tool
 }
 
-// Tool represents an MCP tool
+// Tool represents an MCP tool definition with its metadata and parameter schema.
+// Used for both tool registration and client discovery.
 type Tool struct {
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	InputSchema InputSchema `json:"inputSchema"`
 }
 
-// InputSchema defines tool parameters
+// InputSchema defines the JSON Schema for tool parameters.
+// Follows JSON Schema specification for parameter validation.
 type InputSchema struct {
 	Type       string              `json:"type"`
 	Properties map[string]Property `json:"properties"`
@@ -30,7 +33,8 @@ type Property struct {
 	Description string `json:"description"`
 }
 
-// Request represents a JSON-RPC request
+// Request represents a JSON-RPC 2.0 request from an MCP client.
+// ID can be string, number, or null per JSON-RPC spec.
 type Request struct {
 	JSONRPC string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
@@ -38,7 +42,8 @@ type Request struct {
 	ID      interface{}     `json:"id"`
 }
 
-// Response represents a JSON-RPC response
+// Response represents a JSON-RPC 2.0 response to send back to client.
+// Either Result or Error will be set, never both.
 type Response struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Result  interface{} `json:"result,omitempty"`
@@ -58,7 +63,8 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Message)
 }
 
-// NewServer creates a new MCP server
+// NewServer creates a new MCP server with the default 'hello' tool registered.
+// Returns a ready-to-use server instance.
 func NewServer() *Server {
 	s := &Server{
 		tools: make(map[string]Tool),
@@ -77,12 +83,14 @@ func NewServer() *Server {
 	return s
 }
 
-// RegisterTool registers a new tool
+// RegisterTool adds a tool to the server's registry, making it available for client calls.
+// Tool names must be unique - registering twice overwrites the previous tool.
 func (s *Server) RegisterTool(tool Tool) {
 	s.tools[tool.Name] = tool
 }
 
-// HandleRequest processes a JSON-RPC request
+// HandleRequest processes incoming JSON-RPC requests and routes them to appropriate handlers.
+// Supports 'tools/list' and 'tools/call' methods per MCP specification.
 func (s *Server) HandleRequest(req Request) Response {
 	switch req.Method {
 	case "tools/list":
@@ -101,6 +109,7 @@ func (s *Server) HandleRequest(req Request) Response {
 	}
 }
 
+// handleToolsList returns all registered tools for client discovery.
 func (s *Server) handleToolsList(req Request) Response {
 	tools := make([]Tool, 0, len(s.tools))
 	for _, tool := range s.tools {
@@ -116,6 +125,8 @@ func (s *Server) handleToolsList(req Request) Response {
 	}
 }
 
+// handleToolCall executes a specific tool with provided arguments.
+// Currently only supports the built-in 'hello' tool.
 func (s *Server) handleToolCall(req Request) Response {
 	var params struct {
 		Name      string          `json:"name"`

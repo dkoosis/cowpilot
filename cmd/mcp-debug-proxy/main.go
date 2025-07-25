@@ -35,7 +35,7 @@ type ProxyConfig struct {
 
 func main() {
 	config := parseFlags()
-	
+
 	log.Printf("%s v%s starting...", appName, appVersion)
 	log.Printf("Target binary: %s", config.TargetBinary)
 	log.Printf("Target port: %d", config.TargetPort)
@@ -71,7 +71,7 @@ func main() {
 
 	// Create proxy server with runtime debug config
 	proxy := createProxy(config, storage, debugConfig)
-	
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", config.Port),
 		Handler: proxy,
@@ -93,7 +93,7 @@ func main() {
 	log.Println("Shutting down proxy server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	if err := server.Shutdown(ctx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}

@@ -11,7 +11,7 @@ import (
 // ValidatedMessageInterceptor extends MessageInterceptor with validation
 type ValidatedMessageInterceptor struct {
 	*MessageInterceptor
-	validationEngine *validator.ValidationEngine
+	validationEngine  *validator.ValidationEngine
 	validationStorage ValidationStorage
 }
 
@@ -25,20 +25,20 @@ type ValidationStorage interface {
 // NewValidatedMessageInterceptor creates an interceptor with validation
 func NewValidatedMessageInterceptor(storage Storage, config *DebugConfig) *ValidatedMessageInterceptor {
 	baseInterceptor := NewMessageInterceptor(storage, config)
-	
+
 	// Create validation engine
 	validationConfig := &validator.ValidatorConfig{
 		Enabled:    config.Enabled,
 		StrictMode: config.Level == "DEBUG",
 	}
-	
+
 	engine := validator.NewValidationEngine(validationConfig)
-	
+
 	// Register validators
 	engine.RegisterValidator(validator.NewJSONRPCValidator())
 	engine.RegisterValidator(validator.NewMCPValidator())
 	engine.RegisterValidator(validator.NewSecurityValidator())
-	
+
 	// Use the same storage for validation reports if it implements ValidationStorage
 	var validationStorage ValidationStorage
 	if vs, ok := storage.(ValidationStorage); ok {
@@ -46,7 +46,7 @@ func NewValidatedMessageInterceptor(storage Storage, config *DebugConfig) *Valid
 	} else {
 		validationStorage = &NoOpValidationStorage{}
 	}
-	
+
 	return &ValidatedMessageInterceptor{
 		MessageInterceptor: baseInterceptor,
 		validationEngine:   engine,
@@ -58,11 +58,11 @@ func NewValidatedMessageInterceptor(storage Storage, config *DebugConfig) *Valid
 func (vmi *ValidatedMessageInterceptor) LogRequestWithValidation(method string, params interface{}) *validator.ValidationReport {
 	// First log normally
 	vmi.LogRequest(method, params)
-	
+
 	if !vmi.validationEngine.GetStats()["enabled"].(bool) {
 		return nil
 	}
-	
+
 	// Create message data for validation
 	messageData := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -70,7 +70,7 @@ func (vmi *ValidatedMessageInterceptor) LogRequestWithValidation(method string, 
 		"params":  params,
 		"id":      generateMessageID(),
 	}
-	
+
 	return vmi.validateMessage(messageData, "request")
 }
 
@@ -78,23 +78,23 @@ func (vmi *ValidatedMessageInterceptor) LogRequestWithValidation(method string, 
 func (vmi *ValidatedMessageInterceptor) LogResponseWithValidation(method string, result interface{}, errorMsg interface{}, performanceMS int64) *validator.ValidationReport {
 	// First log normally
 	vmi.LogResponse(method, result, errorMsg, performanceMS)
-	
+
 	if !vmi.validationEngine.GetStats()["enabled"].(bool) {
 		return nil
 	}
-	
+
 	// Create message data for validation
 	messageData := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      generateMessageID(),
 	}
-	
+
 	if errorMsg != nil {
 		messageData["error"] = errorMsg
 	} else {
 		messageData["result"] = result
 	}
-	
+
 	return vmi.validateMessage(messageData, "response")
 }
 
@@ -105,42 +105,42 @@ func (vmi *ValidatedMessageInterceptor) validateMessage(messageData map[string]i
 		log.Printf("Validation error: failed to marshal message: %v", err)
 		return nil
 	}
-	
+
 	// Run validation
 	messageID := generateMessageID()
 	context := map[string]string{
 		"session_id": vmi.GetSessionID(),
 		"direction":  msgType,
 	}
-	
+
 	report, err := vmi.validationEngine.ValidateMessage(
 		vmi.GetSessionID(),
 		messageID,
 		jsonData,
 		context,
 	)
-	
+
 	if err != nil {
 		log.Printf("Validation error: %v", err)
 		return nil
 	}
-	
+
 	// Store validation report
 	if err := vmi.validationStorage.StoreValidationReport(report); err != nil {
 		log.Printf("Failed to store validation report: %v", err)
 	}
-	
+
 	// Log validation results if debug level
 	if vmi.config.Level == "DEBUG" && len(report.Results) > 0 {
-		log.Printf("[VALIDATION] %s: %d issues, score: %.1f, valid: %v", 
+		log.Printf("[VALIDATION] %s: %d issues, score: %.1f, valid: %v",
 			msgType, len(report.Results), report.Score, report.IsValid)
-		
+
 		for _, result := range report.Results {
-			log.Printf("[VALIDATION] %s: %s - %s", 
+			log.Printf("[VALIDATION] %s: %s - %s",
 				result.Level.String(), result.ID, result.Message)
 		}
 	}
-	
+
 	return report
 }
 
@@ -170,19 +170,19 @@ func (fs *FileStorage) StoreValidationReport(report *validator.ValidationReport)
 	if !fs.enabled {
 		return nil
 	}
-	
+
 	// Serialize the report
 	reportJSON, err := json.Marshal(report)
 	if err != nil {
 		return err
 	}
-	
+
 	query := `
 	INSERT INTO validation_reports (
 		session_id, message_id, message_type, method, score, is_valid, 
 		results_json, processing_ms, timestamp
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	
+
 	_, err = fs.db.Exec(query,
 		report.SessionID,
 		report.MessageID,
@@ -194,7 +194,7 @@ func (fs *FileStorage) StoreValidationReport(report *validator.ValidationReport)
 		report.ProcessingMS,
 		report.Timestamp,
 	)
-	
+
 	return err
 }
 
@@ -202,34 +202,34 @@ func (fs *FileStorage) GetValidationReports(sessionID string, limit int) ([]*val
 	if limit <= 0 {
 		limit = 100
 	}
-	
+
 	query := `
 	SELECT results_json FROM validation_reports 
 	WHERE session_id = ? 
 	ORDER BY timestamp DESC 
 	LIMIT ?`
-	
+
 	rows, err := fs.db.Query(query, sessionID, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var reports []*validator.ValidationReport
 	for rows.Next() {
 		var reportJSON string
 		if err := rows.Scan(&reportJSON); err != nil {
 			continue
 		}
-		
+
 		var report validator.ValidationReport
 		if err := json.Unmarshal([]byte(reportJSON), &report); err != nil {
 			continue
 		}
-		
+
 		reports = append(reports, &report)
 	}
-	
+
 	return reports, nil
 }
 
@@ -237,72 +237,21 @@ func (fs *FileStorage) GetValidationStats() (map[string]interface{}, error) {
 	stats := map[string]interface{}{
 		"validation_enabled": true,
 	}
-	
+
 	// Total validation reports
 	var totalReports int64
 	fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports").Scan(&totalReports)
 	stats["total_reports"] = totalReports
-	
+
 	// Average score
 	var avgScore float64
 	fs.db.QueryRow("SELECT AVG(score) FROM validation_reports").Scan(&avgScore)
 	stats["average_score"] = avgScore
-	
+
 	// Validity rate
 	var validCount int64
 	fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports WHERE is_valid = 1").Scan(&validCount)
 	stats["validity_rate"] = float64(validCount) / float64(totalReports) * 100.0
-	
+
 	return stats, nil
-}
-
-// Update createTables to include validation_reports table
-func (fs *FileStorage) createTablesWithValidation() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS conversations (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		session_id TEXT NOT NULL,
-		timestamp DATETIME NOT NULL,
-		direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
-		method TEXT,
-		params TEXT,
-		result TEXT,
-		error TEXT,
-		performance_ms INTEGER DEFAULT 0,
-		size_bytes INTEGER DEFAULT 0
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id);
-	CREATE INDEX IF NOT EXISTS idx_conversations_timestamp ON conversations(timestamp);
-	CREATE INDEX IF NOT EXISTS idx_conversations_method ON conversations(method);
-	
-	CREATE TABLE IF NOT EXISTS sessions (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		session_id TEXT UNIQUE NOT NULL,
-		start_time DATETIME NOT NULL,
-		end_time DATETIME,
-		total_messages INTEGER DEFAULT 0,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS validation_reports (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		session_id TEXT NOT NULL,
-		message_id TEXT NOT NULL,
-		message_type TEXT NOT NULL,
-		method TEXT,
-		score REAL NOT NULL,
-		is_valid BOOLEAN NOT NULL,
-		results_json TEXT NOT NULL,
-		processing_ms INTEGER DEFAULT 0,
-		timestamp DATETIME NOT NULL
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_validation_session ON validation_reports(session_id);
-	CREATE INDEX IF NOT EXISTS idx_validation_timestamp ON validation_reports(timestamp);
-	CREATE INDEX IF NOT EXISTS idx_validation_score ON validation_reports(score);
-	CREATE INDEX IF NOT EXISTS idx_validation_valid ON validation_reports(is_valid);`
-
-	_, err := fs.db.Exec(query)
-	return err
 }

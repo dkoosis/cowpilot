@@ -12,24 +12,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// ConversationRecord represents a single MCP message in the conversation log
-type ConversationRecord struct {
-	ID            int64     `json:"id"`
-	SessionID     string    `json:"session_id"`
-	Timestamp     time.Time `json:"timestamp"`
-	Direction     string    `json:"direction"` // "inbound" or "outbound"
-	Method        string    `json:"method"`
-	Params        string    `json:"params"`        // JSON string
-	Result        string    `json:"result"`        // JSON string  
-	Error         string    `json:"error"`         // JSON string
-	PerformanceMS int64     `json:"performance_ms"`
-}
-
 // ConversationStorage handles SQLite database operations for conversation logging
 type ConversationStorage struct {
-	db       *sql.DB
-	dbPath   string
-	enabled  bool
+	db      *sql.DB
+	dbPath  string
+	enabled bool
 }
 
 // NewConversationStorage creates a new conversation storage instance

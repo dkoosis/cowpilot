@@ -73,9 +73,9 @@ type ConversationRecord struct {
 	Timestamp     time.Time `json:"timestamp"`
 	Direction     string    `json:"direction"` // "inbound" or "outbound"
 	Method        string    `json:"method"`
-	Params        string    `json:"params"`        // JSON string
-	Result        string    `json:"result"`        // JSON string  
-	Error         string    `json:"error"`         // JSON string
+	Params        string    `json:"params"` // JSON string
+	Result        string    `json:"result"` // JSON string
+	Error         string    `json:"error"`  // JSON string
 	PerformanceMS int64     `json:"performance_ms"`
 }
 
@@ -174,6 +174,25 @@ func NewFileStorage(config *DebugConfig) (*FileStorage, error) {
 	return storage, nil
 }
 
+// createTablesWithValidation creates database tables and validates they exist correctly.
+func (fs *FileStorage) createTablesWithValidation() error {
+	if err := fs.createTables(); err != nil {
+		return fmt.Errorf("failed to create tables: %w", err)
+	}
+
+	// Validate tables exist
+	var count int
+	err := fs.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('conversations', 'sessions')").Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to validate tables: %w", err)
+	}
+	if count != 2 {
+		return fmt.Errorf("expected 2 tables but found %d", count)
+	}
+
+	return nil
+}
+
 func (fs *FileStorage) createTables() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS conversations (
@@ -251,7 +270,6 @@ func (fs *FileStorage) enforceStorageLimits() error {
 
 	// If over limit, delete oldest records
 	if totalSize > fs.maxBytes {
-		deleteTarget := totalSize - (fs.maxBytes * 80 / 100) // Delete to 80% of limit
 		_, err = fs.db.Exec(`
 			DELETE FROM conversations 
 			WHERE id IN (
@@ -413,14 +431,14 @@ func NewStorage(config *DebugConfig) (Storage, error) {
 // StartDebugSystem initializes debug system based on runtime configuration
 func StartDebugSystem() (Storage, *DebugConfig, error) {
 	config := LoadDebugConfig()
-	
+
 	if !config.Enabled {
 		log.Println("Debug system disabled")
 		return &NoOpStorage{}, config, nil
 	}
 
 	log.Printf("Starting MCP Debug System (storage: %s, level: %s)", config.StorageType, config.Level)
-	
+
 	storage, err := NewStorage(config)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize storage: %w", err)
@@ -431,7 +449,7 @@ func StartDebugSystem() (Storage, *DebugConfig, error) {
 		go func() {
 			ticker := time.NewTicker(time.Hour)
 			defer ticker.Stop()
-			
+
 			for range ticker.C {
 				maxAge := time.Duration(config.RetentionH) * time.Hour
 				if err := storage.CleanupOldRecords(maxAge); err != nil {

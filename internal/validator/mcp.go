@@ -119,7 +119,7 @@ func (v *MCPValidator) validateResourcesRead(message *MCPMessage, report *Valida
 
 func (v *MCPValidator) validateResourceURI(uri string, report *ValidationReport) {
 	if !strings.Contains(uri, "://") {
-		report.AddWarning("resource_uri_no_scheme", 
+		report.AddWarning("resource_uri_no_scheme",
 			"Resource URI should include a scheme (e.g., file://, http://, custom://)",
 			map[string]string{"uri": uri})
 	}
@@ -169,8 +169,8 @@ func (v *MCPValidator) validatePromptArguments(arguments interface{}, report *Va
 	// Arguments must be an object (map)
 	argsMap, ok := arguments.(map[string]interface{})
 	if !ok {
-		report.AddCritical("prompts_invalid_arguments_type", 
-			"Prompt arguments must be an object/map", 
+		report.AddCritical("prompts_invalid_arguments_type",
+			"Prompt arguments must be an object/map",
 			map[string]string{"actual_type": fmt.Sprintf("%T", arguments)})
 		return
 	}
@@ -253,7 +253,7 @@ func (v *MCPValidator) validateInitialize(message *MCPMessage, report *Validatio
 func (v *MCPValidator) validateProtocolVersion(version string, report *ValidationReport) {
 	// Check for semantic versioning format
 	if !strings.Contains(version, ".") {
-		report.AddWarning("protocol_version_format", 
+		report.AddWarning("protocol_version_format",
 			"Protocol version should follow semantic versioning (e.g., '2024-11-05')",
 			map[string]string{"version": version})
 	}
@@ -261,7 +261,7 @@ func (v *MCPValidator) validateProtocolVersion(version string, report *Validatio
 
 func (v *MCPValidator) validateCapabilities(capabilities map[string]interface{}, report *ValidationReport) {
 	knownCapabilities := []string{"roots", "sampling", "tools", "resources", "prompts", "logging"}
-	
+
 	for capability := range capabilities {
 		found := false
 		for _, known := range knownCapabilities {

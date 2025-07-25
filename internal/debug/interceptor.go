@@ -61,7 +61,7 @@ func (mi *MessageInterceptor) LogResponse(method string, result interface{}, err
 	}
 
 	if mi.config.Level == "DEBUG" {
-		log.Printf("[DEBUG] Outbound: %s | Session: %s | Performance: %dms | Duration: %v", 
+		log.Printf("[DEBUG] Outbound: %s | Session: %s | Performance: %dms | Duration: %v",
 			method, mi.sessionID, performanceMS, time.Since(start))
 	}
 }
@@ -86,7 +86,7 @@ type MCPDebugProxy struct {
 // NewMCPDebugProxy creates a new debug proxy
 func NewMCPDebugProxy(storage Storage, config *DebugConfig) *MCPDebugProxy {
 	interceptor := NewMessageInterceptor(storage, config)
-	
+
 	return &MCPDebugProxy{
 		interceptor: interceptor,
 		storage:     storage,
@@ -104,7 +104,7 @@ func DebugMiddleware(storage Storage, config *DebugConfig) func(http.Handler) ht
 			}
 
 			interceptor := NewMessageInterceptor(storage, config)
-			
+
 			// Log the HTTP request
 			interceptor.LogRequest("http_request", map[string]interface{}{
 				"method":      r.Method,
@@ -145,7 +145,7 @@ func (w *debugResponseWriter) Write(data []byte) (int, error) {
 	}
 
 	duration := time.Since(w.start)
-	
+
 	// Log the response
 	w.interceptor.LogResponse("http_response", map[string]interface{}{
 		"status":        w.status,

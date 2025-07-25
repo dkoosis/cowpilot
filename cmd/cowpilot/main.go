@@ -598,14 +598,14 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 
 	// Create SSE server and get its handler
 	sseServer := server.NewSSEServer(mcpServer)
-	
+
 	// Conditionally add debug middleware for HTTP requests
 	var handler http.Handler = sseServer
 	if debugConfig.Enabled {
 		log.Printf("Debug middleware enabled for HTTP server")
 		handler = debug.DebugMiddleware(debugStorage, debugConfig)(sseServer)
 	}
-	
+
 	mux.Handle("/", handler)
 
 	srv := &http.Server{

@@ -31,7 +31,7 @@ func (v *JSONRPCValidator) Validate(message *MCPMessage, context map[string]stri
 
 	// 1. Check JSON-RPC version
 	if !IsValidJSONRPCVersion(message.JSONRPCVersion) {
-		report.AddCritical("jsonrpc_invalid_version", 
+		report.AddCritical("jsonrpc_invalid_version",
 			fmt.Sprintf("Invalid JSON-RPC version: %s (must be '2.0')", message.JSONRPCVersion),
 			map[string]string{
 				"expected": "2.0",
@@ -61,7 +61,7 @@ func (v *JSONRPCValidator) validateRequest(message *MCPMessage, report *Validati
 	if message.Method == "" {
 		report.AddError("jsonrpc_missing_method", "Method field is required for requests", nil)
 	} else if !IsValidMCPMethod(message.Method) {
-		report.AddError("jsonrpc_invalid_method", 
+		report.AddError("jsonrpc_invalid_method",
 			fmt.Sprintf("Invalid method name: %s", message.Method),
 			map[string]string{"method": message.Method})
 	}

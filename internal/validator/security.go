@@ -8,10 +8,10 @@ import (
 
 // SecurityValidator detects security issues in MCP messages
 type SecurityValidator struct {
-	sqlInjectionPatterns    []*regexp.Regexp
+	sqlInjectionPatterns     []*regexp.Regexp
 	commandInjectionPatterns []*regexp.Regexp
-	pathTraversalPatterns   []*regexp.Regexp
-	xssPatterns            []*regexp.Regexp
+	pathTraversalPatterns    []*regexp.Regexp
+	xssPatterns              []*regexp.Regexp
 }
 
 // NewSecurityValidator creates a new security validator
@@ -19,16 +19,16 @@ func NewSecurityValidator() *SecurityValidator {
 	return &SecurityValidator{
 		sqlInjectionPatterns: []*regexp.Regexp{
 			regexp.MustCompile(`(?i)(union\s+select|drop\s+table|delete\s+from|insert\s+into|update\s+set)`),
-			regexp.MustCompile(`(?i)(\'\s*or\s*\'\s*=\s*\'|\'\s*or\s*1\s*=\s*1|--\s*|\/\*|\*\/)`),
+			regexp.MustCompile(`(?i)('\s*or\s*'\s*=\s*'|'\s*or\s*1\s*=\s*1|--\s*|/\*|\*/)`),
 			regexp.MustCompile(`(?i)(exec\s*\(|execute\s*\(|sp_executesql)`),
 		},
 		commandInjectionPatterns: []*regexp.Regexp{
-			regexp.MustCompile(`(;|\||&&|\$\(|\`)`),
+			regexp.MustCompile(`(;|\||&&|\$\(|` + "`" + `)`),
 			regexp.MustCompile(`(?i)(rm\s+-rf|sudo|curl\s+|wget\s+|nc\s+|netcat)`),
 			regexp.MustCompile(`(>\s*/dev/null|2>&1|</dev/null)`),
 		},
 		pathTraversalPatterns: []*regexp.Regexp{
-			regexp.MustCompile(`(\.\.\/|\.\.\\|\.\.\%2f|\.\.\%5c)`),
+			regexp.MustCompile(`(\.\./|\.\\\\|\.\.%2f|\.\.%5c)`),
 			regexp.MustCompile(`(%2e%2e%2f|%2e%2e%5c|%252e%252e%252f)`),
 		},
 		xssPatterns: []*regexp.Regexp{
@@ -195,7 +195,7 @@ func (v *SecurityValidator) validateToolCallSecurity(message *MCPMessage, report
 
 func (v *SecurityValidator) validateToolArguments(args map[string]interface{}, report *ValidationReport) {
 	suspiciousArgs := []string{"command", "cmd", "exec", "eval", "system", "shell", "script"}
-	
+
 	for argName := range args {
 		for _, suspicious := range suspiciousArgs {
 			if strings.ToLower(argName) == suspicious {
@@ -269,9 +269,9 @@ func (v *SecurityValidator) checkContext(context map[string]string, report *Vali
 
 	// Check for suspicious context values
 	for key, value := range context {
-		if strings.Contains(strings.ToLower(key), "password") || 
-		   strings.Contains(strings.ToLower(key), "token") ||
-		   strings.Contains(strings.ToLower(key), "secret") {
+		if strings.Contains(strings.ToLower(key), "password") ||
+			strings.Contains(strings.ToLower(key), "token") ||
+			strings.Contains(strings.ToLower(key), "secret") {
 			report.AddCritical("security_sensitive_context",
 				fmt.Sprintf("Context contains potentially sensitive key: %s", key),
 				map[string]string{"context_key": key})
