@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -166,7 +167,7 @@ func NewFileStorage(config *DebugConfig) (*FileStorage, error) {
 		maxBytes: int64(config.MaxFileMB) * 1024 * 1024,
 	}
 
-	if err := storage.createTables(); err != nil {
+	if err := storage.createTablesWithValidation(); err != nil {
 		return nil, fmt.Errorf("failed to create tables: %w", err)
 	}
 

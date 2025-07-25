@@ -15,6 +15,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/vcto/cowpilot/internal/debug"
 )
 
 // Version information
@@ -27,6 +28,14 @@ const (
 const tinyImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 
 func main() {
+	// Initialize debug system (zero cost when disabled)
+	debugStorage, debugConfig, err := debug.StartDebugSystem()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize debug system: %v", err)
+		debugStorage = &debug.NoOpStorage{}
+	}
+	defer debugStorage.Close()
+
 	// Create MCP server
 	s := server.NewMCPServer(
 		serverName,
@@ -48,9 +57,12 @@ func main() {
 	// Check if we're running on Fly.io or locally
 	if os.Getenv("FLY_APP_NAME") != "" {
 		// Run HTTP server for Fly.io
-		runHTTPServer(s)
+		runHTTPServer(s, debugStorage, debugConfig)
 	} else {
 		// Run stdio server for local development
+		if debugConfig.Enabled {
+			log.Printf("Debug mode enabled for stdio server (session logging active)")
+		}
 		if err := server.ServeStdio(s); err != nil {
 			log.Fatalf("Server error: %v\n", err)
 		}
@@ -575,7 +587,7 @@ func getNumber(args map[string]any, key string) (float64, bool) {
 	return 0, false
 }
 
-func runHTTPServer(mcpServer *server.MCPServer) {
+func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -586,7 +598,15 @@ func runHTTPServer(mcpServer *server.MCPServer) {
 
 	// Create SSE server and get its handler
 	sseServer := server.NewSSEServer(mcpServer)
-	mux.Handle("/", sseServer)
+	
+	// Conditionally add debug middleware for HTTP requests
+	var handler http.Handler = sseServer
+	if debugConfig.Enabled {
+		log.Printf("Debug middleware enabled for HTTP server")
+		handler = debug.DebugMiddleware(debugStorage, debugConfig)(sseServer)
+	}
+	
+	mux.Handle("/", handler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
