@@ -100,28 +100,6 @@ func TestMCPServerHealth(t *testing.T) {
 	t.Logf("Server health check passed (status: %s)", statusCode)
 }
 
-// TestLocalServer runs E2E tests against a local server if available
-func TestLocalServer(t *testing.T) {
-	// Skip if we're in CI or if MCP_SERVER_URL is already set
-	if os.Getenv("CI") != "" || os.Getenv("MCP_SERVER_URL") != "" {
-		t.Skip("Skipping local server test in CI or when MCP_SERVER_URL is set")
-		return
-	}
-
-	// Check if local server is running
-	cmd := exec.Command("curl", "-s", "-f", "http://localhost:8080/health")
-	if err := cmd.Run(); err != nil {
-		t.Skip("Local server not running on port 8080, skipping local tests")
-		return
-	}
-
-	// Set environment variable and run tests
-	_ = os.Setenv("MCP_SERVER_URL", "http://localhost:8080/")
-	defer func() { _ = os.Unsetenv("MCP_SERVER_URL") }()
-
-	t.Run("LocalProtocolCompliance", TestMCPProtocolCompliance)
-}
-
 // Example of how to run these tests:
 //
 // 1. Against production:

@@ -25,8 +25,11 @@ GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
 .PHONY: all build build-debug debug-proxy run-debug-proxy test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
 
-# Clean, format, lint, run verbose tests, and build
-all: clean fmt vet lint test-verbose scenario-test-local build
+# Clean, format, lint, and run ALL tests
+all: clean fmt vet lint test
+
+# Run ALL tests (unit, integration, and scenario)
+test: unit-test integration-test scenario-test-local
 
 # Build the application
 build:
@@ -202,9 +205,9 @@ dev:
 	@which air > /dev/null || (echo "air not found. Install with: go install github.com/air-verse/air@latest" && exit 1)
 	air
 
-# Deploy to Fly.io
-deploy: test build
-	@echo "Deploying to Fly.io..."
+# Deploy to Fly.io (runs tests first)
+deploy: test
+	@echo "All tests passed. Deploying to Fly.io..."
 	fly deploy
 
 # CI-specific test with junit output
