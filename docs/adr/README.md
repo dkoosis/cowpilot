@@ -226,4 +226,28 @@ Added curl+jq tests for protocol-level validation.
 
 ---
 
+---
+
+## ADR-013: StreamableHTTP Transport over Deprecated SSE
+**Date**: 2025-07-25  
+**Status**: Implemented
+
+### Context
+Tests failed with "Arguments cannot be passed to a URL-based MCP server". Investigation revealed SSE transport was deprecated in MCP spec (2024-11-05).
+
+### Decision
+Use StreamableHTTPServer instead of SSEServer.
+
+### Consequences
+- ✅ Modern protocol compliance
+- ✅ Works with MCP inspector tool
+- ✅ Single endpoint for JSON/SSE
+- ❌ Breaking change for SSE clients
+- ❌ Confusion in documentation
+
+### Dead End Avoided
+Using deprecated transport that modern tools don't support.
+
+---
+
 *This document preserves institutional knowledge to prevent repeating mistakes.*

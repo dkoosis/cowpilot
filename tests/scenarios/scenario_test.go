@@ -399,6 +399,10 @@ func testGetTimeTool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to call get_time with unix format: %v", err)
 	}
+	// Unix format should be a number
+	if !strings.ContainsAny(output, "0123456789") {
+		t.Error("Expected unix timestamp (numeric) in output")
+	}
 }
 
 func testBase64EncodeTool(t *testing.T) {
@@ -771,7 +775,6 @@ func testMissingPromptArguments(t *testing.T) {
 // Pagination Tests
 
 func testToolsPagination(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
 
 	// Request with small limit
 	request := map[string]interface{}{
@@ -794,7 +797,6 @@ func testToolsPagination(t *testing.T) {
 }
 
 func testResourcesPagination(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
 
 	request := map[string]interface{}{
 		"cursor": nil,

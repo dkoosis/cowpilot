@@ -600,14 +600,14 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
 
-	// Create SSE server and get its handler
-	sseServer := server.NewSSEServer(mcpServer)
+	// Create StreamableHTTP server (supports both JSON and SSE responses)
+	streamableServer := server.NewStreamableHTTPServer(mcpServer)
 
 	// Conditionally add debug middleware for HTTP requests
-	var handler http.Handler = sseServer
+	var handler http.Handler = streamableServer
 	if debugConfig.Enabled {
 		log.Printf("Debug middleware enabled for HTTP server")
-		handler = debug.DebugMiddleware(debugStorage, debugConfig)(sseServer)
+		handler = debug.DebugMiddleware(debugStorage, debugConfig)(streamableServer)
 	}
 
 	mux.Handle("/", handler)

@@ -80,7 +80,7 @@
   PROGRESS: ∅not_implemented[λno_api]
 
 φMAIN: /Users/vcto/Projects/cowpilot/cmd/cowpilot/main.go
-  ✓HTTP_MODE: os.Getenv("FLY_APP_NAME")→SSEServer:8080|ServeStdio
+  ✓HTTP_MODE: os.Getenv("FLY_APP_NAME")→StreamableHTTPServer:8080|ServeStdio
   PATTERN_TOOL: s.AddTool(mcp.NewTool(name,opts...),handler)
   PATTERN_MULTI: &mcp.CallToolResult{Content:[]interface{}{TextContent{},ImageContent{}}}
   PATTERN_ERROR: mcp.NewToolResultError(msg),nil

@@ -56,7 +56,7 @@ These exist but are superseded by Makefile targets:
 
 **Prompts (2)**: simple_greeting, code_review (with arguments)
 
-**Transport**: Dual mode - stdio (local) + HTTP/SSE (production)
+**Transport**: Dual mode - stdio (local) + StreamableHTTP (production) - [See ADR-013](docs/adr/013-mcp-transport-selection.md)
 
 ## Development
 
@@ -85,7 +85,7 @@ fly deploy
 
 - **Library**: `github.com/mark3labs/mcp-go` (native support)
 - **Protocol**: MCP v2025-03-26 over JSON-RPC 2.0
-- **Transport**: Server-Sent Events (SSE) for HTTP mode
+- **Transport**: StreamableHTTP (supports both JSON and SSE responses) - [See ADR-013](docs/adr/013-mcp-transport-selection.md)
 - **Deployment**: Fly.io with auto-scaling
 
 ## Documentation Directory 📚
@@ -122,6 +122,7 @@ fly deploy
 - **[ADR-010: MCP Debug System Architecture](docs/adr/010-mcp-debug-system-architecture.md)** - Debug system architecture (NEW)
 - **[ADR-011: Conditional Compilation for Lightweight Debug System](docs/adr/011-conditional-compilation-lightweight-debug.md)** - Lightweight debug strategy (SUPERSEDED)
 - **[ADR-012: Runtime Debug Configuration](docs/adr/012-runtime-debug-configuration.md)** - Runtime debug approach (NEW)
+- **[ADR-013: MCP Transport Selection](docs/adr/013-mcp-transport-selection.md)** - StreamableHTTP over SSE decision (NEW)
 - [ADR Template](docs/adr/adr-template.md) - Template for new ADRs
 
 ### 📝 Development Sessions & History
