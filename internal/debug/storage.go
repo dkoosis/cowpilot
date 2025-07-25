@@ -161,7 +161,11 @@ func (cs *ConversationStorage) GetConversation(sessionID string) ([]Conversation
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var records []ConversationRecord
 	for rows.Next() {
@@ -202,7 +206,11 @@ func (cs *ConversationStorage) GetRecentSessions(limit int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var sessions []string
 	for rows.Next() {
@@ -233,7 +241,11 @@ func (cs *ConversationStorage) GetMessagesByMethod(method string, limit int) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var records []ConversationRecord
 	for rows.Next() {
@@ -288,7 +300,11 @@ func (cs *ConversationStorage) GetStats() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer methodRows.Close()
+	defer func() {
+		if err := methodRows.Close(); err != nil {
+			log.Printf("Failed to close methodRows: %v", err)
+		}
+	}()
 
 	methodCounts := make(map[string]int64)
 	for methodRows.Next() {

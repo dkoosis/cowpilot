@@ -59,7 +59,7 @@ func (v *MCPValidator) Validate(message *MCPMessage, context map[string]string) 
 // Tools validation
 func (v *MCPValidator) validateToolsList(message *MCPMessage, report *ValidationReport) {
 	// tools/list should have no required parameters
-	if message.Params != nil && len(message.Params) > 0 {
+	if len(message.Params) > 0 {
 		report.AddWarning("tools_list_unexpected_params",
 			"tools/list typically doesn't require parameters",
 			map[string]string{"param_count": fmt.Sprintf("%d", len(message.Params))})
@@ -294,7 +294,7 @@ func (v *MCPValidator) validateClientInfo(clientInfo map[string]interface{}, rep
 
 func (v *MCPValidator) validatePing(message *MCPMessage, report *ValidationReport) {
 	// ping should have no parameters or empty parameters
-	if message.Params != nil && len(message.Params) > 0 {
+	if len(message.Params) > 0 {
 		report.AddWarning("ping_unexpected_params", "ping method typically has no parameters", nil)
 	}
 }

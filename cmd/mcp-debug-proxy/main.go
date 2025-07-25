@@ -48,7 +48,9 @@ func main() {
 	}
 	defer func() {
 		if storage != nil {
-			storage.Close()
+			if err := storage.Close(); err != nil {
+				log.Printf("Failed to close storage: %v", err)
+			}
 		}
 	}()
 
@@ -60,7 +62,9 @@ func main() {
 	defer func() {
 		log.Println("Stopping target server...")
 		if targetCmd != nil && targetCmd.Process != nil {
-			targetCmd.Process.Kill()
+			if err := targetCmd.Process.Kill(); err != nil {
+				log.Printf("Failed to kill target process: %v", err)
+			}
 		}
 	}()
 
@@ -207,12 +211,16 @@ func isServerReady(port int) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
 	return resp.StatusCode == http.StatusOK
 }
 
 // createProxy creates the HTTP proxy with debug middleware
-func createProxy(config *ProxyConfig, storage *debug.ConversationStorage) http.Handler {
+func createProxy(config *ProxyConfig, storage debug.Storage, debugConfig *debug.DebugConfig) http.Handler {
 	// Create target URL
 	targetURL := &url.URL{
 		Scheme: "http",
@@ -238,7 +246,7 @@ func createProxy(config *ProxyConfig, storage *debug.ConversationStorage) http.H
 	}
 
 	// Wrap with debug middleware
-	debugMiddleware := debug.DebugMiddleware(storage)
+	debugMiddleware := debug.DebugMiddleware(storage, debugConfig)
 	handler := debugMiddleware(proxy)
 
 	// Add health check endpoint for the proxy itself
@@ -246,7 +254,9 @@ func createProxy(config *ProxyConfig, storage *debug.ConversationStorage) http.H
 	mux.Handle("/", handler)
 	mux.HandleFunc("/debug/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"ok","proxy":"running","target":"http://localhost:%d"}`, config.TargetPort)
+		if _, err := fmt.Fprintf(w, `{"status":"ok","proxy":"running","target":"http://localhost:%d"}`, config.TargetPort); err != nil {
+			log.Printf("Failed to write health response: %v", err)
+		}
 	})
 
 	// Add debug stats endpoint
@@ -258,7 +268,9 @@ func createProxy(config *ProxyConfig, storage *debug.ConversationStorage) http.H
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, "%+v", stats)
+			if _, err := fmt.Fprintf(w, "%+v", stats); err != nil {
+				log.Printf("Failed to write stats: %v", err)
+			}
 		})
 
 		mux.HandleFunc("/debug/sessions", func(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +280,9 @@ func createProxy(config *ProxyConfig, storage *debug.ConversationStorage) http.H
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, "%+v", sessions)
+			if _, err := fmt.Fprintf(w, "%+v", sessions); err != nil {
+				log.Printf("Failed to write sessions: %v", err)
+			}
 		})
 	}
 
@@ -287,7 +301,9 @@ func (pw *prefixWriter) Write(data []byte) (int, error) {
 		if i == len(lines)-1 && line == "" {
 			continue
 		}
-		pw.writer.WriteString(pw.prefix + line + "\n")
+		if _, err := pw.writer.WriteString(pw.prefix + line + "\n"); err != nil {
+			log.Printf("Failed to write prefixed line: %v", err)
+		}
 	}
 	return len(data), nil
 }

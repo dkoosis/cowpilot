@@ -34,7 +34,11 @@ func main() {
 		log.Printf("Warning: Failed to initialize debug system: %v", err)
 		debugStorage = &debug.NoOpStorage{}
 	}
-	defer debugStorage.Close()
+	defer func() {
+		if err := debugStorage.Close(); err != nil {
+			log.Printf("Failed to close debug storage: %v", err)
+		}
+	}()
 
 	// Create MCP server
 	s := server.NewMCPServer(

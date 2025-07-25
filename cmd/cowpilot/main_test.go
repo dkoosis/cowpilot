@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -23,14 +22,9 @@ func TestEchoTool(t *testing.T) {
 			Name:     "BasicEcho",
 			Behavior: "Echo tool prefixes message with 'Echo: ' and preserves content",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "echo",
-						Arguments: map[string]any{
-							"message": "Hello, World!",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("echo", map[string]interface{}{
+					"message": "Hello, World!",
+				})
 				result, err := echoHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Echo tool executes without errors")
 				testutil.AssertContains(t, result.Content[0].(mcp.TextContent).Text, "Echo: Hello, World!",
@@ -41,14 +35,9 @@ func TestEchoTool(t *testing.T) {
 			Name:     "EmptyMessage",
 			Behavior: "Echo tool handles empty messages gracefully",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "echo",
-						Arguments: map[string]any{
-							"message": "",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("echo", map[string]interface{}{
+					"message": "",
+				})
 				result, err := echoHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Echo tool handles empty input without errors")
 				testutil.AssertEqual(t, "Echo: ", result.Content[0].(mcp.TextContent).Text,
@@ -59,14 +48,9 @@ func TestEchoTool(t *testing.T) {
 			Name:     "SpecialCharacters",
 			Behavior: "Echo tool preserves special characters and formatting",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "echo",
-						Arguments: map[string]any{
-							"message": "Test with 特殊文字 and emojis 🎉",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("echo", map[string]interface{}{
+					"message": "Test with 特殊文字 and emojis 🎉",
+				})
 				result, err := echoHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Echo tool handles special characters")
 				text := result.Content[0].(mcp.TextContent).Text
@@ -93,15 +77,10 @@ func TestMathTools(t *testing.T) {
 			Name:     "Addition",
 			Behavior: "Add tool performs accurate addition",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "add",
-						Arguments: map[string]any{
-							"a": 5.0,
-							"b": 3.0,
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("add", map[string]interface{}{
+					"a": 5.0,
+					"b": 3.0,
+				})
 				result, err := addHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Add tool executes without errors")
 				testutil.AssertContains(t, result.Content[0].(mcp.TextContent).Text, "8.00",
@@ -112,15 +91,10 @@ func TestMathTools(t *testing.T) {
 			Name:     "NegativeNumbers",
 			Behavior: "Add tool handles negative numbers correctly",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "add",
-						Arguments: map[string]any{
-							"a": -10.0,
-							"b": 5.0,
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("add", map[string]interface{}{
+					"a": -10.0,
+					"b": 5.0,
+				})
 				result, err := addHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Add tool handles negative numbers")
 				testutil.AssertContains(t, result.Content[0].(mcp.TextContent).Text, "-5.00",
@@ -144,14 +118,9 @@ func TestBase64Tools(t *testing.T) {
 			Name:     "Encoding",
 			Behavior: "Base64 encode produces valid base64 output",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "base64_encode",
-						Arguments: map[string]any{
-							"text": "Hello, World!",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("base64_encode", map[string]interface{}{
+					"text": "Hello, World!",
+				})
 				result, err := base64EncodeHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Base64 encode executes without errors")
 				expected := base64.StdEncoding.EncodeToString([]byte("Hello, World!"))
@@ -163,14 +132,9 @@ func TestBase64Tools(t *testing.T) {
 			Name:     "InvalidDecode",
 			Behavior: "Base64 decode handles invalid input gracefully",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "base64_decode",
-						Arguments: map[string]any{
-							"data": "not-valid-base64!!!",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("base64_decode", map[string]interface{}{
+					"data": "not-valid-base64!!!",
+				})
 				result, err := base64DecodeHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Handler returns result even with invalid input")
 				testutil.AssertContains(t, result.Content[0].(mcp.TextContent).Text, "Failed to decode",
@@ -194,15 +158,10 @@ func TestStringOperations(t *testing.T) {
 			Name:     "Uppercase",
 			Behavior: "String operation converts to uppercase correctly",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "string_operation",
-						Arguments: map[string]any{
-							"text":      "Hello World",
-							"operation": "upper",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("string_operation", map[string]interface{}{
+					"text":      "Hello World",
+					"operation": "upper",
+				})
 				result, err := stringOperationHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "String operation executes without errors")
 				testutil.AssertEqual(t, "HELLO WORLD", result.Content[0].(mcp.TextContent).Text,
@@ -213,15 +172,10 @@ func TestStringOperations(t *testing.T) {
 			Name:     "Length",
 			Behavior: "String operation counts characters accurately",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "string_operation",
-						Arguments: map[string]any{
-							"text":      "Hello",
-							"operation": "length",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("string_operation", map[string]interface{}{
+					"text":      "Hello",
+					"operation": "length",
+				})
 				result, err := stringOperationHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "String length operation executes")
 				testutil.AssertContains(t, result.Content[0].(mcp.TextContent).Text, "5 characters",
@@ -245,14 +199,9 @@ func TestTimeTool(t *testing.T) {
 			Name:     "UnixFormat",
 			Behavior: "Time tool returns valid Unix timestamp",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "get_time",
-						Arguments: map[string]any{
-							"format": "unix",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("get_time", map[string]interface{}{
+					"format": "unix",
+				})
 				result, err := timeHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Time tool executes without errors")
 				// Unix timestamp should be a number
@@ -265,14 +214,9 @@ func TestTimeTool(t *testing.T) {
 			Name:     "ISOFormat",
 			Behavior: "Time tool returns valid ISO 8601 formatted date",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "get_time",
-						Arguments: map[string]any{
-							"format": "iso",
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("get_time", map[string]interface{}{
+					"format": "iso",
+				})
 				result, err := timeHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Time tool executes without errors")
 				text := result.Content[0].(mcp.TextContent).Text
@@ -294,12 +238,7 @@ func TestMultiContentResponse(t *testing.T) {
 	s := server.NewMCPServer("test", "1.0.0")
 	setupTools(s)
 
-	req := mcp.CallToolRequest{
-		Params: mcp.CallToolRequestParams{
-			Name:      "get_test_image",
-			Arguments: map[string]any{},
-		},
-	}
+	req := testutil.NewCallToolRequest("get_test_image", map[string]interface{}{})
 
 	testutil.When(t, "calling get_test_image tool")
 	result, err := getTestImageHandler(context.Background(), req)
@@ -342,15 +281,10 @@ func TestJSONFormatter(t *testing.T) {
 			Name:     "PrettifyJSON",
 			Behavior: "JSON formatter adds proper indentation",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "format_json",
-						Arguments: map[string]any{
-							"json":   `{"name":"test","value":123}`,
-							"minify": false,
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("format_json", map[string]interface{}{
+					"json":   `{"name":"test","value":123}`,
+					"minify": false,
+				})
 				result, err := jsonFormatterHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "JSON formatter executes without errors")
 				text := result.Content[0].(mcp.TextContent).Text
@@ -364,14 +298,9 @@ func TestJSONFormatter(t *testing.T) {
 			Name:     "InvalidJSON",
 			Behavior: "JSON formatter reports errors for malformed JSON",
 			Test: func(t *testing.T) {
-				req := mcp.CallToolRequest{
-					Params: mcp.CallToolRequestParams{
-						Name: "format_json",
-						Arguments: map[string]any{
-							"json": `{"broken": json}`,
-						},
-					},
-				}
+				req := testutil.NewCallToolRequest("format_json", map[string]interface{}{
+					"json": `{"broken": json}`,
+				})
 				result, err := jsonFormatterHandler(context.Background(), req)
 				testutil.AssertNoError(t, err, "Handler returns result for invalid JSON")
 				text := result.Content[0].(mcp.TextContent).Text
@@ -391,14 +320,9 @@ func TestResourceEmbedding(t *testing.T) {
 	s := server.NewMCPServer("test", "1.0.0")
 	setupTools(s)
 
-	req := mcp.CallToolRequest{
-		Params: mcp.CallToolRequestParams{
-			Name: "get_resource_content",
-			Arguments: map[string]any{
-				"uri": "example://text/hello",
-			},
-		},
-	}
+	req := testutil.NewCallToolRequest("get_resource_content", map[string]interface{}{
+		"uri": "example://text/hello",
+	})
 
 	testutil.When(t, "requesting embedded text resource")
 	result, err := getResourceContentHandler(context.Background(), req)

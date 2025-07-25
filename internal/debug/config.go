@@ -294,7 +294,9 @@ func (fs *FileStorage) updateSessionCount(sessionID string) {
 		total_messages = total_messages + 1,
 		end_time = CURRENT_TIMESTAMP`
 
-	fs.db.Exec(query, sessionID, time.Now())
+	if _, err := fs.db.Exec(query, sessionID, time.Now()); err != nil {
+		log.Printf("Failed to update session activity: %v", err)
+	}
 }
 
 func (fs *FileStorage) GetConversation(sessionID string) ([]ConversationRecord, error) {
@@ -306,7 +308,11 @@ func (fs *FileStorage) GetConversation(sessionID string) ([]ConversationRecord, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var records []ConversationRecord
 	for rows.Next() {
@@ -330,7 +336,11 @@ func (fs *FileStorage) GetRecentSessions(limit int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var sessions []string
 	for rows.Next() {
@@ -356,7 +366,11 @@ func (fs *FileStorage) GetMessagesByMethod(method string, limit int) ([]Conversa
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var records []ConversationRecord
 	for rows.Next() {
@@ -379,15 +393,21 @@ func (fs *FileStorage) GetStats() (map[string]interface{}, error) {
 	}
 
 	var totalMessages, totalSessions int64
-	fs.db.QueryRow("SELECT COUNT(*) FROM conversations").Scan(&totalMessages)
-	fs.db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM conversations").Scan(&totalSessions)
+	if err := fs.db.QueryRow("SELECT COUNT(*) FROM conversations").Scan(&totalMessages); err != nil {
+		log.Printf("Failed to get total messages: %v", err)
+	}
+	if err := fs.db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM conversations").Scan(&totalSessions); err != nil {
+		log.Printf("Failed to get total sessions: %v", err)
+	}
 
 	stats["total_messages"] = totalMessages
 	stats["total_sessions"] = totalSessions
 
 	// Storage size
 	var totalSize int64
-	fs.db.QueryRow("SELECT COALESCE(SUM(size_bytes), 0) FROM conversations").Scan(&totalSize)
+	if err := fs.db.QueryRow("SELECT COALESCE(SUM(size_bytes), 0) FROM conversations").Scan(&totalSize); err != nil {
+		log.Printf("Failed to get total size: %v", err)
+	}
 	stats["storage_bytes"] = totalSize
 	stats["storage_mb"] = float64(totalSize) / (1024 * 1024)
 

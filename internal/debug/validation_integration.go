@@ -213,7 +213,11 @@ func (fs *FileStorage) GetValidationReports(sessionID string, limit int) ([]*val
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	var reports []*validator.ValidationReport
 	for rows.Next() {
@@ -240,17 +244,23 @@ func (fs *FileStorage) GetValidationStats() (map[string]interface{}, error) {
 
 	// Total validation reports
 	var totalReports int64
-	fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports").Scan(&totalReports)
+	if err := fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports").Scan(&totalReports); err != nil {
+		log.Printf("Failed to get total reports: %v", err)
+	}
 	stats["total_reports"] = totalReports
 
 	// Average score
 	var avgScore float64
-	fs.db.QueryRow("SELECT AVG(score) FROM validation_reports").Scan(&avgScore)
+	if err := fs.db.QueryRow("SELECT AVG(score) FROM validation_reports").Scan(&avgScore); err != nil {
+		log.Printf("Failed to get average score: %v", err)
+	}
 	stats["average_score"] = avgScore
 
 	// Validity rate
 	var validCount int64
-	fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports WHERE is_valid = 1").Scan(&validCount)
+	if err := fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports WHERE is_valid = 1").Scan(&validCount); err != nil {
+		log.Printf("Failed to get valid count: %v", err)
+	}
 	stats["validity_rate"] = float64(validCount) / float64(totalReports) * 100.0
 
 	return stats, nil
