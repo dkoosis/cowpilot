@@ -9,7 +9,7 @@
   ✓RUN_DEBUG: make run-debug-proxy
   TEST: npx @modelcontextprotocol/inspector ./bin/cowpilot
   ✓TEST_DEBUG: npx @modelcontextprotocol/inspector http://localhost:8080
-  ✓TESTING: [testutil.Assert→human_readable✓,gotestsum→format_testname✓,main_test→BDD_scenarios✓,make_test→simplified✓]
+  ✓TESTING: [testutil.Assert→human_readable✓,gotestsum→format_testdox✓,main_test→BDD_scenarios✓,make_test→simplified✓,scenario_output→descriptive✓,protocol_compliance→comprehensive✓]
   ✓FIXED_RAW_TEST: [scenario-test-raw→localhost_server✓,makefile_updated→auto_start_stop✓]
   FIXED: [resource_handler→[]mcp.ResourceContents,prompt_Arguments→map[string]string,MimeType→MIMEType,CallToolRequest.Params.Arguments→type_assert_map[string]any]✓
   CLEANED: [removed_unused_vars(samplePrompts,sampleResources,subscriptions),removed_deprecated_handlers(4),cleaned_comments]✓

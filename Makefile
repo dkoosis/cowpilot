@@ -101,12 +101,12 @@ scenario-test-local:
 	@# Build the binary first
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
 	@# Start server in background
-	FLY_APP_NAME=local-test $(OUTPUT_DIR)/$(BINARY_NAME) & \
+	FLY_APP_NAME=local-test $(OUTPUT_DIR)/$(BINARY_NAME) > /dev/null 2>&1 & \
 	SERVER_PID=$$!; \
 	sleep 3; \
 	echo "Server started with PID $$SERVER_PID"; \
 	if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTESTSUM) --format dots-v2 -- -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTESTSUM) --format testdox -- -v $(SCENARIO_TEST_DIR)/...; \
 	else \
 		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi; \
