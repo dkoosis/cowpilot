@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -42,12 +41,16 @@ func main() {
 	log.Printf("Target port: %d", config.TargetPort)
 	log.Printf("Proxy port: %d", config.Port)
 
-	// Initialize debug system
-	storage, err := debug.StartDebugSystem(config.DebugConfig)
+	// Initialize debug system with runtime configuration
+	storage, debugConfig, err := debug.StartDebugSystem()
 	if err != nil {
 		log.Fatalf("Failed to start debug system: %v", err)
 	}
-	defer debug.StopDebugSystem(storage)
+	defer func() {
+		if storage != nil {
+			storage.Close()
+		}
+	}()
 
 	// Start target MCP server
 	targetCmd, err := startTargetServer(config)
@@ -66,8 +69,8 @@ func main() {
 		log.Fatalf("Target server did not start within timeout")
 	}
 
-	// Create proxy server
-	proxy := createProxy(config, storage)
+	// Create proxy server with runtime debug config
+	proxy := createProxy(config, storage, debugConfig)
 	
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", config.Port),
@@ -118,25 +121,22 @@ OPTIONS:
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, `
 ENVIRONMENT VARIABLES:
-    MCP_DEBUG_ENABLED           Enable debug system (true/false)
-    MCP_DEBUG_LEVEL             Debug level (DEBUG, INFO, WARN, ERROR)  
-    MCP_DEBUG_STORAGE_PATH      Path to SQLite database
-    MCP_DEBUG_RETENTION_DAYS    Days to retain debug logs
-    MCP_SECURITY_MONITORING     Enable security monitoring (true/false)
-    MCP_PROXY_PORT              Proxy server port
-    MCP_TARGET_BINARY           Target MCP server binary path
-    MCP_TARGET_PORT             Target MCP server port
+    MCP_DEBUG=true                  Enable debug system
+    MCP_DEBUG_STORAGE=memory|file   Storage type
+    MCP_DEBUG_PATH=./debug.db       File storage path
+    MCP_DEBUG_MAX_MB=100            Storage size limit
+    MCP_DEBUG_LEVEL=INFO            Debug level
+    MCP_PROXY_PORT=8080             Proxy server port
+    MCP_TARGET_BINARY=./bin/cowpilot Target binary path
+    MCP_TARGET_PORT=8081            Target server port
 
 EXAMPLES:
     # Basic usage
     %s --target ./bin/cowpilot --port 8080
 
-    # With custom target port
-    %s --target ./bin/cowpilot --target-port 9000 --port 8080
-
-    # With environment variables
-    MCP_DEBUG_ENABLED=true MCP_DEBUG_LEVEL=DEBUG %s
-`, appName, appName, appName)
+    # With debug enabled
+    MCP_DEBUG=true MCP_DEBUG_STORAGE=file %s
+`, appName, appName)
 	}
 
 	flag.Parse()
@@ -146,7 +146,6 @@ EXAMPLES:
 		os.Exit(0)
 	}
 
-	// Parse remaining arguments as target arguments
 	targetArgs := flag.Args()
 
 	return &ProxyConfig{
@@ -154,7 +153,6 @@ EXAMPLES:
 		TargetBinary: *targetBinary,
 		TargetArgs:   targetArgs,
 		TargetPort:   *targetPort,
-		DebugConfig:  debug.LoadDebugConfig(),
 	}
 }
 
