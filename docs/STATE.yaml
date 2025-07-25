@@ -1,14 +1,47 @@
-# STATE.yaml v7.0-claude-optimized
+# STATE.yaml v7.1-claude-optimized
 # λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=native
 
 ∞STATUS:
-  MODE: everything_server[tools+resources+prompts✓]
+  MODE: everything_server[tools+resources+prompts✓]+debug_proxy✓
   BUILD: go build -o bin/cowpilot cmd/cowpilot/main.go
+  ✓BUILD_DEBUG: go build -o bin/mcp-debug-proxy cmd/mcp-debug-proxy/main.go
   RUN: ./bin/cowpilot
+  ✓RUN_DEBUG: make run-debug-proxy
   TEST: npx @modelcontextprotocol/inspector ./bin/cowpilot
+  ✓TEST_DEBUG: npx @modelcontextprotocol/inspector http://localhost:8080
   ✓TESTING: [testutil.Assert→human_readable✓,gotestsum→format_testname✓,main_test→BDD_scenarios✓,make_test→simplified✓]
+  ✓FIXED_RAW_TEST: [scenario-test-raw→localhost_server✓,makefile_updated→auto_start_stop✓]
   FIXED: [resource_handler→[]mcp.ResourceContents,prompt_Arguments→map[string]string,MimeType→MIMEType,CallToolRequest.Params.Arguments→type_assert_map[string]any]✓
   CLEANED: [removed_unused_vars(samplePrompts,sampleResources,subscriptions),removed_deprecated_handlers(4),cleaned_comments]✓
+
+∇DEBUG_SYSTEM:
+  STATUS: ✓phase1_implemented→∇adopting_adr012_runtime_config
+  PLAN: φdocs/debug/mcp-conformance-plan.md
+  PROBLEM: ∅rigorous_protocol_conformance+debug_capabilities
+  PHASES: [✓conversation_logging,protocol_validation,security_monitoring,dashboard,automated_testing]
+  ARCHITECTURE: ✓proxy_middleware[non_invasive,optional_enable,minimal_overhead]+✓runtime_configuration
+  PRIORITY: ∇implement_adr012→runtime_debug_config
+  ADR: φdocs/adr/010-mcp-debug-system-architecture.md✓+φdocs/adr/011-conditional-compilation-lightweight-debug.md†+φdocs/adr/012-runtime-debug-configuration.md✓
+  STRATEGY: ✓runtime_configuration[env_vars]+bounded_storage[memory/file]+developer_friendly
+  
+✓PHASE1[conversation_logging]:
+  DURATION: completed_july25_2025
+  DELIVERABLES: [✓internal/debug/interceptor.go,✓internal/debug/storage.go,✓cmd/mcp-debug-proxy/]
+  GOAL: ✓real_time_mcp_conversation_capture+analysis
+  STATUS: ✓implemented→∇refactoring_for_runtime_config
+  FEATURES: [✓sqlite_storage,✓message_interceptor,✓session_tracking,✓performance_monitoring,✓debug_proxy_server]
+  REFACTOR: ∇runtime_config[MCP_DEBUG=true,bounded_storage,single_build]
+  
+∇PHASE2[protocol_validation]:
+  DURATION: 2-3_weeks  
+  COMPONENTS: [json_rpc_validator,tools_validation,resources_validation,‡prompts_validation_explicit]
+  SECURITY: [parameter_injection_detection,access_pattern_flagging,error_sanitization]
+  STATUS: ∅pending_phase1
+  
+∇PHASE3[debug_dashboard]:
+  TECH_STACK: [react_frontend,websocket_realtime,go_backend_api,chart_js_viz]
+  FEATURES: [live_conversation_monitor,protocol_analysis,interactive_testing]
+  STATUS: ∅pending_phase2
   
 λMCP-GO:
   VERSION: github.com/mark3labs/mcp-go[current]
@@ -61,7 +94,9 @@
 ‡BLOCKERS:
   1. λmcp-go∅[completions,logging,progress]
   2. ✓resources+prompts=native
-  3. ∅protocol_compliance[mostly_complete]
+  3. ‡protocol_conformance_validation[critical_gap]
+  4. ✓debug_conversation_logging[implemented_phase1]
+  5. ∇security_audit_trail[phase2_planned]
 
 SAMPLE_DATA:
   RES: {
@@ -75,10 +110,16 @@ SAMPLE_DATA:
   }
 
 ∇NEXT:
-  ✓TESTING: [internal/testutil→human_readable_assertions,enhanced_makefile,performance_tests]
+  ✓PRIORITY1: [debug_system_phase1→✓message_interceptor,✓conversation_logging,✓sqlite_storage]
+  ∇PRIORITY2: [runtime_configuration→adr012_implementation,env_vars,bounded_storage]
+  ‡PRIORITY3: [protocol_conformance_validator→json_rpc_validation,tools_validation,resources_validation,‡prompts_validation_explicit]
+  ∇PRIORITY4: [security_monitoring→parameter_injection_detection,access_pattern_flagging,error_sanitization]
+  PRIORITY5: [debug_dashboard→realtime_monitoring,interactive_testing]
   ENHANCE: [request_logging,correlation_ids,metrics_endpoint,input_validation]
   QUALITY: [coverage→transport:82.9%,scenario_tests,benchmarks]
-  OPTIONS: [implement_completions|add_logging|observability|accept_current]
+  ✓IMPLEMENTED: [debug_proxy_server,sqlite_conversation_storage,message_interceptor,session_tracking]
+  ∇REFACTOR: [runtime_config_implementation,bounded_storage_options,single_build_pipeline]
+  OPTIONS: [∇implement_adr012_runtime_config‡|∇implement_phase2_validation|implement_completions|add_logging]
   
 ‡VERIFY:
   ✓tools.len==11
@@ -93,14 +134,20 @@ SAMPLE_DATA:
   ✓FIXED: resource_handlers→return[]mcp.ResourceContents[interface]
 
 ≈CONTEXT[next_session]:
-  ∇NEW: [testutil.Assert→behavior_descriptions,make_test→verbose_output,test_structure→BDD_style]
-  WHERE: cowpilot/cmd/cowpilot/main.go[everything_server,11_tools,✓native_resources,✓native_prompts]
-  WHAT: mcp-go[native_support]→resources+prompts+tools
-  WHY: library_actually_supports_these_features
-  HOW: native_AddResource+AddPrompt,fixed_handler_signatures,cleaned_deprecated_code
-  BLOCKERS: λmcp-go_missing[completions,logging,progress]
-  OPTIONS: [implement_completions|add_logging|test_comprehensive|accept_current]
-  FIXED: resource_handler_signature_mismatch✓,unused_code_removed✓,linter_issues_resolved✓
+  ✓COMPLETED: debug_system_phase1→✓conversation_logging+✓sqlite_storage+✓proxy_server
+  ✓DECIDED: runtime_configuration_strategy→adr012[dev_experience,bounded_storage,single_build]
+  †SUPERSEDED: adr011[conditional_compilation]→developer_friction+ci_complexity+scaling_limits
+  ∇PRIORITY: implement_adr012→runtime_debug_config+bounded_storage
+  φPLAN: docs/debug/mcp-conformance-plan.md[comprehensive_4_phase_approach]
+  φADR: docs/adr/010-mcp-debug-system-architecture.md[✓implemented]+docs/adr/012-runtime-debug-configuration.md[✓defined]
+  WHERE: ✓internal/debug/[interceptor.go,storage.go]+✓cmd/mcp-debug-proxy/main.go
+  WHAT: ✓mcp_debug_proxy[non_invasive_middleware]+∇runtime_configuration[env_vars]+bounded_storage[memory/file]
+  WHY: developer_experience+debugging_continuity+horizontal_scaling+production_safety
+  HOW: ✓proxy_architecture[minimal_overhead,optional_enable,real_time_logging]+∇runtime_config[MCP_DEBUG=true,bounded_limits]
+  ✓RESOLVED: debug_conversation_logging[implemented_sqlite_storage]+binary_weight_concern[acceptable_tradeoff]
+  NEXT_IMMEDIATE: [∇implement_runtime_config,∇bounded_storage_options,∇env_var_framework,∇single_build_refactor]
+  PHILOSOPHY: ✓developer_friendly+production_safe+horizontally_scalable[runtime_flexibility]
+  OPTIONS: [∇implement_adr012_runtime_config‡|defer_to_future|continue_phase2_validation]
   
 ✓SESSION_VALIDATED[july23_2025]:
   STATUS: 🟢PRODUCTION_READY

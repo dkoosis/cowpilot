@@ -2,6 +2,7 @@
 
 # Variables
 BINARY_NAME=cowpilot
+DEBUG_PROXY_NAME=mcp-debug-proxy
 GO=go
 GOTEST=$(GO) test
 GOVET=$(GO) vet
@@ -10,7 +11,9 @@ GOLINT=golangci-lint
 
 # Build variables
 BUILD_DIR=./cmd/cowpilot
+DEBUG_PROXY_DIR=./cmd/mcp-debug-proxy
 MAIN_FILE=$(BUILD_DIR)/main.go
+DEBUG_PROXY_FILE=$(DEBUG_PROXY_DIR)/main.go
 OUTPUT_DIR=./bin
 
 # Test variables
@@ -20,7 +23,7 @@ SCENARIO_TEST_DIR=./tests/scenarios
 COVERAGE_FILE=coverage.out
 GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
-.PHONY: all build test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
+.PHONY: all build build-debug debug-proxy run-debug-proxy test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
 
 # Clean, format, lint, run verbose tests, and build
 all: clean fmt vet lint test-verbose scenario-test-local build
@@ -31,6 +34,30 @@ build:
 	@mkdir -p $(OUTPUT_DIR)
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
 
+# Build the debug proxy
+build-debug:
+	@echo "Building $(DEBUG_PROXY_NAME)..."
+	@mkdir -p $(OUTPUT_DIR)
+	$(GO) build -o $(OUTPUT_DIR)/$(DEBUG_PROXY_NAME) $(DEBUG_PROXY_DIR)
+
+# Build both main application and debug proxy
+debug-proxy: build build-debug
+	@echo "Both binaries built successfully"
+
+# Run the debug proxy with default settings
+run-debug-proxy: build-debug
+	@echo "Starting MCP Debug Proxy..."
+	@echo "Main server will be available at: http://localhost:8080"
+	@echo "Debug endpoints:"
+	@echo "  - Health: http://localhost:8080/debug/health"
+	@echo "  - Stats: http://localhost:8080/debug/stats"
+	@echo "  - Sessions: http://localhost:8080/debug/sessions"
+	@echo ""
+	MCP_DEBUG_ENABLED=true MCP_DEBUG_LEVEL=INFO $(OUTPUT_DIR)/$(DEBUG_PROXY_NAME) \
+		--target $(OUTPUT_DIR)/$(BINARY_NAME) \
+		--port 8080 \
+		--target-port 8081
+
 # Run all tests
 test: unit-test integration-test
 
@@ -38,7 +65,7 @@ test: unit-test integration-test
 unit-test:
 	@echo "Running unit tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testname -- -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+		$(GOTESTSUM) --format testdox -- -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	else \
 		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	fi
@@ -47,7 +74,7 @@ unit-test:
 integration-test:
 	@echo "Running integration tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testname -- -v -race $(INTEGRATION_TEST_DIR)/...; \
+		$(GOTESTSUM) --format testdox -- -v -race $(INTEGRATION_TEST_DIR)/...; \
 	else \
 		$(GOTEST) -v -race $(INTEGRATION_TEST_DIR)/...; \
 	fi
@@ -90,7 +117,7 @@ scenario-test-local:
 scenario-test-prod:
 	@echo "Running scenario tests against production..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format dots-v2 -- -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format testdox -- -v $(SCENARIO_TEST_DIR)/...; \
 	else \
 		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi
@@ -98,7 +125,19 @@ scenario-test-prod:
 # Run raw SSE/JSON-RPC tests
 scenario-test-raw:
 	@echo "Running raw SSE/JSON-RPC tests..."
-	@bash $(SCENARIO_TEST_DIR)/raw_sse_test.sh
+	@# Build the binary first
+	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
+	@# Start server in background
+	FLY_APP_NAME=local-test $(OUTPUT_DIR)/$(BINARY_NAME) & \
+	SERVER_PID=$$!; \
+	sleep 3; \
+	echo "Server started with PID $$SERVER_PID"; \
+	bash $(SCENARIO_TEST_DIR)/raw_sse_test.sh http://localhost:8080; \
+	TEST_EXIT=$$?; \
+	echo "Stopping server with PID $$SERVER_PID"; \
+	kill $$SERVER_PID 2>/dev/null || true; \
+	wait $$SERVER_PID 2>/dev/null || true; \
+	exit $$TEST_EXIT
 
 # Enhanced test output
 GOTESTSUM := $(shell which gotestsum 2>/dev/null)
@@ -110,14 +149,26 @@ endif
 
 # Run tests with verbose human-readable output
 test-verbose:
-	@chmod +x test.sh
-	@./test.sh
+	@echo "Running unit tests with verbose output..."
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		$(GOTESTSUM) --format testdox -- -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+	else \
+		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+	fi
+	@echo "Running integration tests..."
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		$(GOTESTSUM) --format testdox -- -v -race $(INTEGRATION_TEST_DIR)/...; \
+	else \
+		$(GOTEST) -v -race $(INTEGRATION_TEST_DIR)/...; \
+	fi
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(OUTPUT_DIR)
 	@rm -f $(COVERAGE_FILE)
+	@rm -f debug_conversations.db
+	@rm -f *.db
 
 # Format code
 fmt:
@@ -170,6 +221,9 @@ help:
 	@echo "Available targets:"
 	@echo "  all              - Clean, format, vet, lint, test, and build"
 	@echo "  build            - Build the binary"
+	@echo "  build-debug      - Build the debug proxy binary"
+	@echo "  debug-proxy      - Build both main application and debug proxy"
+	@echo "  run-debug-proxy  - Build and run the debug proxy with default settings"
 	@echo "  test             - Run all tests"
 	@echo "  unit-test        - Run unit tests with coverage"
 	@echo "  integration-test - Run integration tests"

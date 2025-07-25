@@ -29,7 +29,7 @@ func TestHealthEndpoint_ReturnsStatusOK_When_ServerIsRunning(t *testing.T) {
 	}
 }
 
-func TestMCPServer_CreationSucceeds_When_UsingValidParameters(t *testing.T) {
+func TestMCP_Server_CreationSucceeds_When_UsingValidParameters(t *testing.T) {
 	// Test server creation
 	s := server.NewMCPServer(
 		"test-server",

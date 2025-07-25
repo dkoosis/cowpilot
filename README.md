@@ -88,12 +88,76 @@ fly deploy
 - **Transport**: Server-Sent Events (SSE) for HTTP mode
 - **Deployment**: Fly.io with auto-scaling
 
-## Documentation
+## Documentation Directory 📚
 
-- [State Documentation](docs/STATE.yaml) - Machine-optimized context
-- [Testing Guide](docs/testing-guide.md) - Detailed testing information  
+### 🏠 Project Overview
+- [README](README.md) - Main project documentation (this file)
+- [Project Overview for Claude](PROJECT_OVERVIEW_FOR_CLAUDE.md) - AI-optimized project summary
+- [Project Cleanup Summary](PROJECT_CLEANUP_SUMMARY.md) - Recent improvements and cleanups
+- [State Documentation](docs/STATE.yaml) - Machine-optimized context for Claude
+
+### 🔧 Development & Testing
+- [Testing Guide](docs/testing-guide.md) - Comprehensive testing documentation
+- [Test Formatting](docs/test-formatting.md) - Test output formatting standards
+- [User Guide](docs/user-guide.md) - End-user documentation
+- [Contributing Guide](docs/contributing.md) - Development contribution guidelines
+
+### 🏗️ Architecture & Design
 - [Protocol Standards](docs/protocol-standards.md) - MCP implementation details
-- [Development Roadmap](docs/ROADMAP.md) - Future enhancements
+- [Known Issues](docs/KNOWN-ISSUES.md) - Current limitations and workarounds
+- [Roadmap](docs/ROADMAP.md) - Future development plans
+- [TODO](docs/TODO.md) - Immediate development tasks
+- [LLM Documentation](docs/llm.md) - AI/LLM related documentation
+- [Project History](docs/project-history.md) - Development timeline and decisions
+
+### 🐛 Debug & Tools
+- **[MCP Conformance Plan](docs/debug/mcp-conformance-plan.md)** - Comprehensive protocol debugging system
+- **[Phase 1 Implementation Complete](docs/debug/phase1-implementation-complete.md)** - Debug system status (NEW)
+- [Debug Guide](tests/scenarios/DEBUG_GUIDE.md) - Low-level protocol debugging
+- [Testing Guide (Scenarios)](tests/scenarios/TESTING_GUIDE.md) - Scenario-based testing
+
+### 📋 Architecture Decision Records (ADRs)
+- [ADR Directory](docs/adr/README.md) - Overview of all architecture decisions
+- [ADR-009: MCP SDK Selection](docs/adr/009-mcp-sdk-selection.md) - Why we chose mark3labs/mcp-go
+- **[ADR-010: MCP Debug System Architecture](docs/adr/010-mcp-debug-system-architecture.md)** - Debug system architecture (NEW)
+- **[ADR-011: Conditional Compilation for Lightweight Debug System](docs/adr/011-conditional-compilation-lightweight-debug.md)** - Lightweight debug strategy (SUPERSEDED)
+- **[ADR-012: Runtime Debug Configuration](docs/adr/012-runtime-debug-configuration.md)** - Runtime debug approach (NEW)
+- [ADR Template](docs/adr/adr-template.md) - Template for new ADRs
+
+### 📝 Development Sessions & History
+- [2025-01-20 Handoff](docs/sessions/2025-01-20-handoff.md) - Project handoff documentation
+- [Quick Start Next](docs/sessions/quick-start-next.md) - Next steps documentation
+
+### 🎯 Prompts & Templates
+- [Prompts README](prompts/README.md) - Overview of available prompts
+- [Review Guide](prompts/REVIEW-GUIDE.md) - Code review prompt guidelines
+- [001P: Review Semantic Naming](prompts/001P-review-semantic-naming.md) - Naming review prompt
+- [002P: Analyze Code Smells](prompts/002P-analyze-code-smells.md) - Code quality analysis prompt
+
+### 📊 Test Documentation
+- [Scenarios README](tests/scenarios/README.md) - Test scenarios overview
+- [Enhanced Summary](tests/scenarios/ENHANCED_SUMMARY.md) - Detailed test analysis
+- [Implementation Review](tests/scenarios/IMPLEMENTATION_REVIEW.md) - Implementation testing review
+- [Implementation Summary](tests/scenarios/IMPLEMENTATION_SUMMARY.md) - Implementation test results
+- [File Inventory](tests/scenarios/FILE_INVENTORY.md) - Test file organization
+- [RTFM Correction](tests/scenarios/RTFM_CORRECTION.md) - Documentation corrections
+
+### 📁 Documentation Organization
+- [docs/README.md](docs/README.md) - Docs directory index
+- All documentation follows the project's architectural decision for comprehensive documentation
+
+---
+
+### 🔍 Quick Navigation
+**New to the project?** Start with [Project Overview for Claude](PROJECT_OVERVIEW_FOR_CLAUDE.md)
+
+**Want to contribute?** Read [Contributing Guide](docs/contributing.md) and [Testing Guide](docs/testing-guide.md)
+
+**Debugging issues?** Check [MCP Conformance Plan](docs/debug/mcp-conformance-plan.md) and [Debug Guide](tests/scenarios/DEBUG_GUIDE.md)
+
+**Understanding decisions?** Browse [ADR Directory](docs/adr/README.md)
+
+## Legacy Documentation
 
 ## Project Structure
 

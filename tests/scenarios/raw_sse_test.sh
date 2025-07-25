@@ -13,8 +13,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Server URL (default to production if not provided)
-SERVER_URL="${1:-https://cowpilot.fly.dev/}"
+# Server URL (default to local if not provided)
+SERVER_URL="${1:-http://localhost:8080}"
 
 # Ensure URL ends without trailing slash for consistency
 SERVER_URL="${SERVER_URL%/}"

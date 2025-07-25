@@ -11,7 +11,7 @@ import (
 	"github.com/vcto/cowpilot/internal/transport"
 )
 
-func TestMCPIntegration_HandlesFullLifecycle_When_ClientMakesSequentialRequests(t *testing.T) {
+func TestMCP_Integration_HandlesFullLifecycle_When_ClientMakesSequentialRequests(t *testing.T) {
 	// Create server and transport
 	mcpServer := mcp.NewServer()
 	httpTransport := transport.NewHTTPTransport(mcpServer)
