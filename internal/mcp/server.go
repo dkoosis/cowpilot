@@ -53,6 +53,11 @@ type Error struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+// Error implements the error interface
+func (e *Error) Error() string {
+	return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Message)
+}
+
 // NewServer creates a new MCP server
 func NewServer() *Server {
 	s := &Server{

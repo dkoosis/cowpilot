@@ -3,169 +3,163 @@ package mcp
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/vcto/cowpilot/internal/testutil"
 )
 
-func TestServerCreation_SucceedsAndRegistersTools_When_NewServerIsCalled(t *testing.T) {
+func TestServerCreation(t *testing.T) {
+	testutil.Section(t, "MCP Server Creation")
+
+	testutil.Given(t, "a new MCP server is created")
 	server := NewServer()
 
-	if server == nil {
-		t.Fatal("NewServer returned nil")
-	}
+	testutil.Then(t, "server initialization and tool registration")
+	testutil.Assert(t, server != nil,
+		"Server initializes successfully without errors")
+	testutil.AssertEqual(t, 1, len(server.tools),
+		"Server registers exactly one default tool on creation")
+	_, hasHello := server.tools["hello"]
+	testutil.Assert(t, hasHello,
+		"Server includes the 'hello' tool in its registry")
 
-	if len(server.tools) != 1 {
-		t.Errorf("Expected 1 tool, got %d", len(server.tools))
-	}
-
-	if _, ok := server.tools["hello"]; !ok {
-		t.Error("hello tool not registered")
-	}
+	testutil.Summary(t, "MCP server creation and default tool registration")
 }
 
-func TestServer_ReturnsToolList_When_HandlingToolsListRequest(t *testing.T) {
+func TestToolsListEndpoint(t *testing.T) {
+	testutil.Section(t, "Tools List Endpoint")
+
+	testutil.Given(t, "an MCP server with registered tools")
 	server := NewServer()
 
+	testutil.When(t, "client requests the list of available tools")
 	req := Request{
 		JSONRPC: "2.0",
 		Method:  "tools/list",
 		ID:      1,
 	}
-
 	resp := server.HandleRequest(req)
 
-	if resp.Error != nil {
-		t.Fatalf("Unexpected error: %v", resp.Error)
-	}
+	testutil.Then(t, "server returns complete tool inventory")
+	testutil.Assert(t, resp.Error == nil,
+		"Server handles tools/list request without errors")
 
 	result, ok := resp.Result.(map[string]interface{})
-	if !ok {
-		t.Fatal("Result is not a map")
-	}
+	testutil.Assert(t, ok,
+		"Server returns result as a properly structured map")
 
 	tools, ok := result["tools"].([]Tool)
-	if !ok {
-		t.Fatal("tools is not a []Tool")
-	}
+	testutil.Assert(t, ok,
+		"Tools list is returned in the expected []Tool format")
+	testutil.AssertEqual(t, 1, len(tools),
+		"Server reports correct number of available tools")
+	testutil.AssertEqual(t, "hello", tools[0].Name,
+		"Tool metadata includes correct tool name")
 
-	if len(tools) != 1 {
-		t.Errorf("Expected 1 tool, got %d", len(tools))
-	}
-
-	if tools[0].Name != "hello" {
-		t.Errorf("Expected tool name 'hello', got '%s'", tools[0].Name)
-	}
+	testutil.Summary(t, "Tool discovery via tools/list endpoint")
 }
 
-func TestServer_ReturnsCorrectResult_When_HandlingValidToolCallRequest(t *testing.T) {
+func TestHelloToolExecution(t *testing.T) {
+	testutil.Section(t, "Hello Tool Execution")
+
+	testutil.Given(t, "an MCP server with the hello tool")
 	server := NewServer()
 
+	testutil.When(t, "client calls the hello tool with no arguments")
 	params, _ := json.Marshal(map[string]interface{}{
 		"name":      "hello",
 		"arguments": map[string]interface{}{},
 	})
-
 	req := Request{
 		JSONRPC: "2.0",
 		Method:  "tools/call",
 		Params:  params,
 		ID:      1,
 	}
-
 	resp := server.HandleRequest(req)
 
-	if resp.Error != nil {
-		t.Fatalf("Unexpected error: %v", resp.Error)
-	}
+	testutil.Then(t, "tool executes and returns greeting")
+	testutil.Assert(t, resp.Error == nil,
+		"Hello tool executes without errors")
 
 	result, ok := resp.Result.(map[string]interface{})
-	if !ok {
-		t.Fatal("Result is not a map")
-	}
+	testutil.Assert(t, ok,
+		"Tool result is properly structured")
 
 	content, ok := result["content"].([]map[string]string)
-	if !ok {
-		t.Fatal("content is not []map[string]string")
-	}
+	testutil.Assert(t, ok && len(content) == 1,
+		"Tool returns single content item in expected format")
+	testutil.AssertEqual(t, "text", content[0]["type"],
+		"Content type is correctly set to 'text'")
+	testutil.AssertEqual(t, "Hello, World!", content[0]["text"],
+		"Hello tool returns the expected greeting message")
 
-	if len(content) != 1 {
-		t.Errorf("Expected 1 content item, got %d", len(content))
-	}
-
-	if content[0]["type"] != "text" {
-		t.Errorf("Expected type 'text', got '%s'", content[0]["type"])
-	}
-
-	if content[0]["text"] != "Hello, World!" {
-		t.Errorf("Expected text 'Hello, World!', got '%s'", content[0]["text"])
-	}
+	testutil.Summary(t, "Basic tool execution and response formatting")
 }
 
-func TestServer_ReturnsMethodNotFoundError_When_MethodIsUnknown(t *testing.T) {
+func TestErrorHandling(t *testing.T) {
 	server := NewServer()
 
-	req := Request{
-		JSONRPC: "2.0",
-		Method:  "unknown/method",
-		ID:      1,
-	}
+	testutil.RunScenarios(t, []testutil.TestScenario{
+		{
+			Name:     "UnknownMethod",
+			Behavior: "Server rejects unknown JSON-RPC methods with proper error code",
+			Test: func(t *testing.T) {
+				req := Request{
+					JSONRPC: "2.0",
+					Method:  "unknown/method",
+					ID:      1,
+				}
+				resp := server.HandleRequest(req)
 
-	resp := server.HandleRequest(req)
+				testutil.Assert(t, resp.Error != nil,
+					"Server returns error for unknown method")
+				testutil.AssertErrorCode(t, resp.Error.Code, -32601,
+					"Error code -32601 indicates 'Method not found'")
+				testutil.AssertEqual(t, "Method not found", resp.Error.Message,
+					"Error message clearly states the method was not found")
+			},
+		},
+		{
+			Name:     "UnknownTool",
+			Behavior: "Server rejects calls to non-existent tools",
+			Test: func(t *testing.T) {
+				params, _ := json.Marshal(map[string]interface{}{
+					"name":      "unknown",
+					"arguments": map[string]interface{}{},
+				})
+				req := Request{
+					JSONRPC: "2.0",
+					Method:  "tools/call",
+					Params:  params,
+					ID:      1,
+				}
+				resp := server.HandleRequest(req)
 
-	if resp.Error == nil {
-		t.Fatal("Expected error, got nil")
-	}
+				testutil.Assert(t, resp.Error != nil,
+					"Server returns error for non-existent tool")
+				testutil.AssertErrorCode(t, resp.Error.Code, -32602,
+					"Error code -32602 indicates 'Invalid params'")
+			},
+		},
+		{
+			Name:     "MalformedJSON",
+			Behavior: "Server handles malformed JSON parameters gracefully",
+			Test: func(t *testing.T) {
+				req := Request{
+					JSONRPC: "2.0",
+					Method:  "tools/call",
+					Params:  json.RawMessage(`{"invalid": json}`),
+					ID:      1,
+				}
+				resp := server.HandleRequest(req)
 
-	if resp.Error.Code != -32601 {
-		t.Errorf("Expected error code -32601, got %d", resp.Error.Code)
-	}
-
-	if resp.Error.Message != "Method not found" {
-		t.Errorf("Expected error message 'Method not found', got '%s'", resp.Error.Message)
-	}
-}
-
-func TestServer_ReturnsInvalidParamsError_When_ToolNameIsUnknown(t *testing.T) {
-	server := NewServer()
-
-	params, _ := json.Marshal(map[string]interface{}{
-		"name":      "unknown",
-		"arguments": map[string]interface{}{},
+				testutil.Assert(t, resp.Error != nil,
+					"Server returns error for malformed JSON")
+				testutil.AssertErrorCode(t, resp.Error.Code, -32602,
+					"Error code -32602 indicates parameter parsing failure")
+			},
+		},
 	})
 
-	req := Request{
-		JSONRPC: "2.0",
-		Method:  "tools/call",
-		Params:  params,
-		ID:      1,
-	}
-
-	resp := server.HandleRequest(req)
-
-	if resp.Error == nil {
-		t.Fatal("Expected error, got nil")
-	}
-
-	if resp.Error.Code != -32602 {
-		t.Errorf("Expected error code -32602, got %d", resp.Error.Code)
-	}
-}
-
-func TestServer_ReturnsInvalidParamsError_When_ParamsAreMalformedJSON(t *testing.T) {
-	server := NewServer()
-
-	req := Request{
-		JSONRPC: "2.0",
-		Method:  "tools/call",
-		Params:  json.RawMessage(`{"invalid": json}`),
-		ID:      1,
-	}
-
-	resp := server.HandleRequest(req)
-
-	if resp.Error == nil {
-		t.Fatal("Expected error, got nil")
-	}
-
-	if resp.Error.Code != -32602 {
-		t.Errorf("Expected error code -32602, got %d", resp.Error.Code)
-	}
+	testutil.Summary(t, "JSON-RPC error handling and proper error codes")
 }

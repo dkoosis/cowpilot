@@ -20,10 +20,10 @@ SCENARIO_TEST_DIR=./tests/scenarios
 COVERAGE_FILE=coverage.out
 GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
-.PHONY: all build test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help
+.PHONY: all build test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
 
-# Default target
-all: clean fmt vet lint test scenario-test-local build
+# Clean, format, lint, run verbose tests, and build
+all: clean fmt vet lint test-verbose scenario-test-local build
 
 # Build the application
 build:
@@ -108,9 +108,10 @@ else
 	GOTEST = go test
 endif
 
+# Run tests with verbose human-readable output
 test-verbose:
-	@echo "🧪 Running tests with human-readable output..."
-	@$(GOTEST) -v ./... | grep -E "(✓|✗|SCENARIO:|GIVEN:|WHEN:|THEN:|📋 TESTED:|⚡|⏱)" || true
+	@chmod +x test.sh
+	@./test.sh
 
 # Clean build artifacts
 clean:
@@ -184,3 +185,4 @@ help:
 	@echo "  run              - Build and run locally"
 	@echo "  dev              - Run with hot reload (requires air)"
 	@echo "  deploy           - Test, build, and deploy to Fly.io"
+	@echo "  test-verbose     - Run tests with human-readable output"
