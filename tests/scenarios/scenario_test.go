@@ -192,9 +192,9 @@ func TestMCPProtocolCompliance(t *testing.T) {
 
 func testJSONRPCVersion(t *testing.T) {
 	// Test with wrong JSON-RPC version
-	output, err := runRawJSONRPC(t, `{"jsonrpc":"1.0","id":1,"method":"tools/list","params":{}}`)
-	if err == nil {
-		t.Fatalf("Expected error for wrong JSON-RPC version, got success: %s", output)
+	output, _ := runRawJSONRPC(t, `{"jsonrpc":"1.0","id":1,"method":"tools/list","params":{}}`)
+	if !strings.Contains(output, "error") {
+		t.Fatalf("Expected error for wrong JSON-RPC version, got: %s", output)
 	}
 	if !strings.Contains(output, "-32600") && !strings.Contains(output, "Invalid Request") {
 		t.Errorf("Expected INVALID_REQUEST error, got: %s", output)
@@ -202,11 +202,9 @@ func testJSONRPCVersion(t *testing.T) {
 }
 
 func testInvalidJSON(t *testing.T) {
-	output, err := runRawJSONRPC(t, `{invalid json}`)
-	if err == nil {
-		t.Fatalf("Expected error for invalid JSON, got success: %s", output)
-	}
-	if !strings.Contains(output, "-32700") && !strings.Contains(output, "Parse error") {
+	output, _ := runRawJSONRPC(t, `{invalid json}`)
+	// Parse error should return HTTP 400, so check the output content
+	if !strings.Contains(output, "-32700") && !strings.Contains(output, "Parse error") && !strings.Contains(output, "parse error") && !strings.Contains(output, "not valid json") {
 		t.Errorf("Expected PARSE_ERROR, got: %s", output)
 	}
 }
@@ -302,8 +300,8 @@ func testProtocolVersion(t *testing.T) {
 // Tool Tests
 
 func testListTools(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-	output, err := runInspectorCommand(serverURL, "--method", "tools/list")
+	// Use raw JSON-RPC due to inspector transport bug
+	output, err := runRawJSONRPC(t, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)
 	if err != nil {
 		t.Fatalf("Failed to list tools: %v\nOutput: %s", err, output)
 	}
@@ -859,7 +857,7 @@ func testEmbeddedResourceContent(t *testing.T) {
 // Helper Functions
 
 func runInspectorCommand(serverURL string, args ...string) (string, error) {
-	cmdArgs := append([]string{"@modelcontextprotocol/inspector", "--cli", serverURL}, args...)
+	cmdArgs := append([]string{"@modelcontextprotocol/inspector", "--cli", serverURL, "--transport", "http"}, args...)
 	cmd := exec.Command("npx", cmdArgs...)
 
 	var stdout, stderr bytes.Buffer

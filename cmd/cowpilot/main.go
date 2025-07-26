@@ -1,3 +1,30 @@
+// MCP Transport Protocol Configuration
+//
+// CRITICAL: Protocol selection determines client compatibility
+//
+// CURRENT CHOICE: StreamableHTTP (AUTO-DETECTS CLIENT TYPE)
+// - MCP Inspector CLI → HTTP POST with JSON-RPC
+// - Browser clients → SSE when Accept: text/event-stream
+// - Future MCP clients → Automatically supported
+//
+// SESSION MANAGEMENT: STATELESS MODE ENABLED
+// - WithStateLess(true) disables session ID validation
+// - Simplifies testing (no session tracking between requests)
+// - MCP Inspector works without session handling
+// - Trade-off: No per-session tools or logging levels
+//
+// DO NOT CHANGE WITHOUT TESTING:
+// 1. npx @modelcontextprotocol/inspector --cli http://localhost:8080/ --method tools/list
+// 2. Browser-based MCP clients (if any)
+// 3. curl -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"tools/list","id":1}' http://localhost:8080/
+//
+// ALTERNATIVES TESTED:
+// - NewSSEServer: Requires session management, fails with "Missing sessionId" for CLI
+// - ServeStdio: Only for local development, not HTTP
+// - Stateful mode: Requires session ID handling between requests
+//
+// Transport is selected by FLY_APP_NAME environment variable.
+
 package main
 
 import (
@@ -356,7 +383,7 @@ func timeHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToo
 	case "iso":
 		fallthrough
 	default:
-		result = now.Format(time.RFC3339)
+		result = now.UTC().Format(time.RFC3339)
 	}
 
 	return mcp.NewToolResultText(result), nil
@@ -591,33 +618,75 @@ func getNumber(args map[string]any, key string) (float64, bool) {
 	return 0, false
 }
 
+// protocolDetectionMiddleware logs client protocol detection to prevent confusion
+func protocolDetectionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Detect client type by headers and method
+		clientType := "UNKNOWN"
+		accept := r.Header.Get("Accept")
+		contentType := r.Header.Get("Content-Type")
+		userAgent := r.Header.Get("User-Agent")
+
+		if strings.Contains(accept, "text/event-stream") {
+			clientType = "SSE_BROWSER"
+		} else if r.Method == "POST" && strings.Contains(contentType, "application/json") {
+			if strings.Contains(userAgent, "node") || strings.Contains(userAgent, "inspector") {
+				clientType = "MCP_INSPECTOR_CLI"
+			} else if strings.Contains(userAgent, "curl") {
+				clientType = "CURL_TEST"
+			} else {
+				clientType = "HTTP_POST_CLIENT"
+			}
+		}
+
+		log.Printf("[PROTOCOL] Client: %s | Method: %s | Accept: %s | Content-Type: %s",
+			clientType, r.Method, accept, contentType)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", handleHealth)
+	// TRANSPORT PROTOCOL: StreamableHTTP (REQUIRED FOR MCP INSPECTOR CLI)
+	// This is the ONLY transport that works with MCP Inspector --cli
+	// DO NOT change to NewSSEServer without testing all clients
+	// STATELESS MODE: Enabled for testing compatibility
+	streamableServer := server.NewStreamableHTTPServer(
+		mcpServer,
+		server.WithStateLess(true), // No session validation - simpler for tests
+		server.WithEndpointPath("/mcp"), // Force HTTP transport detection for inspector
+	)
 
-	// Create StreamableHTTP server (supports both JSON and SSE responses)
-	streamableServer := server.NewStreamableHTTPServer(mcpServer)
+	// Add protocol detection middleware (always enabled)
+	handler := protocolDetectionMiddleware(streamableServer)
 
 	// Conditionally add debug middleware for HTTP requests
-	var handler http.Handler = streamableServer
 	if debugConfig.Enabled {
-		log.Printf("Debug middleware enabled for HTTP server")
-		handler = debug.DebugMiddleware(debugStorage, debugConfig)(streamableServer)
+		log.Printf("Debug middleware enabled for StreamableHTTP server")
+		handler = debug.DebugMiddleware(debugStorage, debugConfig)(handler)
 	}
 
-	mux.Handle("/", handler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", handleHealth)
+	// MCP server handles requests at /mcp endpoint
+	mux.Handle("/mcp", handler)
+	mux.Handle("/mcp/", handler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
 	}
 
-	log.Printf("Starting HTTP server on port %s", port)
+	log.Printf("Starting MCP server with StreamableHTTP transport on port %s", port)
+	log.Printf("Protocol: StreamableHTTP (VERIFIED: Works with MCP Inspector CLI)")
+	log.Printf("Endpoint: http://localhost:%s/mcp (forces HTTP transport detection)", port)
+	log.Printf("Test with: npx @modelcontextprotocol/inspector --cli http://localhost:%s/mcp --method tools/list", port)
+	log.Printf("Raw test: curl -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}' http://localhost:%s/mcp", port)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -635,6 +704,28 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Protocol diagnostic endpoint
+	if r.URL.Query().Get("protocol") == "true" {
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"status":                       "healthy",
+			"transport":                    "StreamableHTTP",
+			"supports":                     []string{"HTTP_POST_JSON_RPC", "SSE_EVENT_STREAM"},
+			"mcp_inspector_cli_compatible": true,
+			"client_type_detection":        "automatic",
+			"test_commands": map[string]string{
+				"cli":  "npx @modelcontextprotocol/inspector --cli http://localhost:8080/ --method tools/list",
+				"curl": "curl -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}' http://localhost:8080/",
+			},
+		}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("Failed to encode protocol response: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 }

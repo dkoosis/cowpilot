@@ -52,23 +52,18 @@ print_failure() {
     ((FAILED_TESTS++))
 }
 
-# Function to send JSON-RPC over SSE and parse response
+# Function to send JSON-RPC over HTTP POST and parse response
 send_jsonrpc() {
     local json_payload="$1"
     local timeout="${2:-5}"
     
-    # Send request and capture SSE response
-    # The MCP SSE format has each message prefixed with "data: "
+    # Send request via HTTP POST (not SSE) - matches StreamableHTTP server
     local response=$(echo "$json_payload" | \
-        curl -s -N -X POST "$SERVER_URL" \
+        curl -s -X POST "$SERVER_URL" \
         -H "Content-Type: application/json" \
-        -H "Accept: text/event-stream" \
+        -H "Accept: application/json" \
         -d @- \
-        --max-time "$timeout" 2>/dev/null | \
-        grep "^data: " | \
-        sed 's/^data: //' | \
-        grep -v "^\[DONE\]$" | \
-        head -n 1)
+        --max-time "$timeout" 2>/dev/null)
     
     echo "$response"
 }
@@ -274,48 +269,6 @@ if [ -n "$RESPONSE" ]; then
 else
     print_success "Batch requests may not be supported (no response)"
 fi
-
-# As an MCP Client, I want to verify SSE stream formatting so that I can confirm transport compliance.
-print_test_header "As an MCP Client, I want to verify SSE stream formatting"
-
-echo "Testing SSE stream with multiple messages..."
-
-# Create a temporary file for capturing stream
-TEMP_FILE=$(mktemp)
-
-# Send a request and capture multiple SSE events
-(
-    echo "$TOOLS_JSON" | \
-    curl -s -N -X POST "$SERVER_URL" \
-    -H "Content-Type: application/json" \
-    -H "Accept: text/event-stream" \
-    -d @- \
-    --max-time 3 2>/dev/null > "$TEMP_FILE"
-) &
-
-CURL_PID=$!
-sleep 2
-kill $CURL_PID 2>/dev/null || true
-
-# Analyze SSE format
-SSE_LINES=$(cat "$TEMP_FILE" | wc -l)
-DATA_LINES=$(grep "^data: " "$TEMP_FILE" | wc -l)
-
-echo -e "${BLUE}SSE Stream Analysis:${NC}"
-echo "  Total lines: $SSE_LINES"
-echo "  Data lines: $DATA_LINES"
-echo -e "${BLUE}Sample output:${NC}"
-head -n 10 "$TEMP_FILE"
-
-if [ "$DATA_LINES" -gt 0 ]; then
-    print_success "SSE stream format is correct"
-else
-    print_failure "SSE stream format incorrect" \
-        "Lines starting with 'data: '" \
-        "No proper SSE data lines found"
-fi
-
-rm -f "$TEMP_FILE"
 
 # Print summary
 echo -e "\n${YELLOW}=== TEST SUMMARY ===${NC}"

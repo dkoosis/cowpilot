@@ -17,7 +17,7 @@ DEBUG_PROXY_FILE=$(DEBUG_PROXY_DIR)/main.go
 OUTPUT_DIR=./bin
 
 # Test variables
-UNIT_TEST_DIRS=./internal/...
+UNIT_TEST_DIRS=./cmd/... ./internal/...
 INTEGRATION_TEST_DIR=./tests/integration
 SCENARIO_TEST_DIR=./tests/scenarios
 COVERAGE_FILE=coverage.out
@@ -100,15 +100,15 @@ scenario-test-local:
 	@echo "Starting local server and running scenario tests..."
 	@# Build the binary first
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
-	@# Start server in background
-	FLY_APP_NAME=local-test $(OUTPUT_DIR)/$(BINARY_NAME) > /dev/null 2>&1 & \
+	# Start server in background (SSE transport enabled by FLY_APP_NAME)
+	FLY_APP_NAME=local-test ./bin/cowpilot  & \
 	SERVER_PID=$$!; \
 	sleep 3; \
 	echo "Server started with PID $$SERVER_PID"; \
 	if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTESTSUM) --format testdox -- -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTESTSUM) --format testdox -- -v $(SCENARIO_TEST_DIR)/...; \
 	else \
-		export MCP_SERVER_URL="http://localhost:8080/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...;
 	fi; \
 	TEST_EXIT=$$?; \
 	echo "Stopping server with PID $$SERVER_PID"; \
