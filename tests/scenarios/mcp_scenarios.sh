@@ -24,7 +24,7 @@ INSPECTOR="npx @modelcontextprotocol/inspector --cli"
 
 # Function to print test header
 print_test_header() {
-    echo -e "\n${YELLOW}=== TEST: $1 ===${NC}"
+    echo -e "\n${YELLOW}=== TEST: $1 ==="
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 }
 
@@ -137,16 +137,16 @@ else
 fi
 
 # Print summary
-echo -e "\n${YELLOW}=== TEST SUMMARY ===${NC}"
+echo -e "\n${YELLOW}=== TEST SUMMARY ==="
 echo -e "Total tests: $TOTAL_TESTS"
-echo -e "${GREEN}Passed: $PASSED_TESTS${NC}"
-echo -e "${RED}Failed: $FAILED_TESTS${NC}"
+echo -e "${GREEN}Passed: $PASSED_TESTS"
+echo -e "${RED}Failed: $FAILED_TESTS"
 
 # Exit with appropriate code
 if [ $FAILED_TESTS -eq 0 ]; then
-    echo -e "\n${GREEN}All tests passed!${NC}"
+    echo -e "\n${GREEN}All tests passed!"
     exit 0
 else
-    echo -e "\n${RED}Some tests failed!${NC}"
+    echo -e "\n${RED}Some tests failed!"
     exit 1
 fi

@@ -10,30 +10,30 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}=== RUN   MCP Inspector Integration Test${NC}"
-echo -e "${BLUE}    --- Testing server compatibility with @modelcontextprotocol/inspector${NC}"
+echo -e "${BLUE}=== RUN   MCP Inspector Integration Test"
+echo -e "${BLUE}    --- Testing server compatibility with @modelcontextprotocol/inspector"
 
 cd /Users/vcto/Projects/cowpilot
 
 # Check if inspector is available
 if ! npx @modelcontextprotocol/inspector --version &>/dev/null; then
-    echo -e "${YELLOW}    ⚠️  @modelcontextprotocol/inspector not found${NC}"
-    echo -e "${YELLOW}    --- SKIP  MCP Inspector Integration Test${NC}"
+    echo -e "${YELLOW}    ⚠️  @modelcontextprotocol/inspector not found"
+    echo -e "${YELLOW}    --- SKIP  MCP Inspector Integration Test"
     exit 0
 fi
 
 # Build and start server
-echo -e "${BLUE}    --- Building server...${NC}"
+echo -e "${BLUE}    --- Building server..."
 if go build -o ./bin/cowpilot ./cmd/cowpilot 2>/dev/null; then
-    echo -e "${GREEN}        ✓ Build successful${NC}"
+    echo -e "${GREEN}        ✓ Build successful"
 else
-    echo -e "${RED}        ✗ Build failed${NC}"
-    echo -e "${RED}--- FAIL  MCP Inspector Integration Test${NC}"
+    echo -e "${RED}        ✗ Build failed"
+    echo -e "${RED} ✗  FAIL  MCP Inspector Integration Test"
     exit 1
 fi
 
 # Start server
-echo -e "${BLUE}    --- Starting server on localhost:8080...${NC}"
+echo -e "${BLUE}    --- Starting server on localhost:8080..."
 FLY_APP_NAME=local-test ./bin/cowpilot &
 SERVER_PID=$!
 sleep 3
@@ -44,14 +44,14 @@ run_inspector_test() {
     shift
     local args=("$@")
     
-    echo -e "${BLUE}    --- $test_name${NC}"
+    echo -e "${BLUE}    --- $test_name"
     
     # Run with timeout to prevent hanging
     if timeout 10s npx @modelcontextprotocol/inspector "${args[@]}" &>/dev/null; then
-        echo -e "${GREEN}        ✓ Success${NC}"
+        echo -e "${GREEN}        ✓ Success"
         return 0
     else
-        echo -e "${RED}        ✗ Failed or timed out${NC}"
+        echo -e "${RED}        ✗ Failed or timed out"
         return 1
     fi
 }
@@ -59,11 +59,11 @@ run_inspector_test() {
 FAILED=0
 
 # Test 1: Inspector version check
-echo -e "${BLUE}    --- Inspector version check${NC}"
+echo -e "${BLUE}    --- Inspector version check"
 if npx @modelcontextprotocol/inspector --version &>/dev/null; then
-    echo -e "${GREEN}        ✓ Inspector available${NC}"
+    echo -e "${GREEN}        ✓ Inspector available"
 else
-    echo -e "${RED}        ✗ Inspector not available${NC}"
+    echo -e "${RED}        ✗ Inspector not available"
     ((FAILED++))
 fi
 
@@ -109,26 +109,26 @@ if ! run_inspector_test "List tools via /mcp endpoint" \
 fi
 
 # Test 7: SSE transport test (expected to fail/timeout with current configuration)
-echo -e "${BLUE}    --- Testing SSE transport (5s timeout)${NC}"
+echo -e "${BLUE}    --- Testing SSE transport (5s timeout)"
 if timeout 5s npx @modelcontextprotocol/inspector \
     --cli http://localhost:8080/ \
     --method tools/list &>/dev/null; then
-    echo -e "${YELLOW}        ⚠️  SSE transport worked (unexpected)${NC}"
+    echo -e "${YELLOW}        ⚠️  SSE transport worked (unexpected)"
 else
-    echo -e "${GREEN}        ✓ SSE transport timed out as expected${NC}"
+    echo -e "${GREEN}        ✓ SSE transport timed out as expected"
 fi
 
 # Cleanup
-echo -e "${BLUE}    --- Stopping server...${NC}"
+echo -e "${BLUE}    --- Stopping server..."
 kill $SERVER_PID 2>/dev/null
 wait $SERVER_PID 2>/dev/null
 
 # Summary
 echo ""
 if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}--- PASS  MCP Inspector Integration Test${NC}"
+    echo -e "${GREEN} ✓ PASS  MCP Inspector Integration Test"
     exit 0
 else
-    echo -e "${RED}--- FAIL  MCP Inspector Integration Test ($FAILED tests failed)${NC}"
+    echo -e "${RED} ✗  FAIL  MCP Inspector Integration Test ($FAILED tests failed)"
     exit 1
 fi

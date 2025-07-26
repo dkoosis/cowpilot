@@ -119,7 +119,7 @@ All tests use consistent formatting:
     --- Testing health endpoint returns OK
         ✓ Status code is 200
         ✓ Body contains OK
---- PASS  TestHealthEndpoint (0.01s)
+ ✓ PASS  TestHealthEndpoint (0.01s)
 ```
 
 ### Shell Scripts
@@ -130,7 +130,7 @@ All tests use consistent formatting:
         ✓ Success
     --- List available tools
         ✓ Success
---- PASS  MCP Protocol Smoke Test
+ ✓ PASS  MCP Protocol Smoke Test
 ```
 
 ## 🐛 Debugging Failed Tests

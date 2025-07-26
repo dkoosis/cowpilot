@@ -123,13 +123,13 @@ scenario-test-local:
 	echo "Running shell script scenario tests..."; \
 	cd scripts/test && ./run-tests.sh quick; \
 	SHELL_EXIT=$$?; \
-	echo "Stopping server with PID $$SERVER_PID"; \
+	echo " ▶ Stopping server with PID $$SERVER_PID"; \
 	kill $$SERVER_PID 2>/dev/null || true; \
 	wait $$SERVER_PID 2>/dev/null || true; \
 	END_TIME=$$(date +%s); \
 	DURATION=$$((END_TIME - START_TIME)); \
 	echo "$$(date '+%Y-%m-%d %H:%M:%S') $$DURATION" >> .test-times.log; \
-	echo "Total test time: $$DURATION seconds"; \
+	echo " ▶ Total test time: $$DURATION seconds"; \
 	if [ -f test-results.json ]; then \
 		bash scripts/utils/track-performance.sh; \
 	fi; \

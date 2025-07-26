@@ -164,7 +164,8 @@ SAMPLE_DATA:
   ✓DEBUG_P1: conversation_logging+sqlite+proxy_server
   ✓SESSION_FIXES: stateless_mode+inspector_http+test_fixes
   ✓TEST_REORGANIZATION: shell_scripts→φscripts/test/[formatted_output,consistent_naming,run-tests.sh]
-  ∇NEXT: verify_tests|∇adr012_runtime_config|phase3_dashboard
+  ✓TEST_FIXES: converted_13_tests→raw_json_rpc[inspector_limitation]+port_conflict_resolved+path_fixes
+  ∇NEXT: verify_all_tests_pass|∇adr012_runtime_config|phase3_dashboard
   φDOCS: [φdebug/mcp-conformance-plan.md,φadr/012-runtime-debug-configuration.md]
   
 ✓SESSION_VALIDATED[july25_2025]:

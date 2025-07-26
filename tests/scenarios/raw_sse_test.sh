@@ -27,14 +27,14 @@ FAILED_TESTS=0
 # Check for required tools
 for tool in curl jq; do
     if ! command -v $tool &> /dev/null; then
-        echo -e "${RED}Error: $tool is required but not installed.${NC}"
+        echo -e "${RED}Error: $tool is required but not installed."
         exit 1
     fi
 done
 
 # Function to print test header
 print_test_header() {
-    echo -e "\n${YELLOW}=== TEST: $1 ===${NC}"
+    echo -e "\n${YELLOW}=== TEST: $1 ==="
     ((TOTAL_TESTS++))
 }
 
@@ -88,11 +88,11 @@ INIT_JSON=$(cat <<EOF
 EOF
 )
 
-echo -e "${BLUE}Request:${NC}"
+echo -e "${BLUE}Request:"
 echo "$INIT_JSON" | jq -c .
 
 RESPONSE=$(send_jsonrpc "$INIT_JSON")
-echo -e "${BLUE}Response:${NC}"
+echo -e "${BLUE}Response:"
 echo "$RESPONSE" | jq . 2>/dev/null || echo "$RESPONSE"
 
 if [ -n "$RESPONSE" ]; then
@@ -122,11 +122,11 @@ TOOLS_JSON=$(cat <<EOF
 EOF
 )
 
-echo -e "${BLUE}Request:${NC}"
+echo -e "${BLUE}Request:"
 echo "$TOOLS_JSON" | jq -c .
 
 RESPONSE=$(send_jsonrpc "$TOOLS_JSON")
-echo -e "${BLUE}Response:${NC}"
+echo -e "${BLUE}Response:"
 echo "$RESPONSE" | jq . 2>/dev/null || echo "$RESPONSE"
 
 if [ -n "$RESPONSE" ]; then
@@ -135,7 +135,7 @@ if [ -n "$RESPONSE" ]; then
         print_success "Found 'hello' tool in tools list"
         
         # Extract and display tool info
-        echo -e "${BLUE}Tool details:${NC}"
+        echo -e "${BLUE}Tool details:"
         echo "$RESPONSE" | jq '.result.tools[] | select(.name == "hello")'
     else
         print_failure "Hello tool not found" \
@@ -164,11 +164,11 @@ CALL_JSON=$(cat <<EOF
 EOF
 )
 
-echo -e "${BLUE}Request:${NC}"
+echo -e "${BLUE}Request:"
 echo "$CALL_JSON" | jq -c .
 
 RESPONSE=$(send_jsonrpc "$CALL_JSON")
-echo -e "${BLUE}Response:${NC}"
+echo -e "${BLUE}Response:"
 echo "$RESPONSE" | jq . 2>/dev/null || echo "$RESPONSE"
 
 if [ -n "$RESPONSE" ]; then
@@ -202,11 +202,11 @@ ERROR_JSON=$(cat <<EOF
 EOF
 )
 
-echo -e "${BLUE}Request:${NC}"
+echo -e "${BLUE}Request:"
 echo "$ERROR_JSON" | jq -c .
 
 RESPONSE=$(send_jsonrpc "$ERROR_JSON")
-echo -e "${BLUE}Response:${NC}"
+echo -e "${BLUE}Response:"
 echo "$RESPONSE" | jq . 2>/dev/null || echo "$RESPONSE"
 
 if [ -n "$RESPONSE" ]; then
@@ -215,7 +215,7 @@ if [ -n "$RESPONSE" ]; then
         print_success "Server returned proper error for nonexistent tool"
         
         # Display error details
-        echo -e "${BLUE}Error details:${NC}"
+        echo -e "${BLUE}Error details:"
         echo "$RESPONSE" | jq '.error'
     else
         print_failure "Expected error response" \
@@ -251,11 +251,11 @@ BATCH_JSON=$(cat <<EOF
 EOF
 )
 
-echo -e "${BLUE}Request:${NC}"
+echo -e "${BLUE}Request:"
 echo "$BATCH_JSON" | jq -c .
 
 RESPONSE=$(send_jsonrpc "$BATCH_JSON")
-echo -e "${BLUE}Response:${NC}"
+echo -e "${BLUE}Response:"
 echo "$RESPONSE" | jq . 2>/dev/null || echo "$RESPONSE"
 
 if [ -n "$RESPONSE" ]; then
@@ -271,22 +271,22 @@ else
 fi
 
 # Print summary
-echo -e "\n${YELLOW}=== TEST SUMMARY ===${NC}"
+echo -e "\n${YELLOW}=== TEST SUMMARY ==="
 echo -e "Total tests: $TOTAL_TESTS"
-echo -e "${GREEN}Passed: $PASSED_TESTS${NC}"
-echo -e "${RED}Failed: $FAILED_TESTS${NC}"
+echo -e "${GREEN}Passed: $PASSED_TESTS"
+echo -e "${RED}Failed: $FAILED_TESTS"
 
 # Print connection info
-echo -e "\n${YELLOW}=== CONNECTION INFO ===${NC}"
+echo -e "\n${YELLOW}=== CONNECTION INFO ==="
 echo "Server URL: $SERVER_URL"
 echo "Transport: Server-Sent Events (SSE)"
 echo "Protocol: MCP v2025-03-26"
 
 # Exit with appropriate code
 if [ $FAILED_TESTS -eq 0 ]; then
-    echo -e "\n${GREEN}All tests passed!${NC}"
+    echo -e "\n${GREEN}All tests passed!"
     exit 0
 else
-    echo -e "\n${RED}Some tests failed!${NC}"
+    echo -e "\n${RED}Some tests failed!"
     exit 1
 fi

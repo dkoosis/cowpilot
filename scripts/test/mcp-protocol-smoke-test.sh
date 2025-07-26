@@ -11,51 +11,59 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # gotestsum-style formatting
-echo -e "${BLUE}=== RUN   MCP Protocol Smoke Test${NC}"
-echo -e "${BLUE}    --- Testing basic MCP protocol operations via curl${NC}"
+echo -e "🔥 Protocol Smoke Test"
+echo -e "${BLUE} ▶${NC} Testing basic MCP protocol operations via curl..."
 
-cd /Users/vcto/Projects/cowpilot
+# Ensure we're in project root
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$PROJECT_ROOT"
 
 # Check if jq is available
 if ! command -v jq &> /dev/null; then
-    echo -e "${YELLOW}    ⚠️  jq not found, using raw output${NC}"
+    echo -e "${YELLOW} ⚠️${NC} jq not found, using raw output"
     JQ="cat"
 else
     JQ="jq -c"
 fi
 
-# Build and start server
-echo -e "${BLUE}    --- Building server...${NC}"
-if go build -o ./bin/cowpilot ./cmd/cowpilot 2>/dev/null; then
-    echo -e "${GREEN}        ✓ Build successful${NC}"
+# Check if server is already running on port 8080
+if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+    echo -e "${BLUE} ▶${NC} Using existing server on port 8080"
+    SERVER_PID=""
 else
-    echo -e "${RED}        ✗ Build failed${NC}"
-    echo -e "${RED}--- FAIL  MCP Protocol Smoke Test${NC}"
-    exit 1
-fi
+    # Build and start server
+    echo -e "${BLUE} ▶${NC} Building server..."
+    if go build -o ./bin/cowpilot ./cmd/cowpilot 2>/dev/null; then
+        echo -e "${GREEN} ✓${NC} Build successful"
+    else
+        echo -e "${RED} ✗${NC} Build failed"
+        echo -e "${RED} ✗ FAIL${NC} MCP Protocol Smoke Test"
+        exit 1
+    fi
 
-# Start server
-echo -e "${BLUE}    --- Starting server...${NC}"
-FLY_APP_NAME=local-test ./bin/cowpilot &
-SERVER_PID=$!
-sleep 3
+    # Start server
+    echo -e "${BLUE} ▶${NC} Starting server..."
+    FLY_APP_NAME=local-test ./bin/cowpilot &
+    SERVER_PID=$!
+    sleep 3
+fi
 
 # Function to run test and format output
 run_test() {
     local test_name="$1"
     local json_request="$2"
     
-    echo -e "${BLUE}    --- $test_name${NC}"
+    echo -e "${BLUE}  ${NC} ${test_name}..."
     
     response=$(curl -s -X POST -H "Content-Type: application/json" \
         -d "$json_request" \
-        http://localhost:8080/ 2>/dev/null || echo '{"error": "curl failed"}')
+        http://localhost:8080/mcp 2>/dev/null || echo '{"error": "curl failed"}')
     
     if echo "$response" | grep -q '"error"'; then
-        echo -e "${RED}        ✗ Failed: $(echo $response | $JQ | head -c 100)${NC}"
+        echo -e "${RED} ✗ Failed: $(echo $response | $JQ | head -c 100)"
         return 1
     else
-        echo -e "${GREEN}        ✓ Success${NC}"
+        echo -e "${GREEN} ✓${NC} Success"
         return 0
     fi
 }
@@ -100,16 +108,18 @@ if ! run_test "List available prompts" \
 fi
 
 # Cleanup
-echo -e "${BLUE}    --- Stopping server...${NC}"
-kill $SERVER_PID 2>/dev/null
-wait $SERVER_PID 2>/dev/null
+if [ -n "$SERVER_PID" ]; then
+    echo -e "${BLUE} ▶${NC} Stopping server..."
+    kill $SERVER_PID 2>/dev/null
+    wait $SERVER_PID 2>/dev/null
+fi
 
 # Summary
 echo ""
 if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}--- PASS  MCP Protocol Smoke Test${NC}"
+    echo -e "${GREEN} ✓ PASS${NC} MCP Protocol Smoke Test"
     exit 0
 else
-    echo -e "${RED}--- FAIL  MCP Protocol Smoke Test ($FAILED tests failed)${NC}"
+    echo -e "${RED} ✗  FAIL${NC} MCP Protocol Smoke Test ($FAILED tests failed)"
     exit 1
 fi

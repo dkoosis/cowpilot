@@ -356,14 +356,18 @@ func testCallEchoTool(t *testing.T) {
 }
 
 func testCallAddTool(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-	args := map[string]interface{}{"a": 5, "b": 3}
-	argsJSON, _ := json.Marshal(args)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "tools/call",
-		"--tool-name", "add",
-		"--tool-arguments", string(argsJSON))
+	// Use raw JSON-RPC due to inspector limitation with tool arguments
+	request := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name":      "add",
+			"arguments": map[string]interface{}{"a": 5, "b": 3},
+		},
+	}
+	reqJSON, _ := json.Marshal(request)
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to call add tool: %v\nOutput: %s", err, output)
@@ -377,7 +381,7 @@ func testCallAddTool(t *testing.T) {
 func testGetTimeTool(t *testing.T) {
 	serverURL := os.Getenv("MCP_SERVER_URL")
 
-	// Test default format
+	// Test default format (no args - can use inspector)
 	output, err := runInspectorCommand(serverURL, "--method", "tools/call", "--tool-name", "get_time")
 	if err != nil {
 		t.Fatalf("Failed to call get_time: %v", err)
@@ -387,13 +391,18 @@ func testGetTimeTool(t *testing.T) {
 		t.Error("Expected ISO format time")
 	}
 
-	// Test unix format
-	args := map[string]interface{}{"format": "unix"}
-	argsJSON, _ := json.Marshal(args)
-	output, err = runInspectorCommand(serverURL,
-		"--method", "tools/call",
-		"--tool-name", "get_time",
-		"--tool-arguments", string(argsJSON))
+	// Test unix format - Use raw JSON-RPC due to inspector limitation
+	request := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name":      "get_time",
+			"arguments": map[string]interface{}{"format": "unix"},
+		},
+	}
+	reqJSON, _ := json.Marshal(request)
+	output, err = runRawJSONRPC(t, string(reqJSON))
 	if err != nil {
 		t.Fatalf("Failed to call get_time with unix format: %v", err)
 	}
@@ -404,14 +413,18 @@ func testGetTimeTool(t *testing.T) {
 }
 
 func testBase64EncodeTool(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-	args := map[string]interface{}{"text": "Hello, World!"}
-	argsJSON, _ := json.Marshal(args)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "tools/call",
-		"--tool-name", "base64_encode",
-		"--tool-arguments", string(argsJSON))
+	// Use raw JSON-RPC due to inspector limitation with tool arguments
+	request := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name":      "base64_encode",
+			"arguments": map[string]interface{}{"text": "Hello, World!"},
+		},
+	}
+	reqJSON, _ := json.Marshal(request)
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to call base64_encode: %v", err)
@@ -423,19 +436,21 @@ func testBase64EncodeTool(t *testing.T) {
 }
 
 func testStringOperationTool(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-
-	// Test upper operation
-	args := map[string]interface{}{
-		"text":      "hello",
-		"operation": "upper",
+	// Test upper operation - Use raw JSON-RPC due to inspector limitation
+	request := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "string_operation",
+			"arguments": map[string]interface{}{
+				"text":      "hello",
+				"operation": "upper",
+			},
+		},
 	}
-	argsJSON, _ := json.Marshal(args)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "tools/call",
-		"--tool-name", "string_operation",
-		"--tool-arguments", string(argsJSON))
+	reqJSON, _ := json.Marshal(request)
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to call string_operation: %v", err)
@@ -446,16 +461,12 @@ func testStringOperationTool(t *testing.T) {
 	}
 
 	// Test reverse operation
-	args = map[string]interface{}{
+	request["params"].(map[string]interface{})["arguments"] = map[string]interface{}{
 		"text":      "hello",
 		"operation": "reverse",
 	}
-	argsJSON, _ = json.Marshal(args)
-
-	output, err = runInspectorCommand(serverURL,
-		"--method", "tools/call",
-		"--tool-name", "string_operation",
-		"--tool-arguments", string(argsJSON))
+	reqJSON, _ = json.Marshal(request)
+	output, err = runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to call string_operation: %v", err)
@@ -467,8 +478,17 @@ func testStringOperationTool(t *testing.T) {
 }
 
 func testGetTestImageTool(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-	output, err := runInspectorCommand(serverURL, "--method", "tools/call", "--tool-name", "get_test_image")
+	// Use raw JSON-RPC for consistency
+	request := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "get_test_image",
+		},
+	}
+	reqJSON, _ := json.Marshal(request)
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to call get_test_image: %v", err)
@@ -591,16 +611,17 @@ func testListResourceTemplates(t *testing.T) {
 }
 
 func testReadTextResource(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-
+	// Use raw JSON-RPC due to inspector limitation with params
 	request := map[string]interface{}{
-		"uri": "example://text/hello",
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "resources/read",
+		"params": map[string]interface{}{
+			"uri": "example://text/hello",
+		},
 	}
 	reqJSON, _ := json.Marshal(request)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "resources/read",
-		"--params", string(reqJSON))
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to read text resource: %v", err)
@@ -615,16 +636,17 @@ func testReadTextResource(t *testing.T) {
 }
 
 func testReadBlobResource(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-
+	// Use raw JSON-RPC due to inspector limitation with params
 	request := map[string]interface{}{
-		"uri": "example://image/logo",
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "resources/read",
+		"params": map[string]interface{}{
+			"uri": "example://image/logo",
+		},
 	}
 	reqJSON, _ := json.Marshal(request)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "resources/read",
-		"--params", string(reqJSON))
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to read blob resource: %v", err)
@@ -639,16 +661,17 @@ func testReadBlobResource(t *testing.T) {
 }
 
 func testReadDynamicResource(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-
+	// Use raw JSON-RPC due to inspector limitation with params
 	request := map[string]interface{}{
-		"uri": "example://dynamic/test-id",
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "resources/read",
+		"params": map[string]interface{}{
+			"uri": "example://dynamic/test-id",
+		},
 	}
 	reqJSON, _ := json.Marshal(request)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "resources/read",
-		"--params", string(reqJSON))
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to read dynamic resource: %v", err)
@@ -699,16 +722,17 @@ func testListPrompts(t *testing.T) {
 }
 
 func testGetSimplePrompt(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-
+	// Use raw JSON-RPC due to inspector limitation with params
 	request := map[string]interface{}{
-		"name": "simple_greeting",
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "prompts/get",
+		"params": map[string]interface{}{
+			"name": "simple_greeting",
+		},
 	}
 	reqJSON, _ := json.Marshal(request)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "prompts/get",
-		"--params", string(reqJSON))
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to get simple prompt: %v", err)
@@ -723,27 +747,28 @@ func testGetSimplePrompt(t *testing.T) {
 }
 
 func testGetPromptWithArguments(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-
+	// Use raw JSON-RPC due to inspector limitation with params
 	request := map[string]interface{}{
-		"name": "code_review",
-		"arguments": map[string]string{
-			"language": "go",
-			"code":     "func main() { fmt.Println(\"Hello\") }",
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "prompts/get",
+		"params": map[string]interface{}{
+			"name": "code_review",
+			"arguments": map[string]string{
+				"language": "go",
+				"code":     "func main() { fmt.Println(\"Hello\") }",
+			},
 		},
 	}
 	reqJSON, _ := json.Marshal(request)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "prompts/get",
-		"--params", string(reqJSON))
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to get prompt with arguments: %v", err)
 	}
 
 	// Should include the language in the rendered prompt
-	if !strings.Contains(output, "go") || !strings.Contains(output, "Go") {
+	if !strings.Contains(output, "go") && !strings.Contains(output, "Go") {
 		t.Error("Prompt should include the language argument")
 	}
 }
@@ -832,15 +857,18 @@ func testMultipleContentItems(t *testing.T) {
 }
 
 func testEmbeddedResourceContent(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-
-	args := map[string]interface{}{"uri": "example://text/hello"}
-	argsJSON, _ := json.Marshal(args)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "tools/call",
-		"--tool-name", "get_resource_content",
-		"--tool-arguments", string(argsJSON))
+	// Use raw JSON-RPC due to inspector limitation with tool arguments
+	request := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name":      "get_resource_content",
+			"arguments": map[string]interface{}{"uri": "example://text/hello"},
+		},
+	}
+	reqJSON, _ := json.Marshal(request)
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to test embedded resource: %v", err)
