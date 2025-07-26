@@ -18,7 +18,6 @@ OUTPUT_DIR=./bin
 
 # Test variables
 UNIT_TEST_DIRS=./cmd/... ./internal/...
-INTEGRATION_TEST_DIR=./tests/integration
 SCENARIO_TEST_DIR=./tests/scenarios
 COVERAGE_FILE=coverage.out
 GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
@@ -61,14 +60,11 @@ run-debug-proxy: build-debug
 		--port 8080 \
 		--target-port 8081
 
-# Run all tests
-test: unit-test integration-test
-
 # Run unit tests
 unit-test:
 	@echo "Running unit tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+		$(GOTESTSUM) --format testdox -- -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	else \
 		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	fi
@@ -77,9 +73,9 @@ unit-test:
 integration-test:
 	@echo "Running integration tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -v -race $(INTEGRATION_TEST_DIR)/...; \
+		$(GOTESTSUM) --format testdox -- -race ./tests/...; \
 	else \
-		$(GOTEST) -v -race $(INTEGRATION_TEST_DIR)/...; \
+		$(GOTEST) -v -race ./tests/...; \
 	fi
 
 # Run scenario tests (for CI/staging)
@@ -115,7 +111,7 @@ scenario-test-local:
 	echo "Server started with PID $$SERVER_PID"; \
 	echo "Running Go scenario tests..."; \
 	if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTESTSUM) --format testdox --jsonfile test-results.json -- -v -timeout 120s $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTESTSUM) --format testdox --jsonfile test-results.json -- -timeout 120s $(SCENARIO_TEST_DIR)/...; \
 	else \
 		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTEST) -v -timeout 120s -json $(SCENARIO_TEST_DIR)/... | tee test-results.json; \
 	fi; \
@@ -141,7 +137,7 @@ scenario-test-local:
 scenario-test-prod:
 	@echo "Running scenario tests against production..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format testdox -- -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format testdox -- $(SCENARIO_TEST_DIR)/...; \
 	else \
 		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi
@@ -166,24 +162,24 @@ scenario-test-raw:
 # Enhanced test output
 GOTESTSUM := $(shell which gotestsum 2>/dev/null)
 ifdef GOTESTSUM
-	GOTEST = gotestsum --format testname --format-hide-empty-pkg --
+    GOTEST = gotestsum --format testname --format-hide-empty-pkg --
 else
-	GOTEST = go test
+    GOTEST = go test
 endif
 
 # Run tests with verbose human-readable output
 test-verbose:
 	@echo "Running unit tests with verbose output..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+		$(GOTESTSUM) --format testdox -- -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	else \
 		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	fi
 	@echo "Running integration tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -v -race $(INTEGRATION_TEST_DIR)/...; \
+		$(GOTESTSUM) --format testdox -- -race ./tests/...; \
 	else \
-		$(GOTEST) -v -race $(INTEGRATION_TEST_DIR)/...; \
+		$(GOTEST) -v -race ./tests/...; \
 	fi
 
 # Clean build artifacts
