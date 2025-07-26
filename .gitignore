@@ -1,3 +1,10 @@
+
+# Temporary files
+*.tmp
+.DS_Store
+cowpilot
+debug-tools-test.go
+docs/archive/
 # Binaries for programs and plugins
 *.exe
 *.exe~
