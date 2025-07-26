@@ -19,6 +19,7 @@
   TEST: npx @modelcontextprotocol/inspector ./bin/cowpilot
   ✓TEST_DEBUG: npx @modelcontextprotocol/inspector http://localhost:8080
   ✓TESTING: [testutil.Assert→human_readable✓,gotestsum→format_testdox✓,main_test→BDD_scenarios✓,make_test→simplified✓,scenario_output→descriptive✓,protocol_compliance→comprehensive✓]
+  ✓TEST_SCRIPTS: [φscripts/test/run-tests.sh→unified_runner,project-health-check✓,mcp-protocol-smoke-test✓,transport-diagnostics✓,debug-integration✓,gotestsum_formatting✓]
   ✓FIXED_RAW_TEST: [scenario-test-raw→localhost_server✓,makefile_updated→auto_start_stop✓]
   FIXED: [resource_handler→[]mcp.ResourceContents,prompt_Arguments→map[string]string,MimeType→MIMEType,CallToolRequest.Params.Arguments→type_assert_map[string]any]✓
   CLEANED: [removed_unused_vars(samplePrompts,sampleResources,subscriptions),removed_deprecated_handlers(4),cleaned_comments]✓
@@ -162,6 +163,7 @@ SAMPLE_DATA:
 ≈CONTEXT[current_session_july25_2025]:
   ✓DEBUG_P1: conversation_logging+sqlite+proxy_server
   ✓SESSION_FIXES: stateless_mode+inspector_http+test_fixes
+  ✓TEST_REORGANIZATION: shell_scripts→φscripts/test/[formatted_output,consistent_naming,run-tests.sh]
   ∇NEXT: verify_tests|∇adr012_runtime_config|phase3_dashboard
   φDOCS: [φdebug/mcp-conformance-plan.md,φadr/012-runtime-debug-configuration.md]
   

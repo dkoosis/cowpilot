@@ -2,171 +2,149 @@
 
 MCP (Model Context Protocol) server implementation in Go - comprehensive everything server with tools, resources, and prompts.
 
-**Production Server**: https://cowpilot.fly.dev/
+[![Production Status](https://img.shields.io/badge/status-operational-green)](https://cowpilot.fly.dev/health)
+[![MCP Version](https://img.shields.io/badge/MCP-v2025--03--26-blue)](docs/protocol-standards.md)
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8)](go.mod)
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
-# Build and run locally (stdio mode)
-make build && ./bin/cowpilot
+# Clone and test production server
+git clone https://github.com/vcto/cowpilot.git
+cd cowpilot
+curl https://cowpilot.fly.dev/health  # Should return: OK
 
-# Run with HTTP/SSE server mode
+# Build and test locally
+make build  # Runs all tests then builds
+./bin/cowpilot  # Run in stdio mode
+
+# Run with HTTP/SSE server
 FLY_APP_NAME=local-test ./bin/cowpilot
+```
 
+## 📋 What's Implemented
+
+### Tools (11 implemented)
+- `hello` - Simple greeting
+- `echo` - Echo with prefix
+- `add` - Add two numbers
+- `get_time` - Current time (unix/iso/human)
+- `base64_encode`/`base64_decode` - Base64 operations
+- `string_operation` - Text transformations (upper/lower/reverse/length)
+- `format_json` - JSON formatting/minification
+- `long_running_operation` - Progress simulation
+- `get_test_image` - Returns test image
+- `get_resource_content` - Embeds resources
+
+### Resources (4 types)
+- Static text resources
+- Binary resources (images)
+- Dynamic templates
+- Embedded content support
+
+### Prompts (2 templates)
+- Simple greeting prompt
+- Code review prompt with arguments
+
+## 🧪 Testing
+
+```bash
 # Quick validation
-./validate_status.sh
+make test          # Unit + integration + scenarios
+
+# Development workflow
+make test-verbose  # Human-readable output
+make coverage      # Generate coverage report
+
+# Manual testing
+npx @modelcontextprotocol/inspector ./bin/cowpilot
 ```
 
-## Testing Guide 🧪
+See [Testing Guide](docs/testing-guide.md) for comprehensive testing documentation.
 
-### Essential Commands
-```bash
-# Quick validation (recommended first step)
-./validate_status.sh                    # Build + basic validation
+## 🏗️ Development
 
-# Unit + integration tests
-make test-verbose                       # Human-readable test output
+### Adding a New Tool
 
-# End-to-end testing
-make scenario-test-local               # Test against local server
-make scenario-test-raw                 # CLI protocol testing (no browser)
+```go
+// In cmd/cowpilot/main.go
+tool := mcp.NewTool("weather",
+    mcp.WithDescription("Get weather for a location"),
+    mcp.WithString("location", mcp.Required(), mcp.Description("City name")),
+)
+s.AddTool(tool, weatherHandler)
+
+func weatherHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+    args := request.Params.Arguments.(map[string]any)
+    location := args["location"].(string)
+    // Implementation
+    return mcp.NewToolResultText(fmt.Sprintf("Weather in %s: Sunny", location)), nil
+}
 ```
 
-### All Test Options
-
-| Command | What It Does | When To Use |
-|---------|-------------|-------------|
-| `./validate_status.sh` | Quick build + health check | First validation, CI checks |
-| `make test-verbose` | Unit + integration tests | Development, code changes |
-| `make scenario-test-local` | E2E tests against local server | Full validation before deploy |
-| `make scenario-test-raw` | CLI MCP protocol testing | Protocol compliance, debugging |
-| `make scenario-test-prod` | E2E tests against production | Post-deployment validation |
-| `npx @modelcontextprotocol/inspector ./bin/cowpilot` | Interactive MCP debugging | Manual testing (opens browser) |
-
-### Legacy Scripts (⚠️ Avoid)
-These exist but are superseded by Makefile targets:
-- `test.sh`, `quick_test.sh`, `run-tests.sh` - Use `make test-verbose` instead
-- `test_*.sh` scripts - Use appropriate `make` targets instead
-
-## Features
-
-**Tools (11)**: hello, echo, add, get_time, base64_encode/decode, string_operation, format_json, long_running_operation, get_test_image, get_resource_content
-
-**Resources (4)**: text/hello, text/readme, image/logo, dynamic/{id} template  
-
-**Prompts (2)**: simple_greeting, code_review (with arguments)
-
-**Transport**: Dual mode - stdio (local) + StreamableHTTP (production) - [See ADR-013](docs/adr/013-mcp-transport-selection.md)
-
-## Development
+### Development Commands
 
 ```bash
-# Full development cycle
-make all                               # Clean, format, lint, test, build
-
-# Individual steps  
-make clean fmt vet lint                # Code quality
-make build                            # Build binary
-make run                              # Build and run
-make coverage                         # Generate coverage report
+make all      # Clean, format, lint, test, build
+make build    # Test and build
+make run      # Build and run
+make deploy   # Test and deploy to production
 ```
 
-## Deployment
+## 🚢 Deployment
+
+Production deployment on Fly.io:
 
 ```bash
-# Deploy to production
-make deploy                           # Test + build + deploy to Fly.io
-
-# Manual deployment
-fly deploy
+fly deploy  # Automated via GitHub Actions
 ```
 
-## Architecture
+See [fly.toml](fly.toml) for configuration.
 
-- **Library**: `github.com/mark3labs/mcp-go` (native support)
+## 📖 Documentation
+
+### Essential Docs
+- [STATE.yaml](docs/STATE.yaml) - Machine-readable project context
+- [Testing Guide](docs/testing-guide.md) - Comprehensive testing documentation
+- [Contributing](docs/contributing.md) - Development guidelines
+- [Protocol Standards](docs/protocol-standards.md) - MCP implementation details
+
+### Architecture Decisions
+- [ADR-009](docs/adr/009-mcp-sdk-selection.md) - Why mark3labs/mcp-go
+- [ADR-010](docs/adr/010-mcp-debug-system-architecture.md) - Debug system design
+- [ADR-012](docs/adr/012-runtime-debug-configuration.md) - Runtime debug configuration
+- [ADR-013](docs/adr/013-mcp-transport-selection.md) - StreamableHTTP transport
+
+### Debug & Troubleshooting
+- [Debug System](docs/debug/mcp-conformance-plan.md) - Protocol conformance testing
+- [Known Issues](docs/KNOWN-ISSUES.md) - Current limitations
+
+## 🛠️ Technical Details
+
+- **SDK**: [mark3labs/mcp-go](https://github.com/mark3labs/mcp-go)
 - **Protocol**: MCP v2025-03-26 over JSON-RPC 2.0
-- **Transport**: StreamableHTTP (supports both JSON and SSE responses) - [See ADR-013](docs/adr/013-mcp-transport-selection.md)
+- **Transport**: StreamableHTTP (HTTP POST + SSE)
+- **Runtime**: Go 1.22+
 - **Deployment**: Fly.io with auto-scaling
 
-## Documentation Directory 📚
+## 🔮 Next Steps
 
-### 🏠 Project Overview
-- [README](README.md) - Main project documentation (this file)
-- [Project Overview for Claude](PROJECT_OVERVIEW_FOR_CLAUDE.md) - AI-optimized project summary
-- [Project Cleanup Summary](PROJECT_CLEANUP_SUMMARY.md) - Recent improvements and cleanups
-- [State Documentation](docs/STATE.yaml) - Machine-optimized context for Claude
+1. **Authentication** - API keys or basic auth
+2. **More Tools** - Weather, search, calculations
+3. **Persistence** - Resource storage
+4. **Monitoring** - Metrics and observability
+5. **Performance** - Load testing and optimization
 
-### 🔧 Development & Testing
-- [Testing Guide](docs/testing-guide.md) - Comprehensive testing documentation
-- [Test Formatting](docs/test-formatting.md) - Test output formatting standards
-- [User Guide](docs/user-guide.md) - End-user documentation
-- [Contributing Guide](docs/contributing.md) - Development contribution guidelines
+See [ROADMAP.md](docs/ROADMAP.md) for detailed plans.
 
-### 🏗️ Architecture & Design
-- [Protocol Standards](docs/protocol-standards.md) - MCP implementation details
-- [Known Issues](docs/KNOWN-ISSUES.md) - Current limitations and workarounds
-- [Roadmap](docs/ROADMAP.md) - Future development plans
-- [TODO](docs/TODO.md) - Immediate development tasks
-- [LLM Documentation](docs/llm.md) - AI/LLM related documentation
-- [Project History](docs/project-history.md) - Development timeline and decisions
+## 🤝 Contributing
 
-### 🐛 Debug & Tools
-- **[MCP Conformance Plan](docs/debug/mcp-conformance-plan.md)** - Comprehensive protocol debugging system
-- **[Phase 1 Implementation Complete](docs/debug/phase1-implementation-complete.md)** - Debug system status (NEW)
-- [Debug Guide](tests/scenarios/DEBUG_GUIDE.md) - Low-level protocol debugging
-- [Testing Guide (Scenarios)](tests/scenarios/TESTING_GUIDE.md) - Scenario-based testing
+We welcome contributions! Please read our [Contributing Guide](docs/contributing.md) first.
 
-### 📋 Architecture Decision Records (ADRs)
-- [ADR Directory](docs/adr/README.md) - Overview of all architecture decisions
-- [ADR-009: MCP SDK Selection](docs/adr/009-mcp-sdk-selection.md) - Why we chose mark3labs/mcp-go
-- **[ADR-010: MCP Debug System Architecture](docs/adr/010-mcp-debug-system-architecture.md)** - Debug system architecture (NEW)
-- **[ADR-011: Conditional Compilation for Lightweight Debug System](docs/adr/011-conditional-compilation-lightweight-debug.md)** - Lightweight debug strategy (SUPERSEDED)
-- **[ADR-012: Runtime Debug Configuration](docs/adr/012-runtime-debug-configuration.md)** - Runtime debug approach (NEW)
-- **[ADR-013: MCP Transport Selection](docs/adr/013-mcp-transport-selection.md)** - StreamableHTTP over SSE decision (NEW)
-- [ADR Template](docs/adr/adr-template.md) - Template for new ADRs
+## 📄 License
 
-### 📝 Development Sessions & History
-- [2025-01-20 Handoff](docs/sessions/2025-01-20-handoff.md) - Project handoff documentation
-- [Quick Start Next](docs/sessions/quick-start-next.md) - Next steps documentation
-
-### 🎯 Prompts & Templates
-- [Prompts README](prompts/README.md) - Overview of available prompts
-- [Review Guide](prompts/REVIEW-GUIDE.md) - Code review prompt guidelines
-- [001P: Review Semantic Naming](prompts/001P-review-semantic-naming.md) - Naming review prompt
-- [002P: Analyze Code Smells](prompts/002P-analyze-code-smells.md) - Code quality analysis prompt
-
-### 📊 Test Documentation
-- [Scenarios README](tests/scenarios/README.md) - Test scenarios overview
-- [Enhanced Summary](tests/scenarios/ENHANCED_SUMMARY.md) - Detailed test analysis
-- [Implementation Review](tests/scenarios/IMPLEMENTATION_REVIEW.md) - Implementation testing review
-- [Implementation Summary](tests/scenarios/IMPLEMENTATION_SUMMARY.md) - Implementation test results
-- [File Inventory](tests/scenarios/FILE_INVENTORY.md) - Test file organization
-- [RTFM Correction](tests/scenarios/RTFM_CORRECTION.md) - Documentation corrections
-
-### 📁 Documentation Organization
-- [docs/README.md](docs/README.md) - Docs directory index
-- All documentation follows the project's architectural decision for comprehensive documentation
+[MIT License](LICENSE)
 
 ---
 
-### 🔍 Quick Navigation
-**New to the project?** Start with [Project Overview for Claude](PROJECT_OVERVIEW_FOR_CLAUDE.md)
-
-**Want to contribute?** Read [Contributing Guide](docs/contributing.md) and [Testing Guide](docs/testing-guide.md)
-
-**Debugging issues?** Check [MCP Conformance Plan](docs/debug/mcp-conformance-plan.md) and [Debug Guide](tests/scenarios/DEBUG_GUIDE.md)
-
-**Understanding decisions?** Browse [ADR Directory](docs/adr/README.md)
-
-## Legacy Documentation
-
-## Project Structure
-
-```
-cmd/cowpilot/main.go           # Everything server implementation
-internal/mcp/                  # MCP protocol handling
-internal/transport/            # HTTP/SSE transport
-tests/scenarios/               # E2E test scenarios
-docs/STATE.yaml               # Machine context (for Claude)
-Makefile                      # Build automation
-```
+**Questions?** Check [STATE.yaml](docs/STATE.yaml) for current context or open an issue.

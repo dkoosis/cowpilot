@@ -25,14 +25,14 @@ GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
 .PHONY: all build build-debug debug-proxy run-debug-proxy test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
 
-# Clean, format, lint, and run ALL tests
-all: clean fmt vet lint test
+# Clean, format, lint, and run ALL tests including scenarios
+all: clean fmt vet lint test scenario-test-local
 
 # Run ALL tests (unit, integration, and scenario)
 test: unit-test integration-test scenario-test-local
 
-# Build the application
-build:
+# Build the application (runs tests first)
+build: test
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(OUTPUT_DIR)
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
@@ -102,19 +102,24 @@ scenario-test-local:
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
 	# Start server in background (SSE transport enabled by FLY_APP_NAME)
 	FLY_APP_NAME=local-test ./bin/cowpilot  & \
-	SERVER_PID=$$!; \
+	SERVER_PID=$!; \
 	sleep 3; \
-	echo "Server started with PID $$SERVER_PID"; \
+	echo "Server started with PID $SERVER_PID"; \
 	if [ -n "$(GOTESTSUM)" ]; then \
 		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTESTSUM) --format testdox -- -v $(SCENARIO_TEST_DIR)/...; \
 	else \
-		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...;
+		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi; \
-	TEST_EXIT=$$?; \
-	echo "Stopping server with PID $$SERVER_PID"; \
-	kill $$SERVER_PID 2>/dev/null || true; \
-	wait $$SERVER_PID 2>/dev/null || true; \
-	exit $$TEST_EXIT
+	TEST_EXIT=$?; \
+	echo "Running shell script scenario tests..."; \
+	cd scripts/test && ./run-tests.sh quick; \
+	SHELL_EXIT=$?; \
+	echo "Stopping server with PID $SERVER_PID"; \
+	kill $SERVER_PID 2>/dev/null || true; \
+	wait $SERVER_PID 2>/dev/null || true; \
+	if [ $TEST_EXIT -ne 0 ] || [ $SHELL_EXIT -ne 0 ]; then \
+		exit 1; \
+	fi
 
 # Run scenario tests against production
 scenario-test-prod:
@@ -222,15 +227,15 @@ test-ci:
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  all              - Clean, format, vet, lint, test, and build"
-	@echo "  build            - Build the binary"
+	@echo "  all              - Clean, format, vet, lint, test, and run scenarios"
+	@echo "  build            - Run all tests then build the binary"
 	@echo "  build-debug      - Build the debug proxy binary"
 	@echo "  debug-proxy      - Build both main application and debug proxy"
 	@echo "  run-debug-proxy  - Build and run the debug proxy with default settings"
-	@echo "  test             - Run all tests"
+	@echo "  test             - Run all tests (unit, integration, and scenarios)"
 	@echo "  unit-test        - Run unit tests with coverage"
 	@echo "  integration-test - Run integration tests"
-	@echo "  scenario-test    - Run scenario tests (uses MCP_SERVER_URL or production)"
+	@echo "  scenario-test    - Run scenario tests (Go + shell scripts)"
 	@echo "  scenario-test-local - Run scenario tests against local server (localhost:8080)"
 	@echo "  scenario-test-prod - Run scenario tests against production (cowpilot.fly.dev)"
 	@echo "  scenario-test-raw - Run raw SSE/JSON-RPC tests using curl and jq"

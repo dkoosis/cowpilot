@@ -658,7 +658,7 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 	// STATELESS MODE: Enabled for testing compatibility
 	streamableServer := server.NewStreamableHTTPServer(
 		mcpServer,
-		server.WithStateLess(true), // No session validation - simpler for tests
+		server.WithStateLess(true),      // No session validation - simpler for tests
 		server.WithEndpointPath("/mcp"), // Force HTTP transport detection for inspector
 	)
 
