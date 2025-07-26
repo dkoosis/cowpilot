@@ -1,4 +1,4 @@
-# STATE.yaml v7.2-claude-optimized
+# STATE.yaml v7.3-claude-optimized
 # λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=native
 # MACHINE_CONTEXT_FOR_CLAUDE[not_human_readable]
 
@@ -117,6 +117,8 @@
   PATTERN_MULTI: &mcp.CallToolResult{Content:[]interface{}{TextContent{},ImageContent{}}}
   PATTERN_ERROR: mcp.NewToolResultError(msg),nil
   PATTERN_EMBED: EmbeddedResource{Type:"resource",Resource:TextResourceContents{URI,MimeType,Text}}
+  ✓MIDDLEWARE_STACK: [protocolDetectionMiddleware→debug→auth→cors→streamableServer]
+  ✓ENDPOINTS: [/mcp,/health,/oauth/*,/.well-known/*]
 
 ‡DECISIONS:
   ✓LIBRARY: mcp-go[native_support]→tools+resources+prompts
@@ -125,7 +127,7 @@
   
 ‡ACTIVE_BLOCKERS: 
   λMCP_GO: ∅[completions,logging,progress]
-  ‡CLAUDE_AI: ∅[authentication,CORS_headers,session_handling,debug_visibility]
+  ‡CLAUDE_AI: ∅[OAuth_DCR_testing_needed]
 
 SAMPLE_DATA:
   RES: {
@@ -141,7 +143,7 @@ SAMPLE_DATA:
 ‡CLAUDE_AI_INTEGRATION[2025-07-26]:
   GOAL: ∇enable_claude.ai_as_MCP_client[remote_server_required]
   ‡CONSTRAINT: claude.ai_CANNOT_access_local_servers[browser_security]
-  CURRENT_GAPS: [∅OAuth2_DCR,∅integration_tests]
+  CURRENT_GAPS: [∅OAuth2_DCR_live_testing]
   
   ✓P1_REMOTE_DEPLOYMENT[COMPLETE_2025-07-26]:
     STATUS: ✓fly.io_deployed+✓CORS_implemented
@@ -220,10 +222,11 @@ SAMPLE_DATA:
   ✓TEST_CONVENTION: Component_ExpectedBehavior_When_Condition→40+_tests
   ✓FIXES: [compilation_errors,linter_violations,test_naming]
   ✓READY: oauth_flow_complete→needs_claude.ai_testing
+  ✓MIDDLEWARE_STACK: ordered[protocol_detection→debug→auth→cors→streamable]
   φDOCS: [φoauth-implementation-log.md,φoauth-test-suite.sh]
   LEARNED: [systematic_logging_valuable,pattern_reuse_from_other_projects,test_conventions_matter]
   
-✓SESSION_VALIDATED[july25_2025]:
+✓SESSION_VALIDATED[july26_2025]:
   STATUS: 🟢PRODUCTION_READY
   GUIDELINES_REVIEWED: ✓session_protocol_acknowledged
   MAINTENANCE_FOCUS: ✓state_yaml_optimization_for_claude_performance
@@ -241,3 +244,15 @@ SAMPLE_DATA:
   ✓SOLUTION: use_raw_JSON_RPC_via_curl_for_ALL_tool_tests_with_arguments
   DECISION: ∅DO_NOT_REVISIT→documented_permanent_limitation
   PATTERN: tools_without_args→use_inspector|tools_with_args→use_curl_json_rpc
+
+‡FILES_STRUCTURE[2025-07-26]:
+  cmd/cowpilot/: [main.go,main_test.go]→primary_server
+  cmd/mcp-debug-proxy/: main.go→debug_proxy
+  internal/auth/: [oauth_adapter.go,middleware.go,token_store.go,csrf_token_test.go,oauth_callback_server.go]
+  internal/debug/: [config.go,interceptor.go,storage.go,validation_integration.go]
+  internal/middleware/: cors.go
+  internal/validator/: [core.go,jsonrpc.go,mcp.go,security.go]
+  internal/testutil/: [assertions.go,requests.go]
+  tests/: [claude_connector_test.go,oauth_scenario_test.go,test-runner.go,various_test_files]
+  scripts/test/: [run-tests.sh,test-sse-transport.sh,various_test_scripts]
+  docs/: [STATE.yaml,adr/*,claude-integration/*,debug/*,reference/*]
