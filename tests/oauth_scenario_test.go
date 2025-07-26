@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -52,10 +51,10 @@ func TestOAuthFlow_CompleteScenario(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get OAuth metadata: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var metadata map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&metadata)
+		_ = json.NewDecoder(resp.Body).Decode(&metadata)
 
 		if metadata["authorization_endpoint"] == "" {
 			t.Error("Missing authorization endpoint")
@@ -69,7 +68,7 @@ func TestOAuthFlow_CompleteScenario(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get auth page: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Extract CSRF token from form
 		body := make([]byte, 4096)
@@ -101,7 +100,7 @@ func TestOAuthFlow_CompleteScenario(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to submit auth: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusFound {
 			t.Fatalf("Expected redirect, got %d", resp.StatusCode)
@@ -131,10 +130,10 @@ func TestOAuthFlow_CompleteScenario(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to exchange token: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var tokenResp map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&tokenResp)
+		_ = json.NewDecoder(resp.Body).Decode(&tokenResp)
 
 		accessToken := tokenResp["access_token"].(string)
 		if accessToken == "" {
@@ -157,7 +156,7 @@ func TestOAuthFlow_CompleteScenario(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to call MCP: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("MCP call failed with status %d", resp.StatusCode)
@@ -165,7 +164,7 @@ func TestOAuthFlow_CompleteScenario(t *testing.T) {
 
 		// Verify we got tools list
 		var mcpResp map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&mcpResp)
+		_ = json.NewDecoder(resp.Body).Decode(&mcpResp)
 
 		if mcpResp["result"] == nil {
 			t.Error("No result in MCP response")
@@ -183,7 +182,16 @@ func TestOAuthFlow_ErrorScenarios(t *testing.T) {
 		{
 			name: "AuthorizeEndpoint_Returns400_When_APIKeyMissing",
 			scenario: func(t *testing.T, adapter *auth.OAuthAdapter) {
-				csrfToken := adapter.callbackServer.GenerateStateToken("test")
+				// First get the form to extract CSRF token
+				req := httptest.NewRequest("GET", "/oauth/authorize?client_id=test&redirect_uri=http://localhost/callback", nil)
+				w := httptest.NewRecorder()
+				adapter.HandleAuthorize(w, req)
+
+				// Extract CSRF token from form
+				body := w.Body.String()
+				csrfStart := strings.Index(body, `name="csrf_state" value="`) + 26
+				csrfEnd := strings.Index(body[csrfStart:], `"`)
+				csrfToken := body[csrfStart : csrfStart+csrfEnd]
 
 				form := url.Values{}
 				form.Add("client_id", "test")
@@ -191,9 +199,9 @@ func TestOAuthFlow_ErrorScenarios(t *testing.T) {
 				form.Add("csrf_state", csrfToken)
 				// Missing api_key
 
-				req := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
+				req = httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-				w := httptest.NewRecorder()
+				w = httptest.NewRecorder()
 
 				adapter.HandleAuthorize(w, req)
 
@@ -223,21 +231,44 @@ func TestOAuthFlow_ErrorScenarios(t *testing.T) {
 		{
 			name: "TokenEndpoint_RejectsCode_When_CodeReused",
 			scenario: func(t *testing.T, adapter *auth.OAuthAdapter) {
-				// Add auth code
-				adapter.authCodes["reuse-code"] = &auth.AuthCode{
-					Code:      "reuse-code",
-					RTMAPIKey: "test-key",
-					ExpiresAt: time.Now().Add(5 * time.Minute),
-				}
+				// Generate a valid auth code through the proper flow
+				// Step 1: Get form
+				req := httptest.NewRequest("GET", "/oauth/authorize?client_id=test&redirect_uri=http://localhost/callback", nil)
+				w := httptest.NewRecorder()
+				adapter.HandleAuthorize(w, req)
 
+				// Extract CSRF token
+				body := w.Body.String()
+				csrfStart := strings.Index(body, `name="csrf_state" value="`) + 26
+				csrfEnd := strings.Index(body[csrfStart:], `"`)
+				csrfToken := body[csrfStart : csrfStart+csrfEnd]
+
+				// Step 2: Submit form to get auth code
 				form := url.Values{}
+				form.Add("client_id", "test")
+				form.Add("redirect_uri", "http://localhost/callback")
+				form.Add("csrf_state", csrfToken)
+				form.Add("api_key", "test-key")
+
+				req = httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				w = httptest.NewRecorder()
+
+				adapter.HandleAuthorize(w, req)
+
+				// Extract auth code from redirect
+				location := w.Header().Get("Location")
+				u, _ := url.Parse(location)
+				authCode := u.Query().Get("code")
+
+				form = url.Values{}
 				form.Add("grant_type", "authorization_code")
-				form.Add("code", "reuse-code")
+				form.Add("code", authCode)
 
 				// First use - should succeed
-				req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+				req = httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-				w := httptest.NewRecorder()
+				w = httptest.NewRecorder()
 
 				adapter.HandleToken(w, req)
 				if w.Code != http.StatusOK {

@@ -208,7 +208,7 @@ func TestOAuthMiddleware(t *testing.T) {
 	// Create test handler
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("X-RTM-API-Key")
-		w.Write([]byte("API Key: " + apiKey))
+		_, _ = w.Write([]byte("API Key: " + apiKey))
 	})
 
 	// Wrap with middleware

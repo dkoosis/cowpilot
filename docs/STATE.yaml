@@ -163,9 +163,11 @@ SAMPLE_DATA:
     ISSUES_FIXED: [✓compilation_errors,✓linter_violations,✓unexported_fields]
     READY_FOR: claude.ai_integration_testing
     
-  ∇P3_INTEGRATION_TEST[1_day]:
-    DELIVERABLES: [∇tests/claude_connector_test.go,∇CI_integration]
-    COVERAGE: [OAuth_flow,tool_calls,SSE_transport,error_handling]
+  ✓P3_INTEGRATION_TEST[COMPLETE_2025-07-26]:
+    DELIVERABLES: [✓tests/claude_connector_test.go,∇CI_integration]
+    COVERAGE: [✓OAuth_flow,✓tool_calls,✓SSE_transport,✓error_handling,✓CORS_compliance,✓naming_compliance]
+    FEATURES: [✓complete_oauth_simulation,✓sse_transport_verification,✓tool_execution,✓capability_discovery,✓error_scenarios]
+    STATUS: ✓test_file_created→needs_execution_verification
     
   CONSTRAINTS:
     NAMING: no_punctuation_in_connector_name[spaces_OK]
@@ -188,11 +190,12 @@ SAMPLE_DATA:
     PATTERNS: [DCR_flow,token_refresh,PKCE]
 
 ∇NEXT:
-  ‡PRIORITY1: ∇claude_ai_integration_test[verify_oauth_with_claude.ai]
+  ‡PRIORITY1: ∇execute_claude_tests[go_test_./tests/claude_connector_test.go]
   ‡PRIORITY2: ∇runtime_protocol_validation[add_via_debug_proxy]
-  PRIORITY3: ∇error_mapping[clear_json_rpc_codes]
-  PRIORITY4: ∇monitoring[oauth_metrics]
-  COMPLETED: [✓oauth_implementation,✓csrf_protection,✓test_suite]
+  PRIORITY3: ∇CI_integration[add_claude_tests_to_CI]
+  PRIORITY4: ∇error_mapping[clear_json_rpc_codes]
+  PRIORITY5: ∇monitoring[oauth_metrics]
+  COMPLETED: [✓oauth_implementation,✓csrf_protection,✓test_suite,✓claude_integration_test_created]
   DEFERRED: [rtm_integration,completions]
   
   ✓IMPLEMENTED: [fly.io_deployment,CORS_middleware,protocol_validation,11_tools]
