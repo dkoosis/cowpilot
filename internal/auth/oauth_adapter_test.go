@@ -11,17 +11,17 @@ import (
 
 func TestOAuthAdapter_AuthorizeFlow(t *testing.T) {
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	
+
 	t.Run("AuthorizeEndpoint_ShowsForm_When_GETRequest", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/oauth/authorize?client_id=test&redirect_uri=http://localhost/callback&state=abc123", nil)
 		w := httptest.NewRecorder()
-		
+
 		adapter.HandleAuthorize(w, req)
-		
+
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected 200, got %d", w.Code)
 		}
-		
+
 		body := w.Body.String()
 		if !strings.Contains(body, "Connect Remember The Milk") {
 			t.Error("Missing page title")
@@ -33,53 +33,53 @@ func TestOAuthAdapter_AuthorizeFlow(t *testing.T) {
 			t.Error("Missing client state")
 		}
 	})
-	
+
 	t.Run("AuthorizeEndpoint_RejectsInvalidCSRF_When_POSTWithBadToken", func(t *testing.T) {
 		// First, generate CSRF token
-		csrfToken := adapter.callbackServer.GenerateStateToken("test-client")
-		
+		_ = adapter.callbackServer.GenerateStateToken("test-client")
+
 		// Submit form without CSRF token
 		form := url.Values{}
 		form.Add("client_id", "test-client")
 		form.Add("redirect_uri", "http://localhost/callback")
 		form.Add("csrf_state", "invalid-token")
 		form.Add("api_key", "test-key")
-		
+
 		req := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
-		
+
 		adapter.HandleAuthorize(w, req)
-		
+
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("Expected 400 for invalid CSRF, got %d", w.Code)
 		}
 	})
-	
+
 	t.Run("AuthorizeEndpoint_GeneratesAuthCode_When_ValidFormSubmitted", func(t *testing.T) {
 		// Generate valid CSRF token
 		csrfToken := adapter.callbackServer.GenerateStateToken("test-client")
-		
+
 		form := url.Values{}
 		form.Add("client_id", "test-client")
 		form.Add("redirect_uri", "http://localhost/callback")
 		form.Add("client_state", "abc123")
 		form.Add("csrf_state", csrfToken)
 		form.Add("api_key", "test-rtm-key")
-		
+
 		req := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
-		
+
 		adapter.HandleAuthorize(w, req)
-		
+
 		if w.Code != http.StatusFound {
 			t.Errorf("Expected 302 redirect, got %d", w.Code)
 		}
-		
+
 		location := w.Header().Get("Location")
 		u, _ := url.Parse(location)
-		
+
 		if u.Query().Get("code") == "" {
 			t.Error("Missing auth code in redirect")
 		}
@@ -91,7 +91,7 @@ func TestOAuthAdapter_AuthorizeFlow(t *testing.T) {
 
 func TestOAuthAdapter_TokenExchange(t *testing.T) {
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	
+
 	// Generate auth code
 	authCode := &AuthCode{
 		Code:      "test-code",
@@ -99,34 +99,34 @@ func TestOAuthAdapter_TokenExchange(t *testing.T) {
 		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
 	adapter.authCodes["test-code"] = authCode
-	
+
 	t.Run("TokenEndpoint_IssuesAccessToken_When_ValidCodeProvided", func(t *testing.T) {
 		form := url.Values{}
 		form.Add("grant_type", "authorization_code")
 		form.Add("code", "test-code")
-		
+
 		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
-		
+
 		adapter.HandleToken(w, req)
-		
+
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected 200, got %d", w.Code)
 		}
-		
+
 		// Check token was issued
 		body := w.Body.String()
 		if !strings.Contains(body, "access_token") {
 			t.Error("Missing access token")
 		}
-		
+
 		// Check auth code was consumed
 		if _, exists := adapter.authCodes["test-code"]; exists {
 			t.Error("Auth code not deleted after use")
 		}
 	})
-	
+
 	t.Run("TokenEndpoint_RejectsExpiredCode_When_CodeExpired", func(t *testing.T) {
 		// Add expired code
 		adapter.authCodes["expired-code"] = &AuthCode{
@@ -134,17 +134,17 @@ func TestOAuthAdapter_TokenExchange(t *testing.T) {
 			RTMAPIKey: "test-key",
 			ExpiresAt: time.Now().Add(-1 * time.Hour),
 		}
-		
+
 		form := url.Values{}
 		form.Add("grant_type", "authorization_code")
 		form.Add("code", "expired-code")
-		
+
 		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
-		
+
 		adapter.HandleToken(w, req)
-		
+
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("Expected 400 for expired code, got %d", w.Code)
 		}
@@ -153,47 +153,47 @@ func TestOAuthAdapter_TokenExchange(t *testing.T) {
 
 func TestOAuthAdapter_TokenValidation(t *testing.T) {
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	
+
 	// Store a test token
 	adapter.tokenStore.Store("valid-token", "test-rtm-key")
-	
+
 	tests := []struct {
-		name      string
+		name       string
 		authHeader string
-		wantErr   bool
-		wantKey   string
+		wantErr    bool
+		wantKey    string
 	}{
 		{
-			name:      "ValidateToken_ReturnsAPIKey_When_ValidBearerToken",
+			name:       "ValidateToken_ReturnsAPIKey_When_ValidBearerToken",
 			authHeader: "Bearer valid-token",
-			wantErr:   false,
-			wantKey:   "test-rtm-key",
+			wantErr:    false,
+			wantKey:    "test-rtm-key",
 		},
 		{
-			name:      "ValidateToken_ReturnsError_When_InvalidToken",
+			name:       "ValidateToken_ReturnsError_When_InvalidToken",
 			authHeader: "Bearer invalid-token",
-			wantErr:   true,
+			wantErr:    true,
 		},
 		{
-			name:      "ValidateToken_ReturnsError_When_MissingBearerPrefix",
+			name:       "ValidateToken_ReturnsError_When_MissingBearerPrefix",
 			authHeader: "valid-token",
-			wantErr:   true,
+			wantErr:    true,
 		},
 		{
-			name:      "ValidateToken_ReturnsError_When_EmptyHeader",
+			name:       "ValidateToken_ReturnsError_When_EmptyHeader",
 			authHeader: "",
-			wantErr:   true,
+			wantErr:    true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			apiKey, err := adapter.ValidateToken(tt.authHeader)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateToken() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if !tt.wantErr && apiKey != tt.wantKey {
 				t.Errorf("ValidateToken() apiKey = %v, want %v", apiKey, tt.wantKey)
 			}
@@ -204,16 +204,16 @@ func TestOAuthAdapter_TokenValidation(t *testing.T) {
 func TestOAuthMiddleware(t *testing.T) {
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
 	adapter.tokenStore.Store("valid-token", "test-rtm-key")
-	
+
 	// Create test handler
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("X-RTM-API-Key")
 		w.Write([]byte("API Key: " + apiKey))
 	})
-	
+
 	// Wrap with middleware
 	protected := Middleware(adapter)(testHandler)
-	
+
 	tests := []struct {
 		name       string
 		path       string
@@ -250,7 +250,7 @@ func TestOAuthMiddleware(t *testing.T) {
 			wantAPIKey: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", tt.path, nil)
@@ -258,13 +258,13 @@ func TestOAuthMiddleware(t *testing.T) {
 				req.Header.Set("Authorization", tt.authHeader)
 			}
 			w := httptest.NewRecorder()
-			
+
 			protected.ServeHTTP(w, req)
-			
+
 			if w.Code != tt.wantStatus {
 				t.Errorf("Expected status %d, got %d", tt.wantStatus, w.Code)
 			}
-			
+
 			if tt.wantAPIKey {
 				body := w.Body.String()
 				if !strings.Contains(body, "test-rtm-key") {
