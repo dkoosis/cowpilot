@@ -23,6 +23,7 @@ declare -a script_names=(
     "mcp-transport-diagnostics.sh"
     "sse-transport-test.sh"
     "debug-tools-integration-test.sh"
+    "oauth-test-suite.sh"
 )
 declare -a script_descriptions=(
     "Comprehensive project validation and build verification"
@@ -31,6 +32,7 @@ declare -a script_descriptions=(
     "HTTP/SSE transport auto-detection and client detection"
     "Server-Sent Events protocol verification for browser clients"
     "Debug system functionality with runtime configuration"
+    "OAuth implementation tests (adapter, CSRF, flows)"
 )
 
 # Helper function to get a test's description

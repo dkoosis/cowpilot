@@ -9,13 +9,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/vcto/cowpilot/internal/auth"
 	"github.com/vcto/cowpilot/internal/debug"
+	"github.com/vcto/cowpilot/internal/middleware"
 )
 
 // Version information
@@ -625,6 +628,19 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 		port = "8080"
 	}
 
+	// Initialize OAuth adapter
+	serverURL := os.Getenv("SERVER_URL")
+	if serverURL == "" {
+		serverURL = "http://localhost:" + port
+	}
+	callbackPort := 9090 // Default callback port
+	if cbPort := os.Getenv("OAUTH_CALLBACK_PORT"); cbPort != "" {
+		if p, err := strconv.Atoi(cbPort); err == nil {
+			callbackPort = p
+		}
+	}
+	oauthAdapter := auth.NewOAuthAdapter(serverURL, callbackPort)
+
 	// StreamableHTTP transport with stateless mode for testing compatibility
 	// Using /mcp endpoint to force HTTP transport detection in MCP Inspector
 	streamableServer := server.NewStreamableHTTPServer(
@@ -633,17 +649,41 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 		server.WithEndpointPath("/mcp"),
 	)
 
-	// Add protocol detection middleware (always enabled)
-	handler := protocolDetectionMiddleware(streamableServer)
+	// Apply middleware stack
+	handler := http.Handler(streamableServer)
 
-	// Conditionally add debug middleware for HTTP requests
+	// Add CORS support for claude.ai
+	corsConfig := middleware.DefaultCORSConfig()
+	// Allow additional origins if specified
+	if allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); allowedOrigins != "" {
+		corsConfig.AllowOrigins = append(corsConfig.AllowOrigins, strings.Split(allowedOrigins, ",")...)
+	}
+	handler = middleware.CORS(corsConfig)(handler)
+
+	// Add auth middleware
+	handler = auth.Middleware(oauthAdapter)(handler)
+
+	// Add protocol detection middleware
+	handler = protocolDetectionMiddleware(handler)
+
+	// Conditionally add debug middleware
 	if debugConfig.Enabled {
 		log.Printf("Debug middleware enabled for StreamableHTTP server")
 		handler = debug.DebugMiddleware(debugStorage, debugConfig)(handler)
 	}
 
 	mux := http.NewServeMux()
+
+	// OAuth endpoints
+	mux.HandleFunc("/.well-known/oauth-protected-resource", oauthAdapter.HandleProtectedResourceMetadata)
+	mux.HandleFunc("/.well-known/oauth-authorization-server", oauthAdapter.HandleAuthServerMetadata)
+	mux.HandleFunc("/oauth/authorize", oauthAdapter.HandleAuthorize)
+	mux.HandleFunc("/oauth/token", oauthAdapter.HandleToken)
+	mux.HandleFunc("/oauth/register", oauthAdapter.HandleRegister)
+
+	// Health check
 	mux.HandleFunc("/health", handleHealth)
+
 	// MCP server handles requests at /mcp endpoint
 	mux.Handle("/mcp", handler)
 	mux.Handle("/mcp/", handler)
@@ -655,9 +695,12 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 
 	log.Printf("Starting MCP server with StreamableHTTP transport on port %s", port)
 	log.Printf("Protocol: StreamableHTTP (VERIFIED: Works with MCP Inspector CLI)")
-	log.Printf("Endpoint: http://localhost:%s/mcp (forces HTTP transport detection)", port)
-	log.Printf("Test with: npx @modelcontextprotocol/inspector --cli http://localhost:%s/mcp --method tools/list", port)
-	log.Printf("Raw test: curl -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}' http://localhost:%s/mcp", port)
+	log.Printf("CORS: Enabled for %v", corsConfig.AllowOrigins)
+	log.Printf("OAuth: Enabled with adapter for RTM API keys")
+	log.Printf("Endpoint: %s/mcp (protected)", serverURL)
+	log.Printf("Auth flow: %s/oauth/authorize", serverURL)
+	log.Printf("Test with: npx @modelcontextprotocol/inspector --cli %s/mcp --method tools/list", serverURL)
+	log.Printf("Raw test: curl -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}' %s/mcp", serverURL)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

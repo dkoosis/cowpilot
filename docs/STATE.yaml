@@ -123,7 +123,9 @@
   ✓APPROACH: native_api_usage>no_workarounds_needed
   RATIONALE: library_supports_features+clean_implementation
   
-‡ACTIVE_BLOCKERS: λmcp-go∅[completions,logging,progress]
+‡ACTIVE_BLOCKERS: 
+  λMCP_GO: ∅[completions,logging,progress]
+  ‡CLAUDE_AI: ∅[authentication,CORS_headers,session_handling,debug_visibility]
 
 SAMPLE_DATA:
   RES: {
@@ -136,17 +138,61 @@ SAMPLE_DATA:
     "code_review": {args:{language:required,code:required},msg:"Please review the following $language code..."}
   }
 
+‡CLAUDE_AI_INTEGRATION[2025-07-26]:
+  GOAL: ∇enable_claude.ai_as_MCP_client[remote_server_required]
+  ‡CONSTRAINT: claude.ai_CANNOT_access_local_servers[browser_security]
+  CURRENT_GAPS: [∅OAuth2_DCR,∅integration_tests]
+  
+  ✓P1_REMOTE_DEPLOYMENT[COMPLETE_2025-07-26]:
+    STATUS: ✓fly.io_deployed+✓CORS_implemented
+    DELIVERABLES: [✓CORS_headers,✓health_endpoint,✓SSE_test_script]
+    CORS_CONFIG: ✓Access-Control-Allow-Origin:https://claude.ai
+    CORS_IMPL: ✓internal/middleware/cors.go[configurable_origins]
+    TEST_SCRIPT: ✓scripts/test/test-sse-transport.sh
+    DOCS: ✓docs/claude-integration/[README,deployment,troubleshooting]
+    READY_FOR: deployment+claude.ai_testing[pending_OAuth]
+    
+  ∇P2_OAUTH_IMPLEMENTATION[2-3_days]:
+    CALLBACK_URL: https://claude.ai/api/mcp/auth_callback‡
+    APPROACH: [Dynamic_Client_Registration|custom_client_id/secret]
+    DELIVERABLES: [∇internal/auth/oauth2.go,∇token_refresh,∇auth_endpoints]
+    REFERENCE: φdocs/reference/oauth2_examples[TypeScript|Python_SDK]
+    FEATURES: [authorize_endpoint,token_endpoint,refresh_flow,PKCE_support]
+    
+  ∇P3_INTEGRATION_TEST[1_day]:
+    DELIVERABLES: [∇tests/claude_connector_test.go,∇CI_integration]
+    COVERAGE: [OAuth_flow,tool_calls,SSE_transport,error_handling]
+    
+  CONSTRAINTS:
+    NAMING: no_punctuation_in_connector_name[spaces_OK]
+    DESCRIPTION: >30_characters_required
+    CONFIG: string_values_only[no_nested_objects]
+    TRANSPORT: SSE+Streamable_HTTP_required
+
+∇DOCUMENTATION_PLAN:
+  φdocs/claude-integration/
+    ∇README.md: overview+quickstart
+    ∇oauth-implementation.md: [flow_diagrams,token_management,refresh_logic]
+    ∇troubleshooting.md: [common_errors,debug_steps,inspector_usage]
+    ∇deployment.md: [fly.io_config,env_vars,monitoring]
+  φdocs/reference/
+    ∇oauth2_examples/: SDK_reference_implementations
+    ∇claude_api_spec.md: callback_URLs,requirements
+  EXISTING_SOLUTIONS:
+    AUTH: [Cloudflare_MCP_hosting,Auth0_integration,Azure_APIM]
+    EXAMPLES: [TypeScript_SDK,Python_SDK,fastmcp+mcpauth]
+    PATTERNS: [DCR_flow,token_refresh,PKCE]
+
 ∇NEXT:
-  ✓PRIORITY1: [debug_system_phase1→✓message_interceptor,✓conversation_logging,✓sqlite_storage]
-  ✓PRIORITY2: [✓runtime_configuration→✓adr012_implementation,✓env_vars,✓bounded_storage]
-  ✓PRIORITY3: [✓protocol_conformance_validator→✓json_rpc_validation,✓tools_validation,✓resources_validation,✓prompts_validation_explicit]
-  ∇PRIORITY4: [security_monitoring→parameter_injection_detection,access_pattern_flagging,error_sanitization]
-  PRIORITY5: [debug_dashboard→realtime_monitoring,interactive_testing]
-  ENHANCE: [request_logging,correlation_ids,metrics_endpoint,input_validation]
-  QUALITY: [coverage→transport:82.9%,scenario_tests,benchmarks]
-  ✓IMPLEMENTED: [debug_proxy_server,sqlite_conversation_storage,message_interceptor,session_tracking,protocol_validation_engine,security_monitoring]
-  ∇REFACTOR: [runtime_config_implementation,bounded_storage_options,single_build_pipeline]
-  OPTIONS: [∇implement_adr012_runtime_config‡|∇implement_phase2_validation|implement_completions|add_logging]
+  ‡PRIORITY1: ∇claude_ai_p2_oauth[implement_OAuth2_DCR]
+  ‡PRIORITY2: ∇claude_ai_p3_integration[connector_setup+testing]
+  PRIORITY3: ∇monitoring[production_readiness]
+  PRIORITY4: ∇documentation[capture_OAuth_learnings]
+  DEFERRED: [local_debug_system,adr012,completions]
+  
+  ✓IMPLEMENTED: [fly.io_deployment,CORS_middleware,protocol_validation,11_tools]
+  ∇REFACTOR: [implement_OAuth2,add_auth_endpoints]
+  OPTIONS: [∇implement_OAuth‡|test_without_auth|research_Cloudflare_MCP]
   
 ‡VERIFY:
   ✓tools.len==11
