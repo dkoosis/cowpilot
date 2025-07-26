@@ -1,4 +1,4 @@
-package e2e
+package scenarios
 
 import (
 	"bytes"
@@ -18,12 +18,8 @@ func TestMCPServerHealth(t *testing.T) {
 		return
 	}
 
-	// Extract base URL and append /health
-	healthURL := serverURL
-	if healthURL[len(healthURL)-1] == '/' {
-		healthURL = healthURL[:len(healthURL)-1]
-	}
-	healthURL += "/health"
+	// Use the base URL without the /mcp endpoint for health check
+	healthURL := strings.Replace(serverURL, "/mcp", "/health", 1)
 
 	// Use curl to check health endpoint
 	cmd := exec.Command("curl", "-s", "-f", "-o", "/dev/null", "-w", "%{http_code}", healthURL)
@@ -337,14 +333,18 @@ func testCallHelloTool(t *testing.T) {
 }
 
 func testCallEchoTool(t *testing.T) {
-	serverURL := os.Getenv("MCP_SERVER_URL")
-	args := map[string]interface{}{"message": "test echo"}
-	argsJSON, _ := json.Marshal(args)
-
-	output, err := runInspectorCommand(serverURL,
-		"--method", "tools/call",
-		"--tool-name", "echo",
-		"--tool-arguments", string(argsJSON))
+	// Use raw JSON-RPC due to inspector limitation with tool arguments
+	request := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name":      "echo",
+			"arguments": map[string]interface{}{"message": "test echo"},
+		},
+	}
+	reqJSON, _ := json.Marshal(request)
+	output, err := runRawJSONRPC(t, string(reqJSON))
 
 	if err != nil {
 		t.Fatalf("Failed to call echo tool: %v\nOutput: %s", err, output)

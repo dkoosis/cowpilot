@@ -98,26 +98,42 @@ scenario-test:
 # Run scenario tests against local server
 scenario-test-local:
 	@echo "Starting local server and running scenario tests..."
+	@# Kill any existing process on port 8080
+	@lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+	@sleep 1
 	@# Build the binary first
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
-	# Start server in background (SSE transport enabled by FLY_APP_NAME)
-	FLY_APP_NAME=local-test ./bin/cowpilot  & \
-	SERVER_PID=$!; \
+	@if [ -f .test-times.log ]; then \
+		LAST_TIME=$$(tail -1 .test-times.log | cut -d' ' -f2); \
+		echo "Last run took $$LAST_TIME seconds"; \
+	fi
+	@START_TIME=$$(date +%s); \
+	FLY_APP_NAME=local-test ./bin/cowpilot > /dev/null 2>&1 & \
+	SERVER_PID=$$!; \
+	trap 'kill $$SERVER_PID 2>/dev/null || true' EXIT INT TERM; \
 	sleep 3; \
-	echo "Server started with PID $SERVER_PID"; \
+	echo "Server started with PID $$SERVER_PID"; \
+	echo "Running Go scenario tests..."; \
 	if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTESTSUM) --format testdox -- -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTESTSUM) --format testdox --jsonfile test-results.json -- -v -timeout 120s $(SCENARIO_TEST_DIR)/...; \
 	else \
-		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="http://localhost:8080/mcp" && $(GOTEST) -v -timeout 120s -json $(SCENARIO_TEST_DIR)/... | tee test-results.json; \
 	fi; \
-	TEST_EXIT=$?; \
+	TEST_EXIT=$$?; \
 	echo "Running shell script scenario tests..."; \
 	cd scripts/test && ./run-tests.sh quick; \
-	SHELL_EXIT=$?; \
-	echo "Stopping server with PID $SERVER_PID"; \
-	kill $SERVER_PID 2>/dev/null || true; \
-	wait $SERVER_PID 2>/dev/null || true; \
-	if [ $TEST_EXIT -ne 0 ] || [ $SHELL_EXIT -ne 0 ]; then \
+	SHELL_EXIT=$$?; \
+	echo "Stopping server with PID $$SERVER_PID"; \
+	kill $$SERVER_PID 2>/dev/null || true; \
+	wait $$SERVER_PID 2>/dev/null || true; \
+	END_TIME=$$(date +%s); \
+	DURATION=$$((END_TIME - START_TIME)); \
+	echo "$$(date '+%Y-%m-%d %H:%M:%S') $$DURATION" >> .test-times.log; \
+	echo "Total test time: $$DURATION seconds"; \
+	if [ -f test-results.json ]; then \
+		bash scripts/utils/track-performance.sh; \
+	fi; \
+	if [ $$TEST_EXIT -ne 0 ] || [ $$SHELL_EXIT -ne 0 ]; then \
 		exit 1; \
 	fi
 

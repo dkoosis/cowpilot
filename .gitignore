@@ -1,4 +1,7 @@
-
+# Test artifacts
+test-results.json
+.test-times.log
+.test-metrics.json
 # Temporary files
 *.tmp
 .DS_Store

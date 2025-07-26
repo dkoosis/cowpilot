@@ -1,30 +1,3 @@
-// MCP Transport Protocol Configuration
-//
-// CRITICAL: Protocol selection determines client compatibility
-//
-// CURRENT CHOICE: StreamableHTTP (AUTO-DETECTS CLIENT TYPE)
-// - MCP Inspector CLI → HTTP POST with JSON-RPC
-// - Browser clients → SSE when Accept: text/event-stream
-// - Future MCP clients → Automatically supported
-//
-// SESSION MANAGEMENT: STATELESS MODE ENABLED
-// - WithStateLess(true) disables session ID validation
-// - Simplifies testing (no session tracking between requests)
-// - MCP Inspector works without session handling
-// - Trade-off: No per-session tools or logging levels
-//
-// DO NOT CHANGE WITHOUT TESTING:
-// 1. npx @modelcontextprotocol/inspector --cli http://localhost:8080/ --method tools/list
-// 2. Browser-based MCP clients (if any)
-// 3. curl -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"tools/list","id":1}' http://localhost:8080/
-//
-// ALTERNATIVES TESTED:
-// - NewSSEServer: Requires session management, fails with "Missing sessionId" for CLI
-// - ServeStdio: Only for local development, not HTTP
-// - Stateful mode: Requires session ID handling between requests
-//
-// Transport is selected by FLY_APP_NAME environment variable.
-
 package main
 
 import (
@@ -652,14 +625,12 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 		port = "8080"
 	}
 
-	// TRANSPORT PROTOCOL: StreamableHTTP (REQUIRED FOR MCP INSPECTOR CLI)
-	// This is the ONLY transport that works with MCP Inspector --cli
-	// DO NOT change to NewSSEServer without testing all clients
-	// STATELESS MODE: Enabled for testing compatibility
+	// StreamableHTTP transport with stateless mode for testing compatibility
+	// Using /mcp endpoint to force HTTP transport detection in MCP Inspector
 	streamableServer := server.NewStreamableHTTPServer(
 		mcpServer,
-		server.WithStateLess(true),      // No session validation - simpler for tests
-		server.WithEndpointPath("/mcp"), // Force HTTP transport detection for inspector
+		server.WithStateLess(true),
+		server.WithEndpointPath("/mcp"),
 	)
 
 	// Add protocol detection middleware (always enabled)
@@ -694,13 +665,22 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 		}
 	}()
 
-	// Wait for interrupt
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
+	// Wait for interrupt signal (e.g., Ctrl+C)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutdown signal received, starting graceful shutdown...")
 
-	log.Println("Shutting down...")
-	_ = srv.Close()
+	// Create a context with a 5-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Attempt the graceful shutdown
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exiting")
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {

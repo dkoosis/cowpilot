@@ -177,10 +177,11 @@ SAMPLE_DATA:
   CONFIDENCE: HIGH→session_management_resolved
   NEXT: [verify_tests_pass|∇implement_adr012_runtime_config|production_hardening]
   
-‡ACTIVE_ISSUE[inspector_transport_bug]:
-  SYMPTOM: inspector_ignores_--transport_http_flag→defaults_to_SSE
-  EVIDENCE: [curl_works→all_tools_listed,inspector_fails→empty_tools_list]
-  ERRORS: ["Tool 'hello' not found","Arguments cannot be passed to URL-based MCP server"]
-  ROOT_CAUSE: inspector_auto_detects_SSE_from_URL_pattern[ignores_explicit_flag]
-  WORKAROUND: [use_/mcp_endpoint|raw_json_rpc_tests|timeout_SSE_connections]
-  STATUS: ∇implementing_test_fixes
+‡CONFIRMED_INSPECTOR_LIMITATION[2025-07-25]:
+  FACT: MCP_Inspector_CANNOT_pass_tool_arguments_to_URL_servers
+  ERROR_MSG: "Arguments cannot be passed to URL-based MCP server"
+  TESTED: [echo,add,base64_encode,string_operation→ALL_FAIL]
+  ROOT_CAUSE: inspector_design_limitation_not_bug
+  ✓SOLUTION: use_raw_JSON_RPC_via_curl_for_ALL_tool_tests_with_arguments
+  DECISION: ∅DO_NOT_REVISIT→documented_permanent_limitation
+  PATTERN: tools_without_args→use_inspector|tools_with_args→use_curl_json_rpc
