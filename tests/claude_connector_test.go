@@ -29,7 +29,7 @@ func TestClaudeConnector_Integration(t *testing.T) {
 	)
 
 	// Add tools that Claude.ai will use
-	mcpServer.AddTool(mcp.NewTool("echo", 
+	mcpServer.AddTool(mcp.NewTool("echo",
 		mcp.WithDescription("Echo the message"),
 		mcp.WithString("message", mcp.Required(), mcp.Description("Message to echo"))),
 		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -77,9 +77,6 @@ func TestClaudeConnector_Integration(t *testing.T) {
 		}, nil
 	})
 
-	// Create OAuth adapter
-	adapter := auth.NewOAuthAdapter("http://localhost:8080", 9090)
-
 	// Create streamable server with SSE support - use stateless mode for testing
 	streamableServer := server.NewStreamableHTTPServer(mcpServer,
 		server.WithStateLess(true),
@@ -95,28 +92,29 @@ func TestClaudeConnector_Integration(t *testing.T) {
 
 	// For testing, we'll create handlers with and without auth
 	mcpHandlerNoAuth := middleware.CORS(corsConfig)(streamableServer)
-	mcpHandlerWithAuth := middleware.CORS(corsConfig)(auth.Middleware(adapter)(streamableServer))
 
 	// Create test server
 	mux := http.NewServeMux()
-	
+	testServer := httptest.NewServer(mux)
+	defer testServer.Close()
+
+	// Create OAuth adapter with the test server's URL
+	adapter := auth.NewOAuthAdapter(testServer.URL, 9090)
+
+	// Create a handler with auth using the new adapter
+	mcpHandlerWithAuth := middleware.CORS(corsConfig)(auth.Middleware(adapter)(streamableServer))
+
 	// Apply CORS to OAuth endpoints
-	mux.Handle("/.well-known/oauth-authorization-server", 
+	mux.Handle("/.well-known/oauth-authorization-server",
 		middleware.CORS(corsConfig)(http.HandlerFunc(adapter.HandleAuthServerMetadata)))
 	mux.HandleFunc("/oauth/authorize", adapter.HandleAuthorize)
 	mux.HandleFunc("/oauth/token", adapter.HandleToken)
-	
-	// MCP endpoints - use no-auth version for testing
+
+	// MCP endpoints
 	mux.Handle("/mcp", mcpHandlerNoAuth)
 	mux.Handle("/mcp/", mcpHandlerNoAuth)
 	mux.Handle("/mcp-auth", mcpHandlerWithAuth)
 	mux.Handle("/mcp-auth/", mcpHandlerWithAuth)
-
-	testServer := httptest.NewServer(mux)
-	defer testServer.Close()
-
-	// Update adapter URL to match test server
-	adapter = auth.NewOAuthAdapter(testServer.URL, 9090)
 
 	t.Run("ClaudeConnector_SupportsOAuthFlow_When_ClaudeInitiatesConnection", func(t *testing.T) {
 		// Step 1: Claude.ai discovers OAuth metadata
@@ -172,14 +170,14 @@ func TestClaudeConnector_Integration(t *testing.T) {
 
 		// Read initial SSE response (limited to prevent blocking)
 		buf := make([]byte, 1024)
-		resp.Body.Read(buf) // Don't wait for full read
-		sseData := string(buf)
+		n, _ := resp.Body.Read(buf) // Read from the body
+		sseData := string(buf[:n])
 
-		// Just check if we got SSE-like response
-		if contentType == "text/event-stream" {
-			t.Log("SSE endpoint responded correctly")
+		// Check if we received an SSE-like response. A valid SSE stream will not be empty.
+		if !strings.Contains(sseData, "data:") {
+			t.Errorf("Expected SSE data containing 'data:', but got: %s", sseData)
 		} else {
-			t.Errorf("Invalid SSE response type: %s", contentType)
+			t.Logf("SSE endpoint responded correctly with: %s", sseData)
 		}
 	})
 
@@ -300,7 +298,7 @@ func TestClaudeConnector_Integration(t *testing.T) {
 						// Missing name parameter
 						"arguments": map[string]interface{}{},
 					},
-					"id":      1,
+					"id": 1,
 				},
 				expected: -32602, // Invalid params
 			},
