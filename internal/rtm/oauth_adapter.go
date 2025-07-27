@@ -299,6 +299,16 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
         
         function openRTMAuth() {
             authWindow = window.open('%s', 'rtm_auth', 'width=800,height=600');
+            
+            // Check if popup was blocked
+            if (!authWindow || authWindow.closed || typeof authWindow.closed == 'undefined') {
+                document.getElementById('status').style.display = 'block';
+                document.getElementById('status').className = 'error';
+                document.getElementById('status').innerHTML = 'Popup blocked! Please allow popups and try again.';
+                document.getElementById('retryBtn').style.display = 'inline-block';
+                return;
+            }
+            
             document.getElementById('step2').style.display = 'block';
             document.getElementById('continueBtn').disabled = true;
             
@@ -322,7 +332,7 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
                         // Success! Enable continue button
                         clearInterval(checkInterval);
                         document.getElementById('status').className = 'success';
-                        document.getElementById('status').innerHTML = '✓ Authorization successful! You can now continue.';
+                        document.getElementById('status').innerHTML = '[✓] Authorization successful! You can now continue.';
                         document.getElementById('continueBtn').disabled = false;
                         document.getElementById('continueBtn').style.background = '#28a745';
                         if (authWindow) authWindow.close();
@@ -330,7 +340,7 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
                         // Error occurred
                         clearInterval(checkInterval);
                         document.getElementById('status').className = 'error';
-                        document.getElementById('status').innerHTML = '✗ ' + data.error;
+                        document.getElementById('status').innerHTML = '[✗] ' + data.error;
                         document.getElementById('retryBtn').style.display = 'inline-block';
                     }
                     // If pending, keep checking

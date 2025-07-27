@@ -136,12 +136,14 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 		if rtmAPIKey != "" && rtmSecret != "" {
 			// Use RTM OAuth adapter
 			rtmAdapter := rtm.NewOAuthAdapter(rtmAPIKey, rtmSecret, serverURL)
+			rtmSetup := rtm.NewSetupHandler()
 
 			// OAuth endpoints for RTM
 			mux.HandleFunc("/oauth/authorize", rtmAdapter.HandleAuthorize)
 			mux.HandleFunc("/oauth/token", rtmAdapter.HandleToken)
 			mux.HandleFunc("/rtm/callback", rtmAdapter.HandleCallback)
 			mux.HandleFunc("/rtm/check-auth", rtmAdapter.HandleCheckAuth)
+			mux.HandleFunc("/rtm/setup", rtmSetup.HandleSetup)
 
 			// Add auth middleware that accepts RTM tokens
 			handler = rtmAuthMiddleware(rtmAdapter)(handler)

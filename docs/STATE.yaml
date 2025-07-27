@@ -15,6 +15,7 @@
   ∇USER_PROVIDED_CREDENTIALS: require_user_rtm_api_key+secret[not_server_env_vars]
   ∇PERMISSION_SCOPES: [read_only_option,designated_lists_filter,tag_restrictions]
   ∇AUTH_FLOW_REDESIGN: user_inputs_credentials→scoped_permissions→rtm_oauth
+  ∇SECURITY_REVIEW: multi_user_credential_storage_best_practices[encryption,isolation,rotation,audit]
   RATIONALE: user_owns_credentials+granular_access_control
   DOCUMENTED: φdocs/AUTH_FLOWS.yaml→RTM_DEBUG_FINDINGS[2025-07-27]
   ISSUE: ✓RESOLVED_oauth_tests_failing_with_400
