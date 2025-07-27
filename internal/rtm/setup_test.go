@@ -29,18 +29,6 @@ type testSetupHandler struct {
 	mockClient *mockRTMClient
 }
 
-func (h *testSetupHandler) validateRTMCredentials(apiKey, secret string) error {
-	if h.mockClient != nil {
-		_, err := h.mockClient.GetFrob()
-		if err != nil {
-			return fmt.Errorf("RTM API test failed: %w", err)
-		}
-		return nil
-	}
-	// Fallback to real validation
-	return h.SetupHandler.validateRTMCredentials(apiKey, secret)
-}
-
 func TestSetupHandler_GET(t *testing.T) {
 	handler := NewSetupHandler()
 	req := httptest.NewRequest("GET", "/rtm/setup", nil)
