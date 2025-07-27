@@ -256,7 +256,15 @@ SAMPLE_DATA:
       5. ✓automatic_cleanup→24hr_expiry
     CONFIG: TOKEN_DB_PATH=/data/tokens.db
     DEPLOYMENT: fly volumes create cowpilot_data --size 1
-  PRIORITY4: ∇runtime_protocol_validation[add_via_debug_proxy]
+  PRIORITY4: ✓runtime_protocol_validation[via_debug_proxy]
+    IMPLEMENTED:
+      1. ✓ValidateProto_config→MCP_VALIDATE_PROTOCOL=true
+      2. ✓ValidateMode→monitor|enforce
+      3. ✓ValidatingInterceptor→uses_internal/validator
+      4. ✓Validation_storage→violations_table+stats
+      5. ✓Zero_overhead→when_disabled
+    ENV_VARS: [MCP_VALIDATE_PROTOCOL,MCP_VALIDATE_MODE]
+    MODES: monitor=log_only,enforce=block_invalid
   PRIORITY5: ∇monitoring[usage_metrics]
   COMPLETED: [✓fly_deployment,✓claude_registration,✓auth_disabled,✓integration_tests]
   DEFERRED: [oauth_with_persistence,completions]

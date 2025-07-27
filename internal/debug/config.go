@@ -100,6 +100,14 @@ type Storage interface {
 // NoOpStorage provides a no-op implementation when debug is disabled
 type NoOpStorage struct{}
 
+func (n *NoOpStorage) LogValidation(sessionID, method string, violations []string, severity string) error {
+	return nil
+}
+
+func (n *NoOpStorage) GetValidationStats() (map[string]interface{}, error) {
+	return map[string]interface{}{"validation_enabled": false}, nil
+}
+
 func (n *NoOpStorage) LogMessage(sessionID, direction, method string, params, result, errorMsg interface{}, performanceMS int64) error {
 	return nil
 }
@@ -225,7 +233,20 @@ func (fs *FileStorage) createTables() error {
 		end_time DATETIME,
 		total_messages INTEGER DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
+	);
+	
+	CREATE TABLE IF NOT EXISTS validations (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id TEXT NOT NULL,
+		timestamp DATETIME NOT NULL,
+		method TEXT NOT NULL,
+		violations TEXT,
+		severity TEXT NOT NULL,
+		count INTEGER DEFAULT 0
+	);
+	
+	CREATE INDEX IF NOT EXISTS idx_validations_session ON validations(session_id);
+	CREATE INDEX IF NOT EXISTS idx_validations_method ON validations(method);`
 
 	_, err := fs.db.Exec(query)
 	return err
@@ -432,6 +453,52 @@ func (fs *FileStorage) CleanupOldRecords(maxAge time.Duration) error {
 		log.Printf("Cleaned up %d old conversation records", rowsAffected)
 	}
 	return nil
+}
+
+
+func (fs *FileStorage) LogValidation(sessionID, method string, violations []string, severity string) error {
+	if !fs.enabled || len(violations) == 0 {
+		return nil
+	}
+
+	violationsJSON, _ := json.Marshal(violations)
+	query := `
+	INSERT INTO validations (session_id, timestamp, method, violations, severity, count)
+	VALUES (?, ?, ?, ?, ?, ?)`
+
+	_, err := fs.db.Exec(query, sessionID, time.Now(), method, string(violationsJSON), severity, len(violations))
+	return err
+}
+
+func (fs *FileStorage) GetValidationStats() (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+	
+	// Total violations
+	var totalViolations int64
+	err := fs.db.QueryRow("SELECT COALESCE(SUM(count), 0) FROM validations").Scan(&totalViolations)
+	if err != nil {
+		return nil, err
+	}
+	stats["total_violations"] = totalViolations
+
+	// Violations by method
+	rows, err := fs.db.Query("SELECT method, SUM(count) FROM validations GROUP BY method")
+	if err != nil {
+		return stats, nil
+	}
+	defer rows.Close()
+
+	methodStats := make(map[string]int64)
+	for rows.Next() {
+		var method string
+		var count int64
+		if err := rows.Scan(&method, &count); err == nil {
+			methodStats[method] = count
+		}
+	}
+	stats["violations_by_method"] = methodStats
+
+	return stats, nil
 }
 
 func (fs *FileStorage) Close() error {
