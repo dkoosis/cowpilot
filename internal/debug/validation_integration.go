@@ -237,31 +237,4 @@ func (fs *FileStorage) GetValidationReports(sessionID string, limit int) ([]*val
 	return reports, nil
 }
 
-func (fs *FileStorage) GetValidationStats() (map[string]interface{}, error) {
-	stats := map[string]interface{}{
-		"validation_enabled": true,
-	}
-
-	// Total validation reports
-	var totalReports int64
-	if err := fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports").Scan(&totalReports); err != nil {
-		log.Printf("Failed to get total reports: %v", err)
-	}
-	stats["total_reports"] = totalReports
-
-	// Average score
-	var avgScore float64
-	if err := fs.db.QueryRow("SELECT AVG(score) FROM validation_reports").Scan(&avgScore); err != nil {
-		log.Printf("Failed to get average score: %v", err)
-	}
-	stats["average_score"] = avgScore
-
-	// Validity rate
-	var validCount int64
-	if err := fs.db.QueryRow("SELECT COUNT(*) FROM validation_reports WHERE is_valid = 1").Scan(&validCount); err != nil {
-		log.Printf("Failed to get valid count: %v", err)
-	}
-	stats["validity_rate"] = float64(validCount) / float64(totalReports) * 100.0
-
-	return stats, nil
-}
+// FileStorage extensions in validation_integration.go implement ValidationStorage interface

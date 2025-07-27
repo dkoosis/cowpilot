@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -29,7 +30,7 @@ func CreateTokenStore() TokenStoreInterface {
 			return NewTokenStore() // Fall back to in-memory
 		}
 		log.Printf("Using SQLite token store at %s", dbPath)
-		
+
 		// Start cleanup routine
 		go func() {
 			ticker := time.NewTicker(1 * time.Hour)
@@ -40,10 +41,10 @@ func CreateTokenStore() TokenStoreInterface {
 				}
 			}
 		}()
-		
+
 		return store
 	}
-	
+
 	log.Println("Using in-memory token store (set TOKEN_DB_PATH for persistence)")
 	return NewTokenStore()
 }
@@ -57,7 +58,7 @@ type SQLiteTokenStore struct {
 // NewSQLiteTokenStore creates a new SQLite-backed token store
 func NewSQLiteTokenStore(dbPath string) (*SQLiteTokenStore, error) {
 	// Ensure directory exists
-	if dir := os.Dir(dbPath); dir != "." && dir != "" {
+	if dir := filepath.Dir(dbPath); dir != "." && dir != "" {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return nil, fmt.Errorf("create db directory: %w", err)
 		}
@@ -80,8 +81,10 @@ func NewSQLiteTokenStore(dbPath string) (*SQLiteTokenStore, error) {
 		CREATE INDEX IF NOT EXISTS idx_last_used ON oauth_tokens(last_used);
 	`)
 	if err != nil {
-		db.Close()
-		return nil, err
+		if closeErr := db.Close(); closeErr != nil {
+			return nil, fmt.Errorf("create db directory: %w (also failed to close db: %v)", err, closeErr)
+		}
+		return nil, fmt.Errorf("create db directory: %w", err)
 	}
 
 	return &SQLiteTokenStore{db: db}, nil
@@ -143,11 +146,11 @@ func (s *SQLiteTokenStore) CleanupExpired(maxAge time.Duration) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if rows, err := result.RowsAffected(); err == nil && rows > 0 {
 		log.Printf("Cleaned up %d expired tokens", rows)
 	}
-	
+
 	return nil
 }
 

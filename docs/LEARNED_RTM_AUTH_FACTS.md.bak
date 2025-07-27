@@ -1,0 +1,39 @@
+# RTM Auth Facts Learned (2025-07-27)
+
+## Race Condition Confirmed
+- **Timeline**: Callback → redirect (~10ms) → client token request
+- **Client gets**: `{"error":"authorization_pending","error_description":"User has not completed authorization"}`
+- **Root cause**: We redirect before user completes RTM auth
+
+## RTM API Behavior
+- **Error**: "RTM API error 101: Invalid frob - did you authenticate?"
+- **Meaning**: Frob never authorized by user
+- **Polling fails**: Continuously until timeout (5min)
+
+## Debug Methodology Success
+```bash
+# Working debug sequence:
+curl -c cookies.txt -b cookies.txt "URL" > form.html
+CSRF_TOKEN=$(grep 'csrf_state' form.html | sed 's/.*value="\([^"]*\)".*/\1/')
+curl -c cookies.txt -b cookies.txt -X POST "URL" -d "params&csrf_state=$CSRF_TOKEN"
+```
+
+## Current Flow (Broken)
+1. User hits `/oauth/authorize` → shows form
+2. POST → gets RTM frob → shows intermediate page with RTM URL
+3. User clicks RTM URL (new window) → **supposed to auth but doesn't**
+4. User clicks "continue" → hits `/rtm/callback` 
+5. We immediately redirect to client
+6. Client calls `/oauth/token` → gets `authorization_pending`
+7. Polling never succeeds (frob invalid)
+
+## Two Problems
+1. **UX Flow**: User never actually completes RTM auth
+2. **Race Condition**: Even if auth completed, we redirect too fast
+
+## Fixes Required
+- **Fix RTM Flow**: Ensure user completes auth before callback
+- **Handle Pending**: Client must retry `authorization_pending` OR wait synchronously
+
+## Key Insight
+The "race condition" is secondary - primary issue is broken RTM auth flow.

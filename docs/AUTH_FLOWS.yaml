@@ -30,6 +30,30 @@
     98: invalid_signature[check_param_sort]
     101: invalid_frob[expired_or_invalid]
     102: login_required[user_didnt_auth]
+  
+  ‡RTM_DEBUG_FINDINGS[2025-07-27]:
+    ‡RACE_CONDITION_CONFIRMED:
+      TIMELINE: callback→redirect(~10ms)→client_token_request
+      CLIENT_RESPONSE: {"error":"authorization_pending","error_description":"User has not completed authorization"}
+      ROOT_CAUSE: redirect_before_user_completes_rtm_auth
+    ‡RTM_API_BEHAVIOR:
+      ERROR_101: "Invalid frob - did you authenticate?"
+      MEANING: frob_never_authorized_by_user
+      POLLING_RESULT: continuously_fails_until_timeout(5min)
+    ‡BROKEN_UX_FLOW:
+      1. POST_/oauth/authorize→gets_rtm_frob→shows_intermediate_page
+      2. user_clicks_rtm_url(new_window)→∅supposed_to_auth_but_doesnt
+      3. user_clicks_continue→hits_/rtm/callback
+      4. immediate_redirect_to_client
+      5. client_calls_/oauth/token→gets_authorization_pending
+      6. polling_never_succeeds(frob_invalid)
+    ‡PROBLEMS:
+      PRIMARY: UX_flow→user_never_completes_rtm_auth
+      SECONDARY: race_condition→redirect_too_fast
+    ‡FIXES_REQUIRED:
+      1. fix_rtm_flow→ensure_user_completes_auth_before_callback
+      2. handle_pending→client_retry_OR_wait_synchronously
+    ‡KEY_INSIGHT: primary_issue_broken_rtm_auth_flow_not_race_condition
 
 GENERIC_OAUTH2[reference]:
   FLOW:

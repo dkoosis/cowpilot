@@ -2,7 +2,21 @@
 # λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=native
 # MACHINE_CONTEXT_FOR_CLAUDE[not_human_readable]
 
-‡CSRF_TEST_DIAGNOSIS:
+‡RTM_AUTH_FLOW[FIXED_2025-07-27]:
+  STATUS: ✓fixed_ux_flow→proper_auth_verification
+  ‡RACE_CONDITION: ✓fixed→verify_before_callback
+  ‡PRIMARY_ISSUE: ✓fixed→user_must_complete_rtm_auth_before_continue
+  ‡SOLUTION: /rtm/check-auth_endpoint→polls_frob_status_every_2s
+  ‡UX_IMPROVEMENTS: [continue_button_disabled_until_verified,visual_status_feedback,retry_mechanism]
+  ‡NEW_ENDPOINTS: /rtm/check-auth→json{authorized:bool,pending:bool,error:string}
+  ‡FLOW_FIXED: intermediate_page→check_auth_status→enable_continue→callback→verified_token
+  
+∇RTM_FUTURE_UX[TBD]:
+  ∇USER_PROVIDED_CREDENTIALS: require_user_rtm_api_key+secret[not_server_env_vars]
+  ∇PERMISSION_SCOPES: [read_only_option,designated_lists_filter,tag_restrictions]
+  ∇AUTH_FLOW_REDESIGN: user_inputs_credentials→scoped_permissions→rtm_oauth
+  RATIONALE: user_owns_credentials+granular_access_control
+  DOCUMENTED: φdocs/AUTH_FLOWS.yaml→RTM_DEBUG_FINDINGS[2025-07-27]
   ISSUE: ✓RESOLVED_oauth_tests_failing_with_400
   ROOT_CAUSE: HTML_token_extraction_off_by_one
   PROBLEM: hardcoded_offset_26_incorrect_for_search_string
@@ -259,12 +273,12 @@ SAMPLE_DATA:
   PRIORITY4: ✓runtime_protocol_validation[via_debug_proxy]
     IMPLEMENTED:
       1. ✓ValidateProto_config→MCP_VALIDATE_PROTOCOL=true
-      2. ✓ValidateMode→monitor|enforce
-      3. ✓ValidatingInterceptor→uses_internal/validator
+      2. ✓ValidateMode→monitor|enforce  
+      3. ✓validation_integration.go→uses_protocol/validation
       4. ✓Validation_storage→violations_table+stats
       5. ✓Zero_overhead→when_disabled
     ENV_VARS: [MCP_VALIDATE_PROTOCOL,MCP_VALIDATE_MODE]
-    MODES: monitor=log_only,enforce=block_invalid
+    VALIDATION: ValidatedMessageInterceptor+ValidationEngine
   PRIORITY5: ∇monitoring[usage_metrics]
   COMPLETED: [✓fly_deployment,✓claude_registration,✓auth_disabled,✓integration_tests]
   DEFERRED: [oauth_with_persistence,completions]
@@ -286,12 +300,12 @@ SAMPLE_DATA:
   ✓FIXED: resource_handlers→return[]mcp.ResourceContents[interface]
 
 ≈CONTEXT[current_session_july27_2025]:
-  ✓DEPLOYMENT: fly.io[single_instance,auth_disabled,claude_connected]
-  ✓INTEGRATION_TESTS: comprehensive_mcp_protocol_tests→maintain_foundation
-  ✓PHILOSOPHY: foundational_bricks_must_remain_stable
-  ✓TEST_INFRASTRUCTURE: [go_tests+inspector_cli→dual_validation]
-  ∇NEXT_FOCUS: RTM_api_integration→check_prior_projects
-  LEARNED: [test_deployed_services,maintain_working_foundation,disable_auth_for_simplicity]
+  ✓DEPLOYMENT: fly.io[single_instance,auth_disabled,persistent_tokens]
+  ✓INTEGRATION_TESTS: all_passing→deployed_instance
+  ✓COMPLETED: [P1_mcp_tests✓,P2_rtm_oauth✓,P3_sqlite_tokens✓,P4_validation✓]
+  ✓PRODUCTION: persistent_volume[/data/tokens.db]+validation_ready
+  ∇NEXT_OPTIONS: [RTM_credentials→fly_secrets,claude_ai_testing,practical_tools]
+  CONFIDENCE: 🟢PRODUCTION_STABLE
   
 ✓SESSION_VALIDATED[july26_2025]:
   STATUS: 🟢PRODUCTION_READY

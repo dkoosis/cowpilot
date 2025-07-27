@@ -15,15 +15,15 @@ import (
 
 // DebugConfig holds runtime configuration for the debug system
 type DebugConfig struct {
-	Enabled        bool   // Enable/disable debug system
-	StorageType    string // "disabled", "memory", "file"
-	StoragePath    string // File path for file storage
-	MaxMemoryMB    int    // Memory storage limit in MB
-	MaxFileMB      int    // File storage limit in MB
-	RetentionH     int    // Auto-cleanup hours
-	Level          string // Debug level: DEBUG, INFO, WARN, ERROR
-	ValidateProto  bool   // Enable protocol validation
-	ValidateMode   string // "monitor" or "enforce"
+	Enabled       bool   // Enable/disable debug system
+	StorageType   string // "disabled", "memory", "file"
+	StoragePath   string // File path for file storage
+	MaxMemoryMB   int    // Memory storage limit in MB
+	MaxFileMB     int    // File storage limit in MB
+	RetentionH    int    // Auto-cleanup hours
+	Level         string // Debug level: DEBUG, INFO, WARN, ERROR
+	ValidateProto bool   // Enable protocol validation
+	ValidateMode  string // "monitor" or "enforce"
 }
 
 // LoadDebugConfig loads debug configuration from environment variables
@@ -34,15 +34,15 @@ func LoadDebugConfig() *DebugConfig {
 	}
 
 	return &DebugConfig{
-		Enabled:        true,
-		StorageType:    getEnvDefault("MCP_DEBUG_STORAGE", "memory"),
-		StoragePath:    getEnvDefault("MCP_DEBUG_PATH", "./debug.db"),
-		MaxMemoryMB:    getEnvInt("MCP_DEBUG_MAX_MB", 100),
-		MaxFileMB:      getEnvInt("MCP_DEBUG_FILE_MAX_MB", 500),
-		RetentionH:     getEnvInt("MCP_DEBUG_RETENTION_H", 24),
-		Level:          getEnvDefault("MCP_DEBUG_LEVEL", "INFO"),
-		ValidateProto:  getEnvBool("MCP_VALIDATE_PROTOCOL", true),
-		ValidateMode:   getEnvDefault("MCP_VALIDATE_MODE", "monitor"),
+		Enabled:       true,
+		StorageType:   getEnvDefault("MCP_DEBUG_STORAGE", "memory"),
+		StoragePath:   getEnvDefault("MCP_DEBUG_PATH", "./debug.db"),
+		MaxMemoryMB:   getEnvInt("MCP_DEBUG_MAX_MB", 100),
+		MaxFileMB:     getEnvInt("MCP_DEBUG_FILE_MAX_MB", 500),
+		RetentionH:    getEnvInt("MCP_DEBUG_RETENTION_H", 24),
+		Level:         getEnvDefault("MCP_DEBUG_LEVEL", "INFO"),
+		ValidateProto: getEnvBool("MCP_VALIDATE_PROTOCOL", true),
+		ValidateMode:  getEnvDefault("MCP_VALIDATE_MODE", "monitor"),
 	}
 }
 
@@ -455,7 +455,6 @@ func (fs *FileStorage) CleanupOldRecords(maxAge time.Duration) error {
 	return nil
 }
 
-
 func (fs *FileStorage) LogValidation(sessionID, method string, violations []string, severity string) error {
 	if !fs.enabled || len(violations) == 0 {
 		return nil
@@ -472,7 +471,7 @@ func (fs *FileStorage) LogValidation(sessionID, method string, violations []stri
 
 func (fs *FileStorage) GetValidationStats() (map[string]interface{}, error) {
 	stats := make(map[string]interface{})
-	
+
 	// Total violations
 	var totalViolations int64
 	err := fs.db.QueryRow("SELECT COALESCE(SUM(count), 0) FROM validations").Scan(&totalViolations)
@@ -486,7 +485,11 @@ func (fs *FileStorage) GetValidationStats() (map[string]interface{}, error) {
 	if err != nil {
 		return stats, nil
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Failed to close rows: %v", err)
+		}
+	}()
 
 	methodStats := make(map[string]int64)
 	for rows.Next() {

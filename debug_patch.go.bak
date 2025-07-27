@@ -1,0 +1,27 @@
+// Add these logs to oauth_adapter.go
+
+// In HandleCallback:
+log.Printf("RTM DEBUG: Callback hit for code %s", code)
+go a.pollForToken(code)
+log.Printf("RTM DEBUG: Started polling, redirecting immediately")
+
+// In HandleToken:
+log.Printf("RTM DEBUG: Token request for code %s, session.Token=%s", code, session.Token)
+if session.Token != "" {
+    log.Printf("RTM DEBUG: Token ready, returning success")
+    // ...
+} else {
+    log.Printf("RTM DEBUG: Token not ready, trying immediate exchange")
+    if err := a.client.GetToken(session.Frob); err != nil {
+        log.Printf("RTM DEBUG: Immediate exchange failed: %v", err)
+        // ...
+    }
+}
+
+// In pollForToken:
+log.Printf("RTM DEBUG: Polling started for code %s", code)
+// ... in ticker loop:
+log.Printf("RTM DEBUG: Polling attempt for code %s", code)
+if err := a.client.GetToken(session.Frob); err == nil {
+    log.Printf("RTM DEBUG: Polling succeeded for code %s", code)
+}

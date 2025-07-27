@@ -123,9 +123,10 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	a.showIntermediatePage(w, rtmURL, code, clientID, state, redirectURI)
 }
 
-// HandleCallback handles the fake callback after RTM auth
+// HandleCallback handles the callback after RTM auth verification
 func (a *OAuthAdapter) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
+	log.Printf("RTM DEBUG: Callback hit for code %s", code)
 
 	if code == "" {
 		http.Error(w, "Missing code parameter", http.StatusBadRequest)
@@ -142,8 +143,14 @@ func (a *OAuthAdapter) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Start polling for token
-	go a.pollForToken(code)
+	// Verify token exists (should be set by check-auth endpoint)
+	if session.Token == "" {
+		log.Printf("RTM DEBUG: Callback hit but no token for code %s - auth not completed", code)
+		http.Error(w, "Authorization not completed", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("RTM DEBUG: Auth verified, redirecting to %s", session.RedirectURI)
 
 	// Redirect back to original redirect_uri with our code
 	u, _ := url.Parse(session.RedirectURI)
@@ -178,60 +185,30 @@ func (a *OAuthAdapter) HandleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("RTM DEBUG: Token request for code %s, session.Token='%s'", code, session.Token)
+
 	// Check if we already have token (from polling)
 	if session.Token != "" {
+		log.Printf("RTM DEBUG: Token ready, returning success")
 		a.sendTokenSuccess(w, session.Token)
 		a.removeSession(code)
 		return
 	}
 
 	// Try to exchange frob for token
+	log.Printf("RTM DEBUG: Token not ready, trying immediate exchange")
 	if err := a.client.GetToken(session.Frob); err != nil {
+		log.Printf("RTM DEBUG: Immediate exchange failed: %v", err)
 		// User might not have authorized yet
 		a.sendTokenError(w, "authorization_pending", "User has not completed authorization")
 		return
 	}
 
 	// Success!
+	log.Printf("RTM DEBUG: Immediate exchange succeeded")
 	session.Token = a.client.AuthToken
 	a.sendTokenSuccess(w, session.Token)
 	a.removeSession(code)
-}
-
-// pollForToken polls RTM for token exchange
-func (a *OAuthAdapter) pollForToken(code string) {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	timeout := time.After(5 * time.Minute)
-
-	for {
-		select {
-		case <-ticker.C:
-			a.sessionMutex.RLock()
-			session, exists := a.sessions[code]
-			a.sessionMutex.RUnlock()
-
-			if !exists {
-				return // Session removed
-			}
-
-			// Try to get token
-			if err := a.client.GetToken(session.Frob); err == nil {
-				// Success!
-				a.sessionMutex.Lock()
-				session.Token = a.client.AuthToken
-				a.sessionMutex.Unlock()
-				log.Printf("RTM: Successfully obtained token for code %s", code)
-				return
-			}
-
-		case <-timeout:
-			log.Printf("RTM: Timeout waiting for auth code %s", code)
-			a.removeSession(code)
-			return
-		}
-	}
 }
 
 // Helper methods
@@ -295,6 +272,7 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code, clientID, state, redirectURI string) {
+	checkAuthURL := fmt.Sprintf("%s/rtm/check-auth?code=%s", a.serverURL, code)
 	callbackURL := fmt.Sprintf("%s/rtm/callback?code=%s", a.serverURL, code)
 
 	html := fmt.Sprintf(`
@@ -307,31 +285,72 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
         .container { border: 1px solid #ddd; border-radius: 8px; padding: 30px; text-align: center; }
         h1 { color: #333; }
         .step { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 4px; }
-        .button { display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px; margin: 10px; }
+        .button { display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px; margin: 10px; text-align: center; border: none; cursor: pointer; }
         .button:hover { background: #0056b3; }
-        .code { font-family: monospace; background: #e9ecef; padding: 2px 4px; border-radius: 3px; }
+        .button:disabled { background: #6c757d; cursor: not-allowed; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .checking { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        #status { margin: 20px 0; padding: 15px; border-radius: 4px; display: none; }
     </style>
     <script>
         let authWindow = null;
-        let pollInterval = null;
+        let checkInterval = null;
         
         function openRTMAuth() {
             authWindow = window.open('%s', 'rtm_auth', 'width=800,height=600');
             document.getElementById('step2').style.display = 'block';
+            document.getElementById('continueBtn').disabled = true;
             
-            // Start polling for window close
-            pollInterval = setInterval(function() {
-                if (authWindow && authWindow.closed) {
-                    clearInterval(pollInterval);
-                    // Automatically continue when window is closed
-                    setTimeout(completeAuth, 1000);
-                }
-            }, 500);
+            // Start checking auth status instead of just polling window
+            startAuthCheck();
+        }
+        
+        function startAuthCheck() {
+            document.getElementById('status').style.display = 'block';
+            document.getElementById('status').className = 'checking';
+            document.getElementById('status').innerHTML = 'Waiting for authorization...';
+            
+            checkInterval = setInterval(checkAuthStatus, 2000);
+        }
+        
+        function checkAuthStatus() {
+            fetch('%s')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.authorized) {
+                        // Success! Enable continue button
+                        clearInterval(checkInterval);
+                        document.getElementById('status').className = 'success';
+                        document.getElementById('status').innerHTML = '✓ Authorization successful! You can now continue.';
+                        document.getElementById('continueBtn').disabled = false;
+                        document.getElementById('continueBtn').style.background = '#28a745';
+                        if (authWindow) authWindow.close();
+                    } else if (data.error) {
+                        // Error occurred
+                        clearInterval(checkInterval);
+                        document.getElementById('status').className = 'error';
+                        document.getElementById('status').innerHTML = '✗ ' + data.error;
+                        document.getElementById('retryBtn').style.display = 'inline-block';
+                    }
+                    // If pending, keep checking
+                })
+                .catch(err => {
+                    console.log('Check failed:', err);
+                    // Continue checking on network errors
+                });
         }
         
         function completeAuth() {
-            if (pollInterval) clearInterval(pollInterval);
+            if (checkInterval) clearInterval(checkInterval);
             window.location.href = '%s';
+        }
+        
+        function retryAuth() {
+            document.getElementById('retryBtn').style.display = 'none';
+            document.getElementById('continueBtn').disabled = true;
+            document.getElementById('continueBtn').style.background = '#007bff';
+            openRTMAuth();
         }
         
         // Auto-open RTM auth on page load
@@ -347,22 +366,25 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
         <div class="step">
             <h2>Step 1: Authorize Access</h2>
             <p>A new window will open for Remember The Milk authorization.</p>
-            <a href="#" onclick="openRTMAuth(); return false;" class="button">Open RTM Authorization</a>
+            <button onclick="openRTMAuth()" class="button">Open RTM Authorization</button>
         </div>
+        
+        <div id="status"></div>
         
         <div class="step" id="step2" style="display: none;">
             <h2>Step 2: Complete Authorization</h2>
-            <p>After authorizing in the RTM window, close it or click below:</p>
-            <a href="#" onclick="completeAuth(); return false;" class="button">I've Authorized - Continue</a>
+            <p><strong>Important:</strong> Click "Yes, I authorize access" in the RTM window, then continue below.</p>
+            <button id="continueBtn" onclick="completeAuth()" class="button" disabled>Continue to App</button>
+            <button id="retryBtn" onclick="retryAuth()" class="button" style="display: none; background: #dc3545;">Try Again</button>
         </div>
         
         <div style="margin-top: 30px; font-size: 14px; color: #666;">
-            <p>If the window doesn't open automatically, disable your popup blocker.</p>
+            <p><strong>Troubleshooting:</strong> Make sure to click "Yes, I authorize access" in the RTM window. If you close the window without authorizing, use "Try Again".</p>
             <p style="font-size: 12px;">Debug info: Code %s</p>
         </div>
     </div>
 </body>
-</html>`, rtmURL, callbackURL, code)
+</html>`, rtmURL, checkAuthURL, callbackURL, code)
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
@@ -427,6 +449,64 @@ func (a *OAuthAdapter) removeSession(code string) {
 	a.sessionMutex.Lock()
 	delete(a.sessions, code)
 	a.sessionMutex.Unlock()
+}
+
+// HandleCheckAuth checks if frob has been authorized
+func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "Missing code parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Look up session
+	a.sessionMutex.RLock()
+	session, exists := a.sessions[code]
+	a.sessionMutex.RUnlock()
+
+	if !exists {
+		http.Error(w, "Invalid code", http.StatusBadRequest)
+		return
+	}
+
+	// Try to exchange frob for token
+	err := a.client.GetToken(session.Frob)
+	if err == nil {
+		// Success! Store token and respond
+		a.sessionMutex.Lock()
+		session.Token = a.client.AuthToken
+		a.sessionMutex.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
+			"authorized": true,
+		}); writeErr != nil {
+			log.Printf("Failed to write check auth success response: %v", writeErr)
+		}
+		return
+	}
+
+	// Check if it's a "not authorized" error vs other errors
+	if fmt.Sprintf("%v", err) == "RTM API error 101: Invalid frob - did you authenticate?" {
+		// User hasn't authorized yet, return pending
+		w.Header().Set("Content-Type", "application/json")
+		if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
+			"authorized": false,
+			"pending":    true,
+		}); writeErr != nil {
+			log.Printf("Failed to write check auth pending response: %v", writeErr)
+		}
+		return
+	}
+
+	// Other error - frob expired or other issue
+	w.Header().Set("Content-Type", "application/json")
+	if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
+		"authorized": false,
+		"error":      fmt.Sprintf("Authorization failed: %v", err),
+	}); writeErr != nil {
+		log.Printf("Failed to write check auth error response: %v", writeErr)
+	}
 }
 
 // ValidateBearer checks if a bearer token is valid

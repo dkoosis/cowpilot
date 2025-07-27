@@ -9,26 +9,24 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/vcto/cowpilot/internal/validator"
 )
 
 // ValidatingInterceptor adds protocol validation to debug interceptor
 type ValidatingInterceptor struct {
-	storage       Storage
-	config        *DebugConfig
-	validator     *validator.MCPValidator
-	stats         *ValidationStats
-	statsLock     sync.RWMutex
+	storage   Storage
+	config    *DebugConfig
+	validator *validator.MCPValidator
+	stats     *ValidationStats
+	statsLock sync.RWMutex
 }
 
 // ValidationStats tracks validation metrics
 type ValidationStats struct {
-	TotalRequests   int64
-	TotalViolations int64
+	TotalRequests      int64
+	TotalViolations    int64
 	ViolationsByMethod map[string]int64
 	ViolationsByType   map[string]int64
-	LastReset       time.Time
+	LastReset          time.Time
 }
 
 // NewValidatingInterceptor creates interceptor with validation
@@ -73,7 +71,7 @@ func (vi *ValidatingInterceptor) InterceptRequest(r *http.Request, sessionID str
 	violations := vi.validateRequest(method, req)
 	if len(violations) > 0 {
 		vi.recordViolations(sessionID, method, violations)
-		
+
 		if vi.config.ValidateMode == "enforce" {
 			return nil, fmt.Errorf("protocol violations: %v", violations)
 		}
@@ -126,7 +124,7 @@ func (vi *ValidatingInterceptor) recordViolations(sessionID, method string, viol
 	if vi.config.ValidateMode == "enforce" {
 		severity = "ERROR"
 	}
-	
+
 	if err := vi.storage.LogValidation(sessionID, method, violations, severity); err != nil {
 		log.Printf("Failed to log validation: %v", err)
 	}
@@ -144,12 +142,12 @@ func (vi *ValidatingInterceptor) GetStats() map[string]interface{} {
 	defer vi.statsLock.RUnlock()
 
 	return map[string]interface{}{
-		"validation_enabled": vi.config.ValidateProto,
-		"validation_mode":   vi.config.ValidateMode,
-		"total_requests":    vi.stats.TotalRequests,
-		"total_violations":  vi.stats.TotalViolations,
+		"validation_enabled":   vi.config.ValidateProto,
+		"validation_mode":      vi.config.ValidateMode,
+		"total_requests":       vi.stats.TotalRequests,
+		"total_violations":     vi.stats.TotalViolations,
 		"violations_by_method": vi.stats.ViolationsByMethod,
 		"violations_by_type":   vi.stats.ViolationsByType,
-		"stats_since":       vi.stats.LastReset,
+		"stats_since":          vi.stats.LastReset,
 	}
 }

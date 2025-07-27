@@ -141,6 +141,7 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 			mux.HandleFunc("/oauth/authorize", rtmAdapter.HandleAuthorize)
 			mux.HandleFunc("/oauth/token", rtmAdapter.HandleToken)
 			mux.HandleFunc("/rtm/callback", rtmAdapter.HandleCallback)
+			mux.HandleFunc("/rtm/check-auth", rtmAdapter.HandleCheckAuth)
 
 			// Add auth middleware that accepts RTM tokens
 			handler = rtmAuthMiddleware(rtmAdapter)(handler)
