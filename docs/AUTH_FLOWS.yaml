@@ -63,6 +63,11 @@ GENERIC_OAUTH2[reference]:
     4_EXCHANGE: POST→/oauth/token{grant_type:authorization_code,code,client_id,client_secret}→{access_token}
   
   ✓FEATURES: [redirect_uri,state_param,refresh_tokens,token_expiry]
+  
+  ‡CLAUDE_AI_OAUTH_PATHS[LEARNED_2025-07-27]:
+    EXPECTS: /authorize+/token[NOT_/oauth/authorize]
+    STANDARD_PATHS: /oauth/authorize+/oauth/token
+    SOLUTION: support_both_endpoint_patterns
 
 GOOGLE_OAUTH2_PKCE:
   ∇TODO: document_pkce_flow

@@ -25,8 +25,8 @@ func (m *mockRTMClient) GetFrob() (string, error) {
 
 // Test helper to inject mock client
 type testSetupHandler struct {
-	store       CredentialStore
-	mockClient  *mockRTMClient
+	store      CredentialStore
+	mockClient *mockRTMClient
 }
 
 // NewTestSetupHandler creates test handler with mock
@@ -40,7 +40,7 @@ func NewTestSetupHandler(store CredentialStore, mock *mockRTMClient) *testSetupH
 // HandleSetup implements the same interface but with mocked validation
 func (h *testSetupHandler) HandleSetup(w http.ResponseWriter, r *http.Request) {
 	setupHandler := &SetupHandler{store: h.store}
-	
+
 	if r.Method == "GET" {
 		setupHandler.showSetupForm(w, r)
 		return
@@ -87,13 +87,13 @@ func (h *testSetupHandler) processSetupWithMock(w http.ResponseWriter, r *http.R
 		setupHandler.showError(w, "Credential storage unavailable")
 		return
 	}
-	
+
 	// Use client IP as user ID for now
 	userID := r.RemoteAddr
 	if userID == "" {
 		userID = "default_user"
 	}
-	
+
 	if err := h.store.Store(userID, apiKey, secret); err != nil {
 		setupHandler.showError(w, fmt.Sprintf("Failed to save credentials: %v", err))
 		return
@@ -160,7 +160,7 @@ func TestSetupHandler_POST_ValidInput(t *testing.T) {
 		err:      nil,
 	}
 	handler := NewTestSetupHandler(store, mock)
-	
+
 	form := url.Values{}
 	form.Add("api_key", "test_api_key_12345")
 	form.Add("secret", "test_secret_67890")
@@ -180,7 +180,7 @@ func TestSetupHandler_POST_ValidInput(t *testing.T) {
 	if !strings.Contains(body, "Setup Complete") {
 		t.Error("Expected success page")
 	}
-	
+
 	// Verify credentials were stored
 	apiKey, secret, err := store.Retrieve("127.0.0.1:12345")
 	if err != nil {
@@ -197,7 +197,7 @@ func TestSetupHandler_POST_StorageFailure(t *testing.T) {
 		err:      nil,
 	}
 	handler := NewTestSetupHandler(nil, mock) // nil store
-	
+
 	form := url.Values{}
 	form.Add("api_key", "test_api_key_12345")
 	form.Add("secret", "test_secret_67890")

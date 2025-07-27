@@ -66,7 +66,8 @@ func main() {
 	setupTools(s)
 
 	// Add RTM tools if credentials available
-	if rtmHandler := rtm.NewHandler(); rtmHandler != nil {
+	var rtmHandler *rtm.Handler
+	if rtmHandler = rtm.NewHandler(); rtmHandler != nil {
 		log.Println("RTM: Registering RTM tools (API credentials found)")
 		rtmHandler.SetupTools(s)
 	} else {
@@ -82,7 +83,7 @@ func main() {
 	// Check if we're running on Fly.io or locally
 	if os.Getenv("FLY_APP_NAME") != "" {
 		// Run HTTP server for Fly.io, passing the auth flag
-		runHTTPServer(s, debugStorage, debugConfig, *disableAuth)
+		runHTTPServer(s, debugStorage, debugConfig, *disableAuth, rtmHandler)
 	} else {
 		// Run stdio server for local development
 		if debugConfig.Enabled {
@@ -94,7 +95,7 @@ func main() {
 	}
 }
 
-func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig, authDisabled bool) {
+func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig, authDisabled bool, rtmHandler *rtm.Handler) {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -138,7 +139,9 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 			rtmAdapter := rtm.NewOAuthAdapter(rtmAPIKey, rtmSecret, serverURL)
 			rtmSetup := rtm.NewSetupHandler()
 
-			// OAuth endpoints for RTM
+			// OAuth endpoints for RTM (claude.ai compatibility)
+			mux.HandleFunc("/authorize", rtmAdapter.HandleAuthorize)
+			mux.HandleFunc("/token", rtmAdapter.HandleToken)
 			mux.HandleFunc("/oauth/authorize", rtmAdapter.HandleAuthorize)
 			mux.HandleFunc("/oauth/token", rtmAdapter.HandleToken)
 			mux.HandleFunc("/rtm/callback", rtmAdapter.HandleCallback)
@@ -146,7 +149,7 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 			mux.HandleFunc("/rtm/setup", rtmSetup.HandleSetup)
 
 			// Add auth middleware that accepts RTM tokens
-			handler = rtmAuthMiddleware(rtmAdapter)(handler)
+			handler = rtmAuthMiddleware(rtmAdapter, rtmHandler)(handler)
 
 			log.Printf("OAuth: Enabled RTM OAuth adapter")
 		} else {
@@ -790,14 +793,16 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 }
 
 // rtmAuthMiddleware validates RTM bearer tokens
-func rtmAuthMiddleware(adapter *rtm.OAuthAdapter) func(http.Handler) http.Handler {
+func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip auth for OAuth endpoints
 			if strings.HasPrefix(r.URL.Path, "/oauth/") ||
 				strings.HasPrefix(r.URL.Path, "/rtm/") ||
 				strings.HasPrefix(r.URL.Path, "/.well-known/") ||
-				r.URL.Path == "/health" {
+				r.URL.Path == "/health" ||
+				r.URL.Path == "/authorize" ||
+				r.URL.Path == "/token" {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -822,8 +827,8 @@ func rtmAuthMiddleware(adapter *rtm.OAuthAdapter) func(http.Handler) http.Handle
 				return
 			}
 
-			// Store token for RTM handler to use
-			if rtmHandler := rtm.NewHandler(); rtmHandler != nil {
+			// Set token on the registered RTM handler instance
+			if rtmHandler != nil {
 				rtmHandler.SetAuthToken(token)
 			}
 

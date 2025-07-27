@@ -3,19 +3,22 @@
 # MACHINE_CONTEXT_FOR_CLAUDE[not_human_readable]
 
 ‡RTM_AUTH_FLOW[FIXED_2025-07-27]:
-  STATUS: ✓fixed_ux_flow→proper_auth_verification
+  STATUS: ✓fixed_ux_flow→✓fixed_token_passing→✓production_working
   ‡RACE_CONDITION: ✓fixed→verify_before_callback
   ‡PRIMARY_ISSUE: ✓fixed→user_must_complete_rtm_auth_before_continue
+  ‡TOKEN_PASSING_ISSUE: ✓fixed→oauth_token_reaches_registered_tools
   ‡SOLUTION: /rtm/check-auth_endpoint→polls_frob_status_every_2s
   ‡UX_IMPROVEMENTS: [continue_button_disabled_until_verified,visual_status_feedback,retry_mechanism]
   ‡NEW_ENDPOINTS: /rtm/check-auth→json{authorized:bool,pending:bool,error:string}
-  ‡FLOW_FIXED: intermediate_page→check_auth_status→enable_continue→callback→verified_token
+  ‡FLOW_FIXED: intermediate_page→check_auth_status→enable_continue→callback→verified_token→tools_working
+  ‡ARCHITECTURE_FIX: pass_rtm_handler_instance_to_auth_middleware[shared_token_state]
   
 ∇RTM_FUTURE_UX[TBD]:
   ∇USER_PROVIDED_CREDENTIALS: require_user_rtm_api_key+secret[not_server_env_vars]
   ∇PERMISSION_SCOPES: [read_only_option,designated_lists_filter,tag_restrictions]
   ∇AUTH_FLOW_REDESIGN: user_inputs_credentials→scoped_permissions→rtm_oauth
   ∇SECURITY_REVIEW: multi_user_credential_storage_best_practices[encryption,isolation,rotation,audit]
+  ∇STEP4_USER_SCOPED_OAUTH: modify_oauth_adapter_to_use_stored_credentials_per_user
   RATIONALE: user_owns_credentials+granular_access_control
   DOCUMENTED: φdocs/AUTH_FLOWS.yaml→RTM_DEBUG_FINDINGS[2025-07-27]
   ISSUE: ✓RESOLVED_oauth_tests_failing_with_400
@@ -180,6 +183,12 @@ SAMPLE_DATA:
   ✓DEPLOYED: fly.io[auth_disabled,single_instance]
   ✓REGISTERED: claude.ai_connector[tools_visible✓]
   
+  ‡OAUTH_ENDPOINT_REQUIREMENTS[LEARNED_2025-07-27]:
+    CLAUDE_AI_EXPECTS: /authorize+/token[NOT_/oauth/authorize]
+    SOLUTION: support_both_paths[compatibility]
+    ENDPOINTS: [/authorize,/token,/oauth/authorize,/oauth/token]
+    LEARNED: claude.ai_oauth_paths_different_from_standard_conventions
+  
   ✓P1_REMOTE_DEPLOYMENT[COMPLETE_2025-07-26]:
     STATUS: ✓fly.io_deployed+✓CORS_implemented→∇healthcheck_needed
     DELIVERABLES: [✓CORS_headers,✓health_endpoint,✓SSE_test_script]
@@ -253,6 +262,7 @@ SAMPLE_DATA:
     TEST_COVERAGE: [tools/list✓,tools/call✓,resources/list✓,resources/read✓,prompts/list✓]
     ‡TEST_STRATEGY: integration_tests_run_against_DEPLOYED_instance[https://cowpilot.fly.dev/mcp]
     DOCUMENTED: φdocs/TEST_STRATEGY.md[✓clear_distinction_local_vs_deployed]
+  ∇TODO_MAKEFILE: make_build_stop_on_compile_failures[build_errors_should_halt]
   ‡PRIORITY2: ✓RTM_OAuth_bridge[frob_to_oauth_fixed]
     FIXED:
       1. ✓dynamic_redirect_uri→uses_actual_callback_from_request
