@@ -26,7 +26,7 @@ echo -e "${GREEN} ✓${NC} Project root verified"
 FAILED=0
 
 # Test 1: Project Structure
-required_dirs=("cmd/cowpilot" "internal/debug" "internal/validator" "scripts/test" "docs/adr")
+required_dirs=("cmd/cowpilot" "internal/debug" "internal/testing" "scripts/test" "docs/adr")
 for dir in "${required_dirs[@]}"; do
     if [[ -d "$dir" ]]; then
         echo -e "${GREEN} ✓${NC} $dir exists"

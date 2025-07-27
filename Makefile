@@ -99,14 +99,16 @@ scenario-test-local:
 	@sleep 1
 	@# Build the binary first
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
+	@echo "Starting server, logging to server.log..."
+	@rm -f server.log
 	@if [ -f .test-times.log ]; then \
 		LAST_TIME=$$(tail -1 .test-times.log | cut -d' ' -f2); \
 		echo "Last run took $$LAST_TIME seconds"; \
 	fi
 	@START_TIME=$$(date +%s); \
-	FLY_APP_NAME=local-test ./bin/cowpilot > /dev/null 2>&1 & \
+	FLY_APP_NAME=local-test ./bin/cowpilot --disable-auth > server.log 2>&1 & \
 	SERVER_PID=$$!; \
-	trap 'kill $$SERVER_PID 2>/dev/null || true' EXIT INT TERM; \
+	trap 'echo " ▶ Trapped signal, stopping server..."; kill $$SERVER_PID 2>/dev/null || true; if [ $$TEST_EXIT -ne 0 ]; then echo "--- Server Log ---"; cat server.log; fi' EXIT INT TERM; \
 	sleep 3; \
 	echo "Server started with PID $$SERVER_PID"; \
 	echo "Running Go scenario tests..."; \
@@ -130,6 +132,7 @@ scenario-test-local:
 		bash scripts/utils/track-performance.sh; \
 	fi; \
 	if [ $$TEST_EXIT -ne 0 ] || [ $$SHELL_EXIT -ne 0 ]; then \
+		echo "--- Server Log (from Makefile) ---" && cat server.log; \
 		exit 1; \
 	fi
 
@@ -189,12 +192,12 @@ clean:
 	@rm -f $(COVERAGE_FILE)
 	@rm -f debug_conversations.db
 	@rm -f *.db
+	@rm -f server.log
 
 # Format code
 fmt:
 	@echo "Formatting code..."
 	$(GOFMT) -w .
-
 # Run go vet
 vet:
 	@echo "Running go vet..."
@@ -203,8 +206,8 @@ vet:
 # Run linter (requires golangci-lint)
 lint:
 	@echo "Running linter..."
-	@which $(GOLINT) > /dev/null || (echo "golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
-	$(GOLINT) run
+	@if ! which $(GOLINT) > /dev/null; then echo "golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; fi
+	@$(GOLINT) run
 
 # Generate test coverage report
 coverage: unit-test

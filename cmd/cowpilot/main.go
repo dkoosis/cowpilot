@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"flag" // Import the flag package
 	"fmt"
 	"log"
 	"net/http"
@@ -30,7 +31,15 @@ const (
 // Tiny example image (1x1 transparent PNG)
 const tinyImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 
+// Define the command-line flag
+var (
+	disableAuth = flag.Bool("disable-auth", false, "Disable authentication for testing or insecure environments")
+)
+
 func main() {
+	// Parse command-line flags
+	flag.Parse()
+
 	// Initialize debug system (zero cost when disabled)
 	debugStorage, debugConfig, err := debug.StartDebugSystem()
 	if err != nil {
@@ -63,8 +72,8 @@ func main() {
 
 	// Check if we're running on Fly.io or locally
 	if os.Getenv("FLY_APP_NAME") != "" {
-		// Run HTTP server for Fly.io
-		runHTTPServer(s, debugStorage, debugConfig)
+		// Run HTTP server for Fly.io, passing the auth flag
+		runHTTPServer(s, debugStorage, debugConfig, *disableAuth)
 	} else {
 		// Run stdio server for local development
 		if debugConfig.Enabled {
@@ -74,6 +83,132 @@ func main() {
 			log.Fatalf("Server error: %v\n", err)
 		}
 	}
+}
+
+func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig, authDisabled bool) {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	serverURL := os.Getenv("SERVER_URL")
+	if serverURL == "" {
+		serverURL = "http://localhost:" + port
+	}
+
+	// StreamableHTTP transport with stateless mode for testing compatibility
+	// Using /mcp endpoint to force HTTP transport detection in MCP Inspector
+	streamableServer := server.NewStreamableHTTPServer(
+		mcpServer,
+		server.WithStateLess(true),
+		server.WithEndpointPath("/mcp"),
+	)
+
+	// Base handler
+	handler := http.Handler(streamableServer)
+
+	// Apply protocol detection middleware first
+	handler = protocolDetectionMiddleware(handler)
+
+	// Conditionally add debug middleware
+	if debugConfig.Enabled {
+		log.Printf("Debug middleware enabled for StreamableHTTP server")
+		handler = debug.DebugMiddleware(debugStorage, debugConfig)(handler)
+	}
+
+	mux := http.NewServeMux()
+
+	// Conditionally apply OAuth middleware and endpoints
+	if !authDisabled {
+		callbackPort := 9090 // Default callback port
+		if cbPort := os.Getenv("OAUTH_CALLBACK_PORT"); cbPort != "" {
+			if p, err := strconv.Atoi(cbPort); err == nil {
+				callbackPort = p
+			}
+		}
+		oauthAdapter := auth.NewOAuthAdapter(serverURL, callbackPort)
+
+		// Add auth middleware to the MCP handler
+		handler = auth.Middleware(oauthAdapter)(handler)
+
+		// OAuth endpoints
+		mux.HandleFunc("/.well-known/oauth-protected-resource", oauthAdapter.HandleProtectedResourceMetadata)
+		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthAdapter.HandleAuthServerMetadata)
+		mux.HandleFunc("/oauth/authorize", oauthAdapter.HandleAuthorize)
+		mux.HandleFunc("/oauth/token", oauthAdapter.HandleToken)
+		mux.HandleFunc("/oauth/register", oauthAdapter.HandleRegister)
+		log.Printf("OAuth: Enabled with adapter for RTM API keys")
+	} else {
+		log.Println("OAuth: DISABLED via --disable-auth flag")
+	}
+
+	// Health check
+	mux.HandleFunc("/health", handleHealth)
+
+	// MCP server handles requests at /mcp endpoint
+	mux.Handle("/mcp", handler)
+	mux.Handle("/mcp/", handler)
+
+	// Apply CORS as the outermost middleware
+	corsConfig := middleware.DefaultCORSConfig()
+	if allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); allowedOrigins != "" {
+		corsConfig.AllowOrigins = append(corsConfig.AllowOrigins, strings.Split(allowedOrigins, ",")...)
+	}
+	finalHandler := middleware.CORS(corsConfig)(mux)
+
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: finalHandler,
+	}
+
+	log.Printf("Starting MCP server with StreamableHTTP transport on port %s", port)
+	log.Printf("Protocol: StreamableHTTP (VERIFIED: Works with MCP Inspector CLI)")
+	log.Printf("CORS: Enabled for %v", corsConfig.AllowOrigins)
+
+	if !authDisabled {
+		log.Printf("Endpoint: %s/mcp (protected)", serverURL)
+		log.Printf("Auth flow: %s/oauth/authorize", serverURL)
+	} else {
+		log.Printf("Endpoint: %s/mcp (unprotected)", serverURL)
+	}
+
+	log.Printf("Test with: npx @modelcontextprotocol/inspector --cli %s/mcp --method tools/list", serverURL)
+	log.Printf("Raw test: curl -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}' %s/mcp", serverURL)
+
+	// Start server in a goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("Server starting on :%s", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+	}()
+
+	// Wait a moment to ensure server is listening before health checks start
+	time.Sleep(100 * time.Millisecond)
+	log.Printf("Server ready to accept connections")
+
+	// Wait for interrupt signal or server error
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	
+	select {
+	case err := <-serverErr:
+		log.Fatalf("Server error: %v", err)
+	case <-quit:
+		log.Println("Shutdown signal received, starting graceful shutdown...")
+	}
+
+	// Create a context with a 5-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Attempt the graceful shutdown
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exiting")
 }
 
 func setupResources(s *server.MCPServer) {
@@ -622,111 +757,10 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig) {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	// Initialize OAuth adapter
-	serverURL := os.Getenv("SERVER_URL")
-	if serverURL == "" {
-		serverURL = "http://localhost:" + port
-	}
-	callbackPort := 9090 // Default callback port
-	if cbPort := os.Getenv("OAUTH_CALLBACK_PORT"); cbPort != "" {
-		if p, err := strconv.Atoi(cbPort); err == nil {
-			callbackPort = p
-		}
-	}
-	oauthAdapter := auth.NewOAuthAdapter(serverURL, callbackPort)
-
-	// StreamableHTTP transport with stateless mode for testing compatibility
-	// Using /mcp endpoint to force HTTP transport detection in MCP Inspector
-	streamableServer := server.NewStreamableHTTPServer(
-		mcpServer,
-		server.WithStateLess(true),
-		server.WithEndpointPath("/mcp"),
-	)
-
-	// Apply middleware stack
-	handler := http.Handler(streamableServer)
-
-	// Add CORS support for claude.ai
-	corsConfig := middleware.DefaultCORSConfig()
-	// Allow additional origins if specified
-	if allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); allowedOrigins != "" {
-		corsConfig.AllowOrigins = append(corsConfig.AllowOrigins, strings.Split(allowedOrigins, ",")...)
-	}
-	handler = middleware.CORS(corsConfig)(handler)
-
-	// Add auth middleware
-	handler = auth.Middleware(oauthAdapter)(handler)
-
-	// Add protocol detection middleware
-	handler = protocolDetectionMiddleware(handler)
-
-	// Conditionally add debug middleware
-	if debugConfig.Enabled {
-		log.Printf("Debug middleware enabled for StreamableHTTP server")
-		handler = debug.DebugMiddleware(debugStorage, debugConfig)(handler)
-	}
-
-	mux := http.NewServeMux()
-
-	// OAuth endpoints
-	mux.HandleFunc("/.well-known/oauth-protected-resource", oauthAdapter.HandleProtectedResourceMetadata)
-	mux.HandleFunc("/.well-known/oauth-authorization-server", oauthAdapter.HandleAuthServerMetadata)
-	mux.HandleFunc("/oauth/authorize", oauthAdapter.HandleAuthorize)
-	mux.HandleFunc("/oauth/token", oauthAdapter.HandleToken)
-	mux.HandleFunc("/oauth/register", oauthAdapter.HandleRegister)
-
-	// Health check
-	mux.HandleFunc("/health", handleHealth)
-
-	// MCP server handles requests at /mcp endpoint
-	mux.Handle("/mcp", handler)
-	mux.Handle("/mcp/", handler)
-
-	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: mux,
-	}
-
-	log.Printf("Starting MCP server with StreamableHTTP transport on port %s", port)
-	log.Printf("Protocol: StreamableHTTP (VERIFIED: Works with MCP Inspector CLI)")
-	log.Printf("CORS: Enabled for %v", corsConfig.AllowOrigins)
-	log.Printf("OAuth: Enabled with adapter for RTM API keys")
-	log.Printf("Endpoint: %s/mcp (protected)", serverURL)
-	log.Printf("Auth flow: %s/oauth/authorize", serverURL)
-	log.Printf("Test with: npx @modelcontextprotocol/inspector --cli %s/mcp --method tools/list", serverURL)
-	log.Printf("Raw test: curl -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}' %s/mcp", serverURL)
-
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
-		}
-	}()
-
-	// Wait for interrupt signal (e.g., Ctrl+C)
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shutdown signal received, starting graceful shutdown...")
-
-	// Create a context with a 5-second timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Attempt the graceful shutdown
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
-	}
-
-	log.Println("Server exiting")
-}
-
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Log health check requests for debugging
+	log.Printf("[HEALTH] Health check from %s", r.RemoteAddr)
+	
 	// Protocol diagnostic endpoint
 	if r.URL.Query().Get("protocol") == "true" {
 		w.Header().Set("Content-Type", "application/json")
@@ -749,6 +783,8 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Simple health check response
+	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 }

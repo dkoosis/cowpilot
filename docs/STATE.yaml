@@ -1,4 +1,4 @@
-# STATE.yaml v7.4-claude-optimized
+# STATE.yaml v7.6-claude-optimized
 # λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=native
 # MACHINE_CONTEXT_FOR_CLAUDE[not_human_readable]
 
@@ -162,12 +162,13 @@ SAMPLE_DATA:
   CURRENT_GAPS: [∅OAuth2_DCR_live_testing]
   
   ✓P1_REMOTE_DEPLOYMENT[COMPLETE_2025-07-26]:
-    STATUS: ✓fly.io_deployed+✓CORS_implemented
+    STATUS: ✓fly.io_deployed+✓CORS_implemented→∇healthcheck_needed
     DELIVERABLES: [✓CORS_headers,✓health_endpoint,✓SSE_test_script]
     CORS_CONFIG: ✓Access-Control-Allow-Origin:https://claude.ai
     CORS_IMPL: ✓internal/middleware/cors.go[configurable_origins]
     TEST_SCRIPT: ✓scripts/test/test-sse-transport.sh
     DOCS: ✓docs/claude-integration/[README,deployment,troubleshooting]
+    ‡FLY_HEALTH: ✓fixed[removed_experimental_cmd,startup_race_fixed,cors_bypass]
     READY_FOR: deployment+claude.ai_testing[pending_OAuth]
     
   ✓P2_OAUTH_IMPLEMENTATION[COMPLETE_2025-07-26]:
@@ -230,10 +231,21 @@ SAMPLE_DATA:
       3. ✓ValidateStateToken→compare_form_to_cookie_only
       4. ✓Removed_stateTokens_map_usage
     RESULT: stateless_csrf_protection_for_cloud_deployment
-  ‡PRIORITY2: ∇execute_integration_tests[make_test]
-  PRIORITY3: ∇runtime_protocol_validation[add_via_debug_proxy]
-  PRIORITY4: ∇CI_integration[add_claude_tests_to_CI]
-  PRIORITY5: ∇monitoring[oauth_metrics]
+  ‡PRIORITY2: ✓fly_deployment_health[fixed_startup_race+cors_bypass+grace_period]
+    IMPLEMENTED:
+      1. ✓removed_experimental_cmd_section→prevent_conflicts
+      2. ✓added_health_check_logging→debug_visibility
+      3. ✓fixed_startup_race_condition→100ms_delay+error_channel
+      4. ✓cors_bypass_for_health→direct_passthrough
+      5. ✓increased_grace_period→10s_for_reliable_startup
+    LEARNED:
+      RACE_CONDITION: server_must_be_listening_before_health_checks_start
+      CORS_INTERFERENCE: health_endpoints_should_bypass_middleware
+      FLY_CONFIG: experimental_cmd_conflicts_with_dockerfile_cmd
+  ‡PRIORITY3: ∇execute_integration_tests[make_test]
+  PRIORITY4: ∇runtime_protocol_validation[add_via_debug_proxy]
+  PRIORITY5: ∇CI_integration[add_claude_tests_to_CI]
+  PRIORITY6: ∇monitoring[oauth_metrics]
   COMPLETED: [✓oauth_implementation,✓csrf_protection,✓test_suite,✓claude_integration_test_created,✓protocol_contracts,✓csrf_diagnosis,✓oauth_adapter_tests_fixed]
   DEFERRED: [rtm_integration,completions]
   

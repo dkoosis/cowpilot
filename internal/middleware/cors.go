@@ -32,6 +32,12 @@ func DefaultCORSConfig() CORSConfig {
 func CORS(config CORSConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip CORS for health checks
+			if r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			
 			origin := r.Header.Get("Origin")
 
 			// Check if origin is allowed
