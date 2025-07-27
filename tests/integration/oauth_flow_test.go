@@ -1,17 +1,28 @@
 // tests/oauth_scenario_test.go
 
-package tests
+package integration
 
 import (
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"regexp" // This is now used
 	"strings"
 	"testing"
 
 	"github.com/vcto/cowpilot/internal/auth"
 )
+
+// Helper function to create a client with a cookie jar.
+func clientWithCookieJar() (*http.Client, http.CookieJar) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		panic(err) // Should not happen in a test
+	}
+	return &http.Client{Jar: jar}, jar
+}
 
 func TestOauthEndToEndScenario(t *testing.T) {
 	adapter := auth.NewOAuthAdapter("http://localhost:8080", 9090)
@@ -27,29 +38,36 @@ func TestOauthEndToEndScenario(t *testing.T) {
 			return http.ErrUseLastResponse
 		}
 
-		resp, err := client.Get(testServer.URL + "/oauth/authorize?client_id=test&state=test-state")
+		resp, err := client.Get(testServer.URL + "/oauth/authorize?client_id=test&redirect_uri=http://localhost/callback&state=test-state")
 		if err != nil {
 			t.Fatalf("Failed to get auth form: %v", err)
 		}
-		defer func() { _ = resp.Body.Close() }()
 
 		body, _ := io.ReadAll(resp.Body)
-		csrfStart := strings.Index(string(body), `name="csrf_state" value="`) + 26
-		csrfEnd := strings.Index(string(body)[csrfStart:], `"`)
-		csrfToken := string(body)[csrfStart : csrfStart+csrfEnd]
+		_ = resp.Body.Close()
+
+		// FIX: Use a regular expression to robustly extract the CSRF token.
+		re := regexp.MustCompile(`name="csrf_state"\s+value="([^"]+)"`)
+		matches := re.FindStringSubmatch(string(body))
+		if len(matches) < 2 {
+			t.Fatalf("Could not find csrf_state field in form. HTML was: %s", string(body))
+		}
+		csrfToken := matches[1]
 
 		form := url.Values{"csrf_state": {csrfToken}, "api_key": {"test-api-key"}, "client_id": {"test"}, "client_state": {"test-state"}}
 		req, _ := http.NewRequest("POST", testServer.URL+"/oauth/authorize", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		resp, err = client.Do(req)
+		// Cookie jar handles cookies automatically
+		resp2, err := client.Do(req)
 		if err != nil {
 			t.Fatalf("Failed to submit auth form: %v", err)
 		}
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { _ = resp2.Body.Close() }()
 
-		if resp.StatusCode != http.StatusFound {
-			t.Fatalf("Expected redirect, got %d", resp.StatusCode)
+		if resp2.StatusCode != http.StatusFound {
+			body, _ := io.ReadAll(resp2.Body)
+			t.Fatalf("Expected redirect, got %d: %s", resp2.StatusCode, string(body))
 		}
 	})
 }
@@ -69,17 +87,32 @@ func TestOauthErrorScenarios(t *testing.T) {
 		}
 
 		// Step 1: Get code
-		resp, _ := client.Get(testServer.URL + "/oauth/authorize?client_id=test&state=test-state")
+		resp, err := client.Get(testServer.URL + "/oauth/authorize?client_id=test&redirect_uri=http://localhost/callback&state=test-state")
+		if err != nil {
+			t.Fatalf("Failed to get auth form: %v", err)
+		}
 		body, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		csrfStart := strings.Index(string(body), `name="csrf_state" value="`) + 26
-		csrfEnd := strings.Index(string(body)[csrfStart:], `"`)
-		csrfToken := string(body)[csrfStart : csrfStart+csrfEnd]
+
+		// FIX: Use a regular expression to robustly extract the CSRF token.
+		re := regexp.MustCompile(`name="csrf_state"\s+value="([^"]+)"`)
+		matches := re.FindStringSubmatch(string(body))
+		if len(matches) < 2 {
+			t.Fatalf("Could not find csrf_state field in form. HTML was: %s", string(body))
+		}
+		csrfToken := matches[1]
 
 		form := url.Values{"csrf_state": {csrfToken}, "api_key": {"test-api-key"}, "client_id": {"test"}, "client_state": {"test-state"}}
 		req, _ := http.NewRequest("POST", testServer.URL+"/oauth/authorize", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		resp, _ = client.Do(req)
+		// Copy cookies from GET to POST
+		for _, cookie := range resp.Cookies() {
+			req.AddCookie(cookie)
+		}
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Fatalf("Failed to submit auth: %v", err)
+		}
 		_ = resp.Body.Close()
 
 		location, _ := url.Parse(resp.Header.Get("Location"))
@@ -87,7 +120,7 @@ func TestOauthErrorScenarios(t *testing.T) {
 
 		// Step 2: First use (should succeed)
 		tokenForm := url.Values{"grant_type": {"authorization_code"}, "code": {authCode}}
-		resp, err := client.Post(testServer.URL+"/oauth/token", "application/x-www-form-urlencoded", strings.NewReader(tokenForm.Encode()))
+		resp, err = client.Post(testServer.URL+"/oauth/token", "application/x-www-form-urlencoded", strings.NewReader(tokenForm.Encode()))
 		if err != nil {
 			t.Fatalf("Token exchange failed: %v", err)
 		}

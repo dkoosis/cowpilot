@@ -1,6 +1,6 @@
 // tests/claude_connector_test.go
 
-package tests
+package scenarios
 
 import (
 	"context"
@@ -85,16 +85,28 @@ func TestClaudeConnectorIntegration(t *testing.T) {
 		defer func() { _ = resp.Body.Close() }()
 
 		body, _ := io.ReadAll(resp.Body)
-		csrfStart := strings.Index(string(body), `name="csrf_state" value="`) + 26
+
+		// Extract CSRF token from HTML form
+		searchStr := "name=\"csrf_state\" value=\""
+		csrfStart := strings.Index(string(body), searchStr)
+		if csrfStart == -1 {
+			t.Fatalf("Could not find csrf_state field in form response")
+		}
+		csrfStart += len(searchStr)
 		csrfEnd := strings.Index(string(body)[csrfStart:], `"`)
-		if csrfStart < 26 || csrfEnd < 0 {
-			t.Fatalf("Could not find CSRF token in form response")
+		if csrfEnd == -1 {
+			t.Fatalf("Could not find end of csrf_state value")
 		}
 		csrfToken := string(body)[csrfStart : csrfStart+csrfEnd]
 
-		form := url.Values{"client_id": {"test"}, "redirect_uri": {"http://localhost/callback"}, "client_state": {"test-state"}, "csrf_state": {csrfToken}, "api_key": {"test-api-key"}}
+		form := url.Values{"client_id": {"test"}, "client_state": {"test-state"}, "csrf_state": {csrfToken}, "api_key": {"test-api-key"}}
 		req, _ := http.NewRequest("POST", testServer.URL+"/oauth/authorize", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		// Copy cookies from GET to POST - critical for CSRF validation
+		for _, cookie := range resp.Cookies() {
+			req.AddCookie(cookie)
+		}
+
 		resp, err = client.Do(req)
 		if err != nil {
 			t.Fatalf("Failed to submit auth: %v", err)

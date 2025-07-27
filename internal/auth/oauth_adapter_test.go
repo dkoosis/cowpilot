@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -35,10 +36,7 @@ func TestOAuthAdapter_AuthorizeFlow(t *testing.T) {
 	})
 
 	t.Run("AuthorizeEndpoint_RejectsInvalidCSRF_When_POSTWithBadToken", func(t *testing.T) {
-		// First, generate CSRF token
-		_ = adapter.callbackServer.GenerateStateToken("test-client")
-
-		// Submit form without CSRF token
+		// Submit form without cookie (missing CSRF)
 		form := url.Values{}
 		form.Add("client_id", "test-client")
 		form.Add("redirect_uri", "http://localhost/callback")
@@ -52,14 +50,42 @@ func TestOAuthAdapter_AuthorizeFlow(t *testing.T) {
 		adapter.HandleAuthorize(w, req)
 
 		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected 400 for invalid CSRF, got %d", w.Code)
+			t.Errorf("Expected 400 for missing CSRF cookie, got %d", w.Code)
 		}
 	})
 
 	t.Run("AuthorizeEndpoint_GeneratesAuthCode_When_ValidFormSubmitted", func(t *testing.T) {
-		// Generate valid CSRF token
-		csrfToken := adapter.callbackServer.GenerateStateToken("test-client")
+		// First GET to obtain CSRF cookie
+		req := httptest.NewRequest("GET", "/oauth/authorize?client_id=test-client&redirect_uri=http://localhost/callback&state=abc123", nil)
+		w := httptest.NewRecorder()
+		adapter.HandleAuthorize(w, req)
 
+		// Extract CSRF token from response body
+		body := w.Body.String()
+
+		// Use regex to extract CSRF token value (handles whitespace)
+		re := regexp.MustCompile(`name="csrf_state"\s+value="([^"]+)"`)
+		matches := re.FindStringSubmatch(body)
+		if len(matches) < 2 {
+			t.Fatalf("Could not find csrf_state field in form")
+		}
+		csrfToken := matches[1]
+
+		// Extract CSRF cookie
+		cookies := w.Result().Cookies()
+		t.Logf("Cookies from GET response: %v", cookies)
+		var csrfCookie *http.Cookie
+		for _, c := range cookies {
+			if c.Name == "csrf_token" {
+				csrfCookie = c
+				break
+			}
+		}
+		if csrfCookie == nil {
+			t.Fatal("CSRF cookie not set")
+		}
+
+		// Submit form with CSRF token
 		form := url.Values{}
 		form.Add("client_id", "test-client")
 		form.Add("redirect_uri", "http://localhost/callback")
@@ -67,14 +93,18 @@ func TestOAuthAdapter_AuthorizeFlow(t *testing.T) {
 		form.Add("csrf_state", csrfToken)
 		form.Add("api_key", "test-rtm-key")
 
-		req := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
+		req = httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		w := httptest.NewRecorder()
+		req.AddCookie(csrfCookie) // Add the CSRF cookie
+		w = httptest.NewRecorder()
+
+		t.Logf("CSRF token from form: %s", csrfToken)
+		t.Logf("Form values: %v", form)
 
 		adapter.HandleAuthorize(w, req)
 
 		if w.Code != http.StatusFound {
-			t.Errorf("Expected 302 redirect, got %d", w.Code)
+			t.Errorf("Expected 302 redirect, got %d, body: %s", w.Code, w.Body.String())
 		}
 
 		location := w.Header().Get("Location")

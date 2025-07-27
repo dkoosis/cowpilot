@@ -1,5 +1,5 @@
 // Package contracts provides test helpers for protocol compliance
-package contracts
+package specs
 
 import (
 	"io"
@@ -32,7 +32,7 @@ func (o *OAuthTestClient) GetAuthorizationCode(serverURL, clientID, redirectURI,
 	if err != nil {
 		o.t.Fatalf("Failed to GET authorize: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, _ := io.ReadAll(resp.Body)
 	csrfToken := extractCSRFToken(string(body))
@@ -61,7 +61,7 @@ func (o *OAuthTestClient) GetAuthorizationCode(serverURL, clientID, redirectURI,
 	if err != nil {
 		o.t.Fatalf("Failed to POST authorize: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusFound {
 		body, _ := io.ReadAll(resp.Body)
@@ -90,7 +90,7 @@ func (o *OAuthTestClient) ExchangeToken(serverURL, code string) string {
 	if err != nil {
 		o.t.Fatalf("Failed to exchange token: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

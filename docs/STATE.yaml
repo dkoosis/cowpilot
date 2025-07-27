@@ -1,6 +1,13 @@
-# STATE.yaml v7.3-claude-optimized
+# STATE.yaml v7.4-claude-optimized
 # λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=native
 # MACHINE_CONTEXT_FOR_CLAUDE[not_human_readable]
+
+‡CSRF_TEST_DIAGNOSIS:
+  ISSUE: ✓RESOLVED_oauth_tests_failing_with_400
+  ROOT_CAUSE: HTML_token_extraction_off_by_one
+  PROBLEM: hardcoded_offset_26_incorrect_for_search_string
+  FIX: use_len(searchStr)_instead_of_magic_number
+  LEARNED: [avoid_magic_numbers,test_string_extraction,debug_first]
 
 ‡DEV_GUIDELINES:
   SESSION_PROTOCOL: ✓CHECK_STATE_YAML_FIRST→machine_optimized_context
@@ -128,6 +135,15 @@
 ‡ACTIVE_BLOCKERS: 
   λMCP_GO: ∅[completions,logging,progress]
   ‡CLAUDE_AI: ∅[OAuth_DCR_testing_needed]
+  ‡OAUTH_CSRF: ✓csrf_uses_session_cookies[must_copy_cookies_GET→POST]
+  ‡TEST_ISSUES: ✓fixed[package_conflicts,missing_functions,csrf_cookie_flow]
+  ‡CSRF_ARCHITECTURE_CONFLICT:
+    PROBLEM: mixing_two_csrf_approaches[server_side_tokens+cookies]
+    CURRENT: stateTokens_map_in_OAuthCallbackServer[in_memory_not_shared]
+    ATTEMPTED: added_cookies_but_still_validating_against_memory_map
+    ROOT_CAUSE: ValidateStateToken_checks_s.stateTokens[state]_not_cookie
+    SOLUTION: pick_one_approach[prefer_cookies_for_stateless_deployment]
+    LEARNED: [rtfm_before_changing,understand_data_flow,avoid_mixing_patterns]
 
 SAMPLE_DATA:
   RES: {
@@ -177,6 +193,21 @@ SAMPLE_DATA:
     CONFIG: string_values_only[no_nested_objects]
     TRANSPORT: SSE+Streamable_HTTP_required
 
+∇PROTOCOL_CONTRACTS[2025-07-26]:
+  STATUS: ✓implemented→fixing_integration_tests
+  φinternal/contracts/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]
+  φdocs/reference/oauth-protocol-requirements.md: detailed_spec
+  ‡OAUTH_REQUIREMENTS:
+    GET_AUTHORIZE: [client_id,redirect_uri,state]→query_params
+    POST_AUTHORIZE: [client_id,csrf_state,client_state,api_key]→form_body_NOT_query
+    ‡CSRF_FLOW: GET_sets_cookie→POST_must_include_cookie
+    TOKEN_ENDPOINT: [grant_type=authorization_code,code]→form_body
+    BEARER_FORMAT: "Authorization: Bearer <token>"→space_required
+  LEARNED:
+    FORM_VS_QUERY: POST_params_must_be_in_form_body[common_mistake]
+    COOKIE_JAR: tests_need_http.Client.Jar_for_csrf_cookies
+    CONTRACT_TESTING: proactive_validation>reactive_debugging
+
 ∇DOCUMENTATION_PLAN:
   φdocs/claude-integration/
     ∇README.md: overview+quickstart
@@ -192,12 +223,18 @@ SAMPLE_DATA:
     PATTERNS: [DCR_flow,token_refresh,PKCE]
 
 ∇NEXT:
-  ‡PRIORITY1: ∇execute_claude_tests[go_test_./tests/claude_connector_test.go]
-  ‡PRIORITY2: ∇runtime_protocol_validation[add_via_debug_proxy]
-  PRIORITY3: ∇CI_integration[add_claude_tests_to_CI]
-  PRIORITY4: ∇error_mapping[clear_json_rpc_codes]
+  ‡PRIORITY1: ✓fixed_csrf_validation[pure_cookie_approach]
+    IMPLEMENTED:
+      1. ✓GenerateStateToken→uuid.New().String()[no_server_state]
+      2. ✓Set_HttpOnly_cookie_with_token
+      3. ✓ValidateStateToken→compare_form_to_cookie_only
+      4. ✓Removed_stateTokens_map_usage
+    RESULT: stateless_csrf_protection_for_cloud_deployment
+  ‡PRIORITY2: ∇execute_integration_tests[make_test]
+  PRIORITY3: ∇runtime_protocol_validation[add_via_debug_proxy]
+  PRIORITY4: ∇CI_integration[add_claude_tests_to_CI]
   PRIORITY5: ∇monitoring[oauth_metrics]
-  COMPLETED: [✓oauth_implementation,✓csrf_protection,✓test_suite,✓claude_integration_test_created]
+  COMPLETED: [✓oauth_implementation,✓csrf_protection,✓test_suite,✓claude_integration_test_created,✓protocol_contracts,✓csrf_diagnosis,✓oauth_adapter_tests_fixed]
   DEFERRED: [rtm_integration,completions]
   
   ✓IMPLEMENTED: [fly.io_deployment,CORS_middleware,protocol_validation,11_tools]
@@ -224,7 +261,8 @@ SAMPLE_DATA:
   ✓READY: oauth_flow_complete→needs_claude.ai_testing
   ✓MIDDLEWARE_STACK: ordered[protocol_detection→debug→auth→cors→streamable]
   φDOCS: [φoauth-implementation-log.md,φoauth-test-suite.sh]
-  LEARNED: [systematic_logging_valuable,pattern_reuse_from_other_projects,test_conventions_matter]
+  LEARNED: [systematic_logging_valuable,pattern_reuse_from_other_projects,test_conventions_matter,csrf_needs_cookies]
+  ✓PROTOCOL_CONTRACTS: created_validation_framework→catching_protocol_violations_early
   
 ✓SESSION_VALIDATED[july26_2025]:
   STATUS: 🟢PRODUCTION_READY
@@ -234,7 +272,7 @@ SAMPLE_DATA:
   ✓IMPLEMENTED: [WithStateLess(true),timeHandler_UTC_fix,inspector_--transport_http,test_logic_fixes]
   ✓DOCUMENTED: φdocs/MCP_INSPECTOR_SESSION_ISSUE.md[comprehensive_reference]
   CONFIDENCE: HIGH→session_management_resolved
-  NEXT: [verify_tests_pass|∇implement_adr012_runtime_config|production_hardening]
+  NEXT: [fix_csrf_session_cookies|verify_tests_pass|∇implement_adr012_runtime_config|production_hardening]
   
 ‡CONFIRMED_INSPECTOR_LIMITATION[2025-07-25]:
   FACT: MCP_Inspector_CANNOT_pass_tool_arguments_to_URL_servers
@@ -253,6 +291,7 @@ SAMPLE_DATA:
   internal/middleware/: cors.go
   internal/validator/: [core.go,jsonrpc.go,mcp.go,security.go]
   internal/testutil/: [assertions.go,requests.go]
+  internal/contracts/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]→NEW
   tests/: [claude_connector_test.go,oauth_scenario_test.go,test-runner.go,various_test_files]
   scripts/test/: [run-tests.sh,test-sse-transport.sh,various_test_scripts]
-  docs/: [STATE.yaml,adr/*,claude-integration/*,debug/*,reference/*]
+  docs/: [STATE.yaml,adr/*,claude-integration/*,debug/*,reference/*,oauth-protocol-requirements.md→NEW]

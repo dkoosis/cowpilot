@@ -5,20 +5,20 @@ import (
 	"log"
 	"time"
 
-	"github.com/vcto/cowpilot/internal/validator"
+	"github.com/vcto/cowpilot/internal/protocol/validation"
 )
 
 // ValidatedMessageInterceptor extends MessageInterceptor with validation
 type ValidatedMessageInterceptor struct {
 	*MessageInterceptor
-	validationEngine  *validator.ValidationEngine
+	validationEngine  *validation.ValidationEngine
 	validationStorage ValidationStorage
 }
 
 // ValidationStorage interface for storing validation reports
 type ValidationStorage interface {
-	StoreValidationReport(report *validator.ValidationReport) error
-	GetValidationReports(sessionID string, limit int) ([]*validator.ValidationReport, error)
+	StoreValidationReport(report *validation.ValidationReport) error
+	GetValidationReports(sessionID string, limit int) ([]*validation.ValidationReport, error)
 	GetValidationStats() (map[string]interface{}, error)
 }
 
@@ -27,17 +27,17 @@ func NewValidatedMessageInterceptor(storage Storage, config *DebugConfig) *Valid
 	baseInterceptor := NewMessageInterceptor(storage, config)
 
 	// Create validation engine
-	validationConfig := &validator.ValidatorConfig{
+	validationConfig := &validation.ValidatorConfig{
 		Enabled:    config.Enabled,
 		StrictMode: config.Level == "DEBUG",
 	}
 
-	engine := validator.NewValidationEngine(validationConfig)
+	engine := validation.NewValidationEngine(validationConfig)
 
 	// Register validators
-	engine.RegisterValidator(validator.NewJSONRPCValidator())
-	engine.RegisterValidator(validator.NewMCPValidator())
-	engine.RegisterValidator(validator.NewSecurityValidator())
+	engine.RegisterValidator(validation.NewJSONRPCValidator())
+	engine.RegisterValidator(validation.NewMCPValidator())
+	engine.RegisterValidator(validation.NewSecurityValidator())
 
 	// Use the same storage for validation reports if it implements ValidationStorage
 	var validationStorage ValidationStorage
@@ -55,7 +55,7 @@ func NewValidatedMessageInterceptor(storage Storage, config *DebugConfig) *Valid
 }
 
 // LogRequestWithValidation logs and validates an incoming request
-func (vmi *ValidatedMessageInterceptor) LogRequestWithValidation(method string, params interface{}) *validator.ValidationReport {
+func (vmi *ValidatedMessageInterceptor) LogRequestWithValidation(method string, params interface{}) *validation.ValidationReport {
 	// First log normally
 	vmi.LogRequest(method, params)
 
@@ -75,7 +75,7 @@ func (vmi *ValidatedMessageInterceptor) LogRequestWithValidation(method string, 
 }
 
 // LogResponseWithValidation logs and validates a response
-func (vmi *ValidatedMessageInterceptor) LogResponseWithValidation(method string, result interface{}, errorMsg interface{}, performanceMS int64) *validator.ValidationReport {
+func (vmi *ValidatedMessageInterceptor) LogResponseWithValidation(method string, result interface{}, errorMsg interface{}, performanceMS int64) *validation.ValidationReport {
 	// First log normally
 	vmi.LogResponse(method, result, errorMsg, performanceMS)
 
@@ -98,7 +98,7 @@ func (vmi *ValidatedMessageInterceptor) LogResponseWithValidation(method string,
 	return vmi.validateMessage(messageData, "response")
 }
 
-func (vmi *ValidatedMessageInterceptor) validateMessage(messageData map[string]interface{}, msgType string) *validator.ValidationReport {
+func (vmi *ValidatedMessageInterceptor) validateMessage(messageData map[string]interface{}, msgType string) *validation.ValidationReport {
 	// Convert to JSON for validation
 	jsonData, err := json.Marshal(messageData)
 	if err != nil {
@@ -151,11 +151,11 @@ func generateMessageID() string {
 // NoOpValidationStorage provides no-op validation storage
 type NoOpValidationStorage struct{}
 
-func (n *NoOpValidationStorage) StoreValidationReport(report *validator.ValidationReport) error {
+func (n *NoOpValidationStorage) StoreValidationReport(report *validation.ValidationReport) error {
 	return nil
 }
 
-func (n *NoOpValidationStorage) GetValidationReports(sessionID string, limit int) ([]*validator.ValidationReport, error) {
+func (n *NoOpValidationStorage) GetValidationReports(sessionID string, limit int) ([]*validation.ValidationReport, error) {
 	return nil, nil
 }
 
@@ -166,7 +166,7 @@ func (n *NoOpValidationStorage) GetValidationStats() (map[string]interface{}, er
 }
 
 // Enhanced FileStorage with validation support
-func (fs *FileStorage) StoreValidationReport(report *validator.ValidationReport) error {
+func (fs *FileStorage) StoreValidationReport(report *validation.ValidationReport) error {
 	if !fs.enabled {
 		return nil
 	}
@@ -198,7 +198,7 @@ func (fs *FileStorage) StoreValidationReport(report *validator.ValidationReport)
 	return err
 }
 
-func (fs *FileStorage) GetValidationReports(sessionID string, limit int) ([]*validator.ValidationReport, error) {
+func (fs *FileStorage) GetValidationReports(sessionID string, limit int) ([]*validation.ValidationReport, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -219,14 +219,14 @@ func (fs *FileStorage) GetValidationReports(sessionID string, limit int) ([]*val
 		}
 	}()
 
-	var reports []*validator.ValidationReport
+	var reports []*validation.ValidationReport
 	for rows.Next() {
 		var reportJSON string
 		if err := rows.Scan(&reportJSON); err != nil {
 			continue
 		}
 
-		var report validator.ValidationReport
+		var report validation.ValidationReport
 		if err := json.Unmarshal([]byte(reportJSON), &report); err != nil {
 			continue
 		}

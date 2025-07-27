@@ -77,11 +77,21 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	clientState := r.URL.Query().Get("state") // Client's state parameter
 	resource := r.URL.Query().Get("resource") // June 2025 spec
 
-	// Generate our CSRF state token
-	csrfState := a.callbackServer.GenerateStateToken(clientID)
+	// Generate CSRF token (stateless - just a UUID)
+	csrfState := uuid.New().String()
 
 	// For RTM adapter, show API key input form
 	if r.Method == "GET" {
+		// Set CSRF cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:     "csrf_token",
+			Value:    csrfState,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   600, // 10 minutes
+		})
+
 		html := fmt.Sprintf(`
 		<html>
 		<head><title>Connect Remember The Milk</title></head>
@@ -111,11 +121,17 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	apiKey := r.FormValue("api_key")
 	csrfState = r.FormValue("csrf_state")     // Use = not :=
 	clientState = r.FormValue("client_state") // Use = not :=
-	formClientID := r.FormValue("client_id")
 	formRedirectURI := r.FormValue("redirect_uri")
 
-	// Validate CSRF token
-	if err := a.callbackServer.ValidateStateToken(csrfState, formClientID); err != nil {
+	// Validate CSRF token from cookie
+	cookie, err := r.Cookie("csrf_token")
+	if err != nil || cookie.Value == "" {
+		http.Error(w, "Missing CSRF cookie", http.StatusBadRequest)
+		return
+	}
+
+	// Verify the form token matches the cookie
+	if csrfState != cookie.Value {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
 		return
 	}
@@ -132,6 +148,15 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 		RTMAPIKey: apiKey,
 		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
+
+	// Clear CSRF cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1, // Delete cookie
+	})
 
 	// Redirect back with code
 	u, _ := url.Parse(formRedirectURI)

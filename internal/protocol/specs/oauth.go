@@ -1,5 +1,5 @@
 // Package contracts defines protocol requirements as executable specifications
-package contracts
+package specs
 
 import (
 	"net/http"
@@ -16,9 +16,10 @@ type OAuthContract struct {
 func (c *OAuthContract) ValidateAuthorizeRequest(r *http.Request) []string {
 	c.violations = nil
 
-	if r.Method == "GET" {
+	switch r.Method {
+	case "GET":
 		c.validateAuthorizeGET(r)
-	} else if r.Method == "POST" {
+	case "POST":
 		c.validateAuthorizePOST(r)
 	}
 

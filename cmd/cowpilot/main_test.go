@@ -7,7 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/vcto/cowpilot/internal/testutil"
+	testutil "github.com/vcto/cowpilot/internal/testing"
 )
 
 func TestEchoTool(t *testing.T) {

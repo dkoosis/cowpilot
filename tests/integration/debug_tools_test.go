@@ -1,4 +1,4 @@
-package main
+package integration
 
 import (
 	"bytes"
@@ -8,25 +8,26 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"testing"
 	"time"
 )
 
-func main() {
-	// Wait for server to be ready
-	time.Sleep(2 * time.Second)
-
+func TestDebugTools(t *testing.T) {
 	serverURL := os.Getenv("MCP_SERVER_URL")
 	if serverURL == "" {
-		serverURL = "http://localhost:8080/"
+		t.Skip("MCP_SERVER_URL not set, skipping debug tools test")
+		return
 	}
+
+	// Wait for server to be ready
+	time.Sleep(2 * time.Second)
 
 	// Test 1: Raw tools/list
 	fmt.Println("=== TEST 1: Raw tools/list ===")
 	resp, err := http.Post(serverURL, "application/json",
 		strings.NewReader(`{"jsonrpc":"2.0","method":"tools/list","id":1}`))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		t.Fatalf("Error: %v", err)
 	}
 	// FIXED: Check error on close
 	defer func() {
@@ -38,8 +39,7 @@ func main() {
 	var buf bytes.Buffer
 	// FIXED: Check error on read
 	if _, err := io.Copy(&buf, resp.Body); err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		os.Exit(1)
+		t.Fatalf("Error reading response body: %v", err)
 	}
 	fmt.Printf("Response: %s\n", buf.String())
 
@@ -57,8 +57,7 @@ func main() {
     }`
 	resp2, err := http.Post(serverURL, "application/json", strings.NewReader(initReq))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		t.Fatalf("Error: %v", err)
 	}
 	// FIXED: Check error on close
 	defer func() {
@@ -70,8 +69,7 @@ func main() {
 	buf.Reset()
 	// FIXED: Check error on read
 	if _, err := io.Copy(&buf, resp2.Body); err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		os.Exit(1)
+		t.Fatalf("Error reading response body: %v", err)
 	}
 	fmt.Printf("Initialize response: %s\n", buf.String())
 
@@ -80,8 +78,7 @@ func main() {
 	resp3, err := http.Post(serverURL, "application/json",
 		strings.NewReader(`{"jsonrpc":"2.0","method":"tools/list","id":2}`))
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		t.Fatalf("Error: %v", err)
 	}
 	// FIXED: Check error on close
 	defer func() {
@@ -93,8 +90,7 @@ func main() {
 	buf.Reset()
 	// FIXED: Check error on read
 	if _, err := io.Copy(&buf, resp3.Body); err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		os.Exit(1)
+		t.Fatalf("Error reading response body: %v", err)
 	}
 	result := buf.String()
 	fmt.Printf("Tools list response: %s\n", result)

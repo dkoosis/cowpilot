@@ -1,4 +1,4 @@
-package contracts
+package specs
 
 import (
 	"log"
