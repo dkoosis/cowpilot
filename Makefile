@@ -71,12 +71,18 @@ unit-test:
 
 # Run integration tests
 integration-test:
-	@echo "Running integration tests..."
-	@if [ -n "$(GOTESTSUM)" ]; then \
+	@echo "Running integration tests against deployed instance..."
+	@export MCP_SERVER_URL="https://cowpilot.fly.dev/mcp" && \
+	if [ -n "$(GOTESTSUM)" ]; then \
 		$(GOTESTSUM) --format testdox -- -race ./tests/...; \
 	else \
 		$(GOTEST) -v -race ./tests/...; \
 	fi
+
+# Run integration tests locally (development only)
+integration-test-local:
+	@echo "Running integration tests against local server..."
+	@LOCAL_TEST=true ./scripts/test/test-mcp-integration.sh
 
 # Run scenario tests (for CI/staging)
 scenario-test:

@@ -14,7 +14,7 @@ import (
 // OAuthAdapter provides OAuth2 facade for RTM API key authentication
 type OAuthAdapter struct {
 	serverURL      string
-	tokenStore     *TokenStore
+	tokenStore     TokenStoreInterface
 	authCodes      map[string]*AuthCode // Temporary auth codes
 	callbackServer *OAuthCallbackServer
 	callbackPort   int
@@ -30,7 +30,7 @@ type AuthCode struct {
 func NewOAuthAdapter(serverURL string, callbackPort int) *OAuthAdapter {
 	adapter := &OAuthAdapter{
 		serverURL:    serverURL,
-		tokenStore:   NewTokenStore(),
+		tokenStore:   CreateTokenStore(),
 		authCodes:    make(map[string]*AuthCode),
 		callbackPort: callbackPort,
 	}

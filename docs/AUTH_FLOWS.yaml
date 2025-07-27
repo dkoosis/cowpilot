@@ -1,0 +1,49 @@
+# AUTH_FLOWS.yaml v1.0-claude-optimized
+# ✓=works ∅=missing λ=limitation †=workaround ‡=critical ∇=implement
+# MACHINE_OPTIMIZED_AUTH_PATTERNS[not_human_readable]
+
+‡RTM_FROB_FLOW:
+  TYPE: custom_frob_based[NOT_oauth]
+  λCRITICAL: NO_redirect_uri→stays_on_rtm.com
+  
+  FLOW:
+    1_GET_FROB: GET→/services/rest/?method=rtm.auth.getFrob&api_key={KEY}&api_sig={SIG}→{frob}
+    2_USER_AUTH: https://rememberthemilk.com/services/auth/?api_key={KEY}&perms={PERMS}&frob={FROB}&api_sig={SIG}
+    3_NO_REDIRECT: user_clicks_allow→rtm_shows_success→λNO_CALLBACK
+    4_EXCHANGE: GET→/services/rest/?method=rtm.auth.getToken&api_key={KEY}&frob={FROB}&api_sig={SIG}→{token,user}
+  
+  ‡SIGNATURE: MD5(secret+sorted_params)→params_alpha_sorted→format:secretkey1value1key2value2
+  
+  †CLAUDE_ADAPTER:
+    FAKE_OAUTH: code→frob_mapping[in_memory]
+    INTERMEDIATE_PAGE: rtm_popup+manual_continue_button
+    POLLING: 2s_interval×5min_timeout→getToken_until_success
+    REDIRECT: user_clicks_continue→redirect_to_claude_callback_with_fake_code
+  
+  CONSTRAINTS:
+    FROB_EXPIRY: ~1hr_unused
+    TOKEN_EXPIRY: ∅never
+    PERMS: read|write|delete
+    NO_REFRESH: tokens_permanent
+  
+  ‡ERRORS:
+    98: invalid_signature[check_param_sort]
+    101: invalid_frob[expired_or_invalid]
+    102: login_required[user_didnt_auth]
+
+GENERIC_OAUTH2[reference]:
+  FLOW:
+    1_AUTHORIZE: GET→/oauth/authorize?client_id={}&redirect_uri={}&state={}
+    2_USER_AUTH: provider_login_page
+    3_CALLBACK: redirect→{redirect_uri}?code={}&state={}
+    4_EXCHANGE: POST→/oauth/token{grant_type:authorization_code,code,client_id,client_secret}→{access_token}
+  
+  ✓FEATURES: [redirect_uri,state_param,refresh_tokens,token_expiry]
+
+GOOGLE_OAUTH2_PKCE:
+  ∇TODO: document_pkce_flow
+  λREQUIRES: code_challenge+verifier
+
+GITHUB_DEVICE_FLOW:
+  ∇TODO: document_device_flow
+  λNO_REDIRECT: polling_based_like_rtm

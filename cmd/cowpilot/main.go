@@ -20,6 +20,7 @@ import (
 	"github.com/vcto/cowpilot/internal/auth"
 	"github.com/vcto/cowpilot/internal/debug"
 	"github.com/vcto/cowpilot/internal/middleware"
+	"github.com/vcto/cowpilot/internal/rtm"
 )
 
 // Version information
@@ -33,7 +34,7 @@ const tinyImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 
 // Define the command-line flag
 var (
-	disableAuth = flag.Bool("disable-auth", false, "Disable authentication for testing or insecure environments")
+	disableAuth = flag.Bool("disable-auth", os.Getenv("DISABLE_AUTH") == "true", "Disable authentication for testing or insecure environments")
 )
 
 func main() {
@@ -63,6 +64,14 @@ func main() {
 
 	// Add all tools
 	setupTools(s)
+
+	// Add RTM tools if credentials available
+	if rtmHandler := rtm.NewHandler(); rtmHandler != nil {
+		log.Println("RTM: Registering RTM tools (API credentials found)")
+		rtmHandler.SetupTools(s)
+	} else {
+		log.Println("RTM: Skipping RTM tools (no API credentials)")
+	}
 
 	// Add native resources
 	setupResources(s)
@@ -120,24 +129,44 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 
 	// Conditionally apply OAuth middleware and endpoints
 	if !authDisabled {
-		callbackPort := 9090 // Default callback port
-		if cbPort := os.Getenv("OAUTH_CALLBACK_PORT"); cbPort != "" {
-			if p, err := strconv.Atoi(cbPort); err == nil {
-				callbackPort = p
+		// Check if RTM credentials are available
+		rtmAPIKey := os.Getenv("RTM_API_KEY")
+		rtmSecret := os.Getenv("RTM_API_SECRET")
+
+		if rtmAPIKey != "" && rtmSecret != "" {
+			// Use RTM OAuth adapter
+			rtmAdapter := rtm.NewOAuthAdapter(rtmAPIKey, rtmSecret, serverURL)
+
+			// OAuth endpoints for RTM
+			mux.HandleFunc("/oauth/authorize", rtmAdapter.HandleAuthorize)
+			mux.HandleFunc("/oauth/token", rtmAdapter.HandleToken)
+			mux.HandleFunc("/rtm/callback", rtmAdapter.HandleCallback)
+
+			// Add auth middleware that accepts RTM tokens
+			handler = rtmAuthMiddleware(rtmAdapter)(handler)
+
+			log.Printf("OAuth: Enabled RTM OAuth adapter")
+		} else {
+			// Use generic OAuth adapter
+			callbackPort := 9090 // Default callback port
+			if cbPort := os.Getenv("OAUTH_CALLBACK_PORT"); cbPort != "" {
+				if p, err := strconv.Atoi(cbPort); err == nil {
+					callbackPort = p
+				}
 			}
+			oauthAdapter := auth.NewOAuthAdapter(serverURL, callbackPort)
+
+			// Add auth middleware to the MCP handler
+			handler = auth.Middleware(oauthAdapter)(handler)
+
+			// OAuth endpoints
+			mux.HandleFunc("/.well-known/oauth-protected-resource", oauthAdapter.HandleProtectedResourceMetadata)
+			mux.HandleFunc("/.well-known/oauth-authorization-server", oauthAdapter.HandleAuthServerMetadata)
+			mux.HandleFunc("/oauth/authorize", oauthAdapter.HandleAuthorize)
+			mux.HandleFunc("/oauth/token", oauthAdapter.HandleToken)
+			mux.HandleFunc("/oauth/register", oauthAdapter.HandleRegister)
+			log.Printf("OAuth: Enabled generic OAuth adapter")
 		}
-		oauthAdapter := auth.NewOAuthAdapter(serverURL, callbackPort)
-
-		// Add auth middleware to the MCP handler
-		handler = auth.Middleware(oauthAdapter)(handler)
-
-		// OAuth endpoints
-		mux.HandleFunc("/.well-known/oauth-protected-resource", oauthAdapter.HandleProtectedResourceMetadata)
-		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthAdapter.HandleAuthServerMetadata)
-		mux.HandleFunc("/oauth/authorize", oauthAdapter.HandleAuthorize)
-		mux.HandleFunc("/oauth/token", oauthAdapter.HandleToken)
-		mux.HandleFunc("/oauth/register", oauthAdapter.HandleRegister)
-		log.Printf("OAuth: Enabled with adapter for RTM API keys")
 	} else {
 		log.Println("OAuth: DISABLED via --disable-auth flag")
 	}
@@ -755,6 +784,49 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// rtmAuthMiddleware validates RTM bearer tokens
+func rtmAuthMiddleware(adapter *rtm.OAuthAdapter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip auth for OAuth endpoints
+			if strings.HasPrefix(r.URL.Path, "/oauth/") ||
+				strings.HasPrefix(r.URL.Path, "/rtm/") ||
+				strings.HasPrefix(r.URL.Path, "/.well-known/") ||
+				r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Check Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
+				return
+			}
+
+			// Extract bearer token
+			const bearerPrefix = "Bearer "
+			if !strings.HasPrefix(authHeader, bearerPrefix) {
+				http.Error(w, "Invalid Authorization format", http.StatusUnauthorized)
+				return
+			}
+
+			token := strings.TrimPrefix(authHeader, bearerPrefix)
+			if !adapter.ValidateBearer(token) {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// Store token for RTM handler to use
+			if rtmHandler := rtm.NewHandler(); rtmHandler != nil {
+				rtmHandler.SetAuthToken(token)
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {

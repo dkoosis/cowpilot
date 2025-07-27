@@ -1,0 +1,437 @@
+package rtm
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"net/url"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/vcto/cowpilot/internal/auth"
+)
+
+// OAuthAdapter adapts RTM's frob-based auth to OAuth flow
+type OAuthAdapter struct {
+	client       *Client
+	sessions     map[string]*AuthSession
+	sessionMutex sync.RWMutex
+	serverURL    string
+}
+
+// AuthSession tracks RTM auth progress with OAuth parameters
+type AuthSession struct {
+	Code        string // Our fake OAuth code
+	Frob        string // RTM frob
+	CreatedAt   time.Time
+	Token       string // Set after successful exchange
+	State       string // Client's CSRF state
+	RedirectURI string // Client's callback URL
+	ClientID    string // OAuth client ID
+}
+
+// NewOAuthAdapter creates RTM OAuth adapter
+func NewOAuthAdapter(apiKey, secret, serverURL string) *OAuthAdapter {
+	return &OAuthAdapter{
+		client:    NewClient(apiKey, secret),
+		sessions:  make(map[string]*AuthSession),
+		serverURL: serverURL,
+	}
+}
+
+// HandleAuthorize implements OAuth authorize endpoint
+func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		// Show authorization form
+		a.showAuthForm(w, r)
+		return
+	}
+
+	// POST - process authorization
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	clientID := r.FormValue("client_id")
+	state := r.FormValue("state")
+	redirectURI := r.FormValue("redirect_uri")
+
+	// Validate CSRF cookie
+	csrfCookie, err := r.Cookie("csrf_token")
+	if err != nil || csrfCookie.Value == "" {
+		http.Error(w, "Missing CSRF cookie", http.StatusBadRequest)
+		return
+	}
+
+	csrfState := r.FormValue("csrf_state")
+	if csrfState != csrfCookie.Value {
+		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
+		return
+	}
+
+	// Step 1: Get frob from RTM
+	frob, err := a.client.GetFrob()
+	if err != nil {
+		log.Printf("RTM: Failed to get frob: %v", err)
+		a.showError(w, "Failed to start RTM authentication")
+		return
+	}
+
+	// Step 2: Create fake OAuth code
+	code := uuid.New().String()
+
+	// Step 3: Store session with all OAuth parameters
+	session := &AuthSession{
+		Code:        code,
+		Frob:        frob,
+		CreatedAt:   time.Now(),
+		State:       state,
+		RedirectURI: redirectURI,
+		ClientID:    clientID,
+	}
+
+	a.sessionMutex.Lock()
+	a.sessions[code] = session
+	a.sessionMutex.Unlock()
+
+	// Step 4: Build RTM auth URL with frob
+	rtmParams := map[string]string{
+		"api_key": a.client.APIKey,
+		"perms":   "delete", // We need delete perms for task management
+		"frob":    frob,
+	}
+	sig := a.client.sign(rtmParams)
+
+	rtmURL := fmt.Sprintf("https://www.rememberthemilk.com/services/auth/?api_key=%s&perms=delete&frob=%s&api_sig=%s",
+		url.QueryEscape(a.client.APIKey),
+		url.QueryEscape(frob),
+		url.QueryEscape(sig))
+
+	// Clear CSRF cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+
+	// Step 5: Show intermediate page with RTM link
+	a.showIntermediatePage(w, rtmURL, code, clientID, state, redirectURI)
+}
+
+// HandleCallback handles the fake callback after RTM auth
+func (a *OAuthAdapter) HandleCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+
+	if code == "" {
+		http.Error(w, "Missing code parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Look up session to get redirect URI
+	a.sessionMutex.RLock()
+	session, exists := a.sessions[code]
+	a.sessionMutex.RUnlock()
+
+	if !exists {
+		http.Error(w, "Invalid code", http.StatusBadRequest)
+		return
+	}
+
+	// Start polling for token
+	go a.pollForToken(code)
+
+	// Redirect back to original redirect_uri with our code
+	u, _ := url.Parse(session.RedirectURI)
+	q := u.Query()
+	q.Set("code", code)
+	q.Set("state", session.State)
+	u.RawQuery = q.Encode()
+
+	http.Redirect(w, r, u.String(), http.StatusFound)
+}
+
+// HandleToken implements OAuth token endpoint
+func (a *OAuthAdapter) HandleToken(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	code := r.FormValue("code")
+	if code == "" {
+		a.sendTokenError(w, "invalid_request", "Missing code parameter")
+		return
+	}
+
+	// Look up session
+	a.sessionMutex.RLock()
+	session, exists := a.sessions[code]
+	a.sessionMutex.RUnlock()
+
+	if !exists {
+		a.sendTokenError(w, "invalid_grant", "Invalid authorization code")
+		return
+	}
+
+	// Check if we already have token (from polling)
+	if session.Token != "" {
+		a.sendTokenSuccess(w, session.Token)
+		a.removeSession(code)
+		return
+	}
+
+	// Try to exchange frob for token
+	if err := a.client.GetToken(session.Frob); err != nil {
+		// User might not have authorized yet
+		a.sendTokenError(w, "authorization_pending", "User has not completed authorization")
+		return
+	}
+
+	// Success!
+	session.Token = a.client.AuthToken
+	a.sendTokenSuccess(w, session.Token)
+	a.removeSession(code)
+}
+
+// pollForToken polls RTM for token exchange
+func (a *OAuthAdapter) pollForToken(code string) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(5 * time.Minute)
+
+	for {
+		select {
+		case <-ticker.C:
+			a.sessionMutex.RLock()
+			session, exists := a.sessions[code]
+			a.sessionMutex.RUnlock()
+
+			if !exists {
+				return // Session removed
+			}
+
+			// Try to get token
+			if err := a.client.GetToken(session.Frob); err == nil {
+				// Success!
+				a.sessionMutex.Lock()
+				session.Token = a.client.AuthToken
+				a.sessionMutex.Unlock()
+				log.Printf("RTM: Successfully obtained token for code %s", code)
+				return
+			}
+
+		case <-timeout:
+			log.Printf("RTM: Timeout waiting for auth code %s", code)
+			a.removeSession(code)
+			return
+		}
+	}
+}
+
+// Helper methods
+
+func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
+	clientID := r.URL.Query().Get("client_id")
+	state := r.URL.Query().Get("state")
+	redirectURI := r.URL.Query().Get("redirect_uri")
+
+	// Generate CSRF token
+	csrfToken := uuid.New().String()
+
+	// Set CSRF cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "csrf_token",
+		Value:    csrfToken,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   600, // 10 minutes
+	})
+
+	html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connect Remember The Milk</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .container { border: 1px solid #ddd; border-radius: 8px; padding: 30px; }
+        h1 { color: #333; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Connect Remember The Milk</h1>
+        <p>This will connect your Remember The Milk account to allow task management.</p>
+        <div class="warning">
+            <strong>Note:</strong> You'll be redirected to Remember The Milk to authorize access. 
+            After authorizing, you may need to manually return to this window.
+        </div>
+        <form method="POST">
+            <input type="hidden" name="client_id" value="%s">
+            <input type="hidden" name="state" value="%s">
+            <input type="hidden" name="redirect_uri" value="%s">
+            <input type="hidden" name="csrf_state" value="%s">
+            <button type="submit">Connect Remember The Milk</button>
+        </form>
+    </div>
+</body>
+</html>`, clientID, state, redirectURI, csrfToken)
+
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	if _, err := fmt.Fprint(w, html); err != nil {
+		log.Printf("Failed to write auth form response: %v", err)
+	}
+}
+
+func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code, clientID, state, redirectURI string) {
+	callbackURL := fmt.Sprintf("%s/rtm/callback?code=%s", a.serverURL, code)
+
+	html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authorize with Remember The Milk</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .container { border: 1px solid #ddd; border-radius: 8px; padding: 30px; text-align: center; }
+        h1 { color: #333; }
+        .step { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 4px; }
+        .button { display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px; margin: 10px; }
+        .button:hover { background: #0056b3; }
+        .code { font-family: monospace; background: #e9ecef; padding: 2px 4px; border-radius: 3px; }
+    </style>
+    <script>
+        let authWindow = null;
+        let pollInterval = null;
+        
+        function openRTMAuth() {
+            authWindow = window.open('%s', 'rtm_auth', 'width=800,height=600');
+            document.getElementById('step2').style.display = 'block';
+            
+            // Start polling for window close
+            pollInterval = setInterval(function() {
+                if (authWindow && authWindow.closed) {
+                    clearInterval(pollInterval);
+                    // Automatically continue when window is closed
+                    setTimeout(completeAuth, 1000);
+                }
+            }, 500);
+        }
+        
+        function completeAuth() {
+            if (pollInterval) clearInterval(pollInterval);
+            window.location.href = '%s';
+        }
+        
+        // Auto-open RTM auth on page load
+        window.onload = function() {
+            setTimeout(openRTMAuth, 500);
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Connect to Remember The Milk</h1>
+        
+        <div class="step">
+            <h2>Step 1: Authorize Access</h2>
+            <p>A new window will open for Remember The Milk authorization.</p>
+            <a href="#" onclick="openRTMAuth(); return false;" class="button">Open RTM Authorization</a>
+        </div>
+        
+        <div class="step" id="step2" style="display: none;">
+            <h2>Step 2: Complete Authorization</h2>
+            <p>After authorizing in the RTM window, close it or click below:</p>
+            <a href="#" onclick="completeAuth(); return false;" class="button">I've Authorized - Continue</a>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 14px; color: #666;">
+            <p>If the window doesn't open automatically, disable your popup blocker.</p>
+            <p style="font-size: 12px;">Debug info: Code %s</p>
+        </div>
+    </div>
+</body>
+</html>`, rtmURL, callbackURL, code)
+
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	if _, err := fmt.Fprint(w, html); err != nil {
+		log.Printf("Failed to write intermediate page response: %v", err)
+	}
+}
+
+func (a *OAuthAdapter) showError(w http.ResponseWriter, message string) {
+	html := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authorization Error</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .error { border: 1px solid #f5c6cb; background: #f8d7da; padding: 20px; border-radius: 4px; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="error">
+        <h2>Authorization Error</h2>
+        <p>%s</p>
+    </div>
+</body>
+</html>`, message)
+
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	if _, err := fmt.Fprint(w, html); err != nil {
+		log.Printf("Failed to write error response: %v", err)
+	}
+}
+
+func (a *OAuthAdapter) sendTokenSuccess(w http.ResponseWriter, token string) {
+	response := auth.TokenResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		ExpiresIn:   0, // RTM tokens don't expire
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to write token success response: %v", err)
+	}
+}
+
+func (a *OAuthAdapter) sendTokenError(w http.ResponseWriter, error, description string) {
+	response := auth.TokenError{
+		Error:            error,
+		ErrorDescription: description,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to write token error response: %v", err)
+	}
+}
+
+func (a *OAuthAdapter) removeSession(code string) {
+	a.sessionMutex.Lock()
+	delete(a.sessions, code)
+	a.sessionMutex.Unlock()
+}
+
+// ValidateBearer checks if a bearer token is valid
+func (a *OAuthAdapter) ValidateBearer(token string) bool {
+	// For RTM, we could validate by making an API call
+	// For now, just check if non-empty
+	return token != ""
+}

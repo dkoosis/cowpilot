@@ -15,13 +15,15 @@ import (
 
 // DebugConfig holds runtime configuration for the debug system
 type DebugConfig struct {
-	Enabled     bool   // Enable/disable debug system
-	StorageType string // "disabled", "memory", "file"
-	StoragePath string // File path for file storage
-	MaxMemoryMB int    // Memory storage limit in MB
-	MaxFileMB   int    // File storage limit in MB
-	RetentionH  int    // Auto-cleanup hours
-	Level       string // Debug level: DEBUG, INFO, WARN, ERROR
+	Enabled        bool   // Enable/disable debug system
+	StorageType    string // "disabled", "memory", "file"
+	StoragePath    string // File path for file storage
+	MaxMemoryMB    int    // Memory storage limit in MB
+	MaxFileMB      int    // File storage limit in MB
+	RetentionH     int    // Auto-cleanup hours
+	Level          string // Debug level: DEBUG, INFO, WARN, ERROR
+	ValidateProto  bool   // Enable protocol validation
+	ValidateMode   string // "monitor" or "enforce"
 }
 
 // LoadDebugConfig loads debug configuration from environment variables
@@ -32,13 +34,15 @@ func LoadDebugConfig() *DebugConfig {
 	}
 
 	return &DebugConfig{
-		Enabled:     true,
-		StorageType: getEnvDefault("MCP_DEBUG_STORAGE", "memory"),
-		StoragePath: getEnvDefault("MCP_DEBUG_PATH", "./debug.db"),
-		MaxMemoryMB: getEnvInt("MCP_DEBUG_MAX_MB", 100),
-		MaxFileMB:   getEnvInt("MCP_DEBUG_FILE_MAX_MB", 500),
-		RetentionH:  getEnvInt("MCP_DEBUG_RETENTION_H", 24),
-		Level:       getEnvDefault("MCP_DEBUG_LEVEL", "INFO"),
+		Enabled:        true,
+		StorageType:    getEnvDefault("MCP_DEBUG_STORAGE", "memory"),
+		StoragePath:    getEnvDefault("MCP_DEBUG_PATH", "./debug.db"),
+		MaxMemoryMB:    getEnvInt("MCP_DEBUG_MAX_MB", 100),
+		MaxFileMB:      getEnvInt("MCP_DEBUG_FILE_MAX_MB", 500),
+		RetentionH:     getEnvInt("MCP_DEBUG_RETENTION_H", 24),
+		Level:          getEnvDefault("MCP_DEBUG_LEVEL", "INFO"),
+		ValidateProto:  getEnvBool("MCP_VALIDATE_PROTOCOL", true),
+		ValidateMode:   getEnvDefault("MCP_VALIDATE_MODE", "monitor"),
 	}
 }
 
