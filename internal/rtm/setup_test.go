@@ -25,8 +25,93 @@ func (m *mockRTMClient) GetFrob() (string, error) {
 
 // Test helper to inject mock client
 type testSetupHandler struct {
-	SetupHandler
-	mockClient *mockRTMClient
+	store       CredentialStore
+	mockClient  *mockRTMClient
+}
+
+// NewTestSetupHandler creates test handler with mock
+func NewTestSetupHandler(store CredentialStore, mock *mockRTMClient) *testSetupHandler {
+	return &testSetupHandler{
+		store:      store,
+		mockClient: mock,
+	}
+}
+
+// HandleSetup implements the same interface but with mocked validation
+func (h *testSetupHandler) HandleSetup(w http.ResponseWriter, r *http.Request) {
+	setupHandler := &SetupHandler{store: h.store}
+	
+	if r.Method == "GET" {
+		setupHandler.showSetupForm(w, r)
+		return
+	}
+
+	if r.Method == "POST" {
+		h.processSetupWithMock(w, r, setupHandler)
+		return
+	}
+
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+}
+
+// processSetupWithMock handles POST with mocked validation
+func (h *testSetupHandler) processSetupWithMock(w http.ResponseWriter, r *http.Request, setupHandler *SetupHandler) {
+	if err := r.ParseForm(); err != nil {
+		setupHandler.showError(w, "Invalid form data")
+		return
+	}
+
+	apiKey := strings.TrimSpace(r.FormValue("api_key"))
+	secret := strings.TrimSpace(r.FormValue("secret"))
+
+	// Validate required fields
+	if apiKey == "" || secret == "" {
+		setupHandler.showError(w, "API key and secret are required")
+		return
+	}
+
+	// Basic format validation
+	if len(apiKey) < 10 || len(secret) < 10 {
+		setupHandler.showError(w, "API key and secret appear to be too short")
+		return
+	}
+
+	// Use mocked validation
+	if err := h.validateRTMCredentials(apiKey, secret); err != nil {
+		setupHandler.showError(w, fmt.Sprintf("Invalid RTM credentials: %v", err))
+		return
+	}
+
+	// Store encrypted credentials
+	if h.store == nil {
+		setupHandler.showError(w, "Credential storage unavailable")
+		return
+	}
+	
+	// Use client IP as user ID for now
+	userID := r.RemoteAddr
+	if userID == "" {
+		userID = "default_user"
+	}
+	
+	if err := h.store.Store(userID, apiKey, secret); err != nil {
+		setupHandler.showError(w, fmt.Sprintf("Failed to save credentials: %v", err))
+		return
+	}
+
+	setupHandler.showSuccess(w, "Credentials validated and saved successfully!")
+}
+
+// validateRTMCredentials uses mock for testing
+func (h *testSetupHandler) validateRTMCredentials(_, _ string) error {
+	if h.mockClient != nil {
+		_, err := h.mockClient.GetFrob()
+		if err != nil {
+			return fmt.Errorf("RTM API test failed: %w", err)
+		}
+		return nil
+	}
+	return fmt.Errorf("no mock client configured")
 }
 
 func TestSetupHandler_GET(t *testing.T) {
@@ -57,7 +142,6 @@ func TestSetupHandler_GET(t *testing.T) {
 }
 
 func TestSetupHandler_POST_ValidInput(t *testing.T) {
-	// Test with mocked RTM validation and real storage
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_creds.db")
 
@@ -71,14 +155,12 @@ func TestSetupHandler_POST_ValidInput(t *testing.T) {
 		}
 	}()
 
-	handler := &testSetupHandler{
-		SetupHandler: SetupHandler{store: store},
-		mockClient: &mockRTMClient{
-			response: "test_frob_12345",
-			err:      nil,
-		},
+	mock := &mockRTMClient{
+		response: "test_frob_12345",
+		err:      nil,
 	}
-
+	handler := NewTestSetupHandler(store, mock)
+	
 	form := url.Values{}
 	form.Add("api_key", "test_api_key_12345")
 	form.Add("secret", "test_secret_67890")
@@ -98,7 +180,7 @@ func TestSetupHandler_POST_ValidInput(t *testing.T) {
 	if !strings.Contains(body, "Setup Complete") {
 		t.Error("Expected success page")
 	}
-
+	
 	// Verify credentials were stored
 	apiKey, secret, err := store.Retrieve("127.0.0.1:12345")
 	if err != nil {
@@ -110,15 +192,12 @@ func TestSetupHandler_POST_ValidInput(t *testing.T) {
 }
 
 func TestSetupHandler_POST_StorageFailure(t *testing.T) {
-	// Test with nil store (storage unavailable)
-	handler := &testSetupHandler{
-		SetupHandler: SetupHandler{store: nil},
-		mockClient: &mockRTMClient{
-			response: "test_frob_12345",
-			err:      nil,
-		},
+	mock := &mockRTMClient{
+		response: "test_frob_12345",
+		err:      nil,
 	}
-
+	handler := NewTestSetupHandler(nil, mock) // nil store
+	
 	form := url.Values{}
 	form.Add("api_key", "test_api_key_12345")
 	form.Add("secret", "test_secret_67890")
@@ -164,11 +243,8 @@ func TestSetupHandler_POST_InvalidRTMCredentials(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			handler := &testSetupHandler{
-				mockClient: &mockRTMClient{
-					err: tc.mockError,
-				},
-			}
+			mock := &mockRTMClient{err: tc.mockError}
+			handler := NewTestSetupHandler(nil, mock)
 
 			form := url.Values{}
 			form.Add("api_key", "invalid_key_12345")

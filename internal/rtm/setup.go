@@ -9,7 +9,8 @@ import (
 
 // SetupHandler handles RTM credential setup
 type SetupHandler struct {
-	store CredentialStore
+	store     CredentialStore
+	validator func(apiKey, secret string) error
 }
 
 // NewSetupHandler creates RTM setup handler
@@ -26,7 +27,20 @@ func NewSetupHandler() *SetupHandler {
 		return &SetupHandler{}
 	}
 
-	return &SetupHandler{store: store}
+	return &SetupHandler{
+		store:     store,
+		validator: defaultRTMValidator,
+	}
+}
+
+// defaultRTMValidator is the default RTM credential validator
+func defaultRTMValidator(apiKey, secret string) error {
+	client := NewClient(apiKey, secret)
+	_, err := client.GetFrob()
+	if err != nil {
+		return fmt.Errorf("RTM API test failed: %w", err)
+	}
+	return nil
 }
 
 // HandleSetup shows credential input form or processes submission
