@@ -86,10 +86,12 @@ type ConversationRecord struct {
 // Storage interface for different storage backends
 type Storage interface {
 	LogMessage(sessionID, direction, method string, params, result, errorMsg interface{}, performanceMS int64) error
+	LogValidation(sessionID, method string, violations []string, severity string) error
 	GetConversation(sessionID string) ([]ConversationRecord, error)
 	GetRecentSessions(limit int) ([]string, error)
 	GetMessagesByMethod(method string, limit int) ([]ConversationRecord, error)
 	GetStats() (map[string]interface{}, error)
+	GetValidationStats() (map[string]interface{}, error)
 	CleanupOldRecords(maxAge time.Duration) error
 	Close() error
 	IsEnabled() bool
