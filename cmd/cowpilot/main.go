@@ -191,7 +191,7 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 	// Wait for interrupt signal or server error
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	
+
 	select {
 	case err := <-serverErr:
 		log.Fatalf("Server error: %v", err)
@@ -760,7 +760,7 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	// Log health check requests for debugging
 	log.Printf("[HEALTH] Health check from %s", r.RemoteAddr)
-	
+
 	// Protocol diagnostic endpoint
 	if r.URL.Query().Get("protocol") == "true" {
 		w.Header().Set("Content-Type", "application/json")

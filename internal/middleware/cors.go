@@ -37,7 +37,7 @@ func CORS(config CORSConfig) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			
+
 			origin := r.Header.Get("Origin")
 
 			// Check if origin is allowed
