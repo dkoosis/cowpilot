@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vcto/cowpilot/internal/auth"
+	"github.com/vcto/mcp-adapters/internal/auth"
 )
 
 // Helper function to create a client with a cookie jar.

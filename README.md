@@ -1,8 +1,8 @@
-# Cowpilot
+# mcp adapters
 
 MCP (Model Context Protocol) server implementation in Go - comprehensive everything server with tools, resources, and prompts.
 
-[![Production Status](https://img.shields.io/badge/status-operational-green)](https://cowpilot.fly.dev/health)
+[![Production Status](https://img.shields.io/badge/status-operational-green)](https://mcp-adapters.fly.dev/health)
 [![MCP Version](https://img.shields.io/badge/MCP-v2025--03--26-blue)](docs/protocol-standards.md)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8)](go.mod)
 
@@ -10,9 +10,9 @@ MCP (Model Context Protocol) server implementation in Go - comprehensive everyth
 
 ```bash
 # Clone and test production server
-git clone https://github.com/vcto/cowpilot.git
+git clone https://github.com/vcto/mcp-adapters.git
 cd cowpilot
-curl https://cowpilot.fly.dev/health  # Should return: OK
+curl https://mcp-adapters.fly.dev/health  # Should return: OK
 
 # Build and test locally
 make build  # Runs all tests then builds

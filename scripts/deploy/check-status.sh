@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quick status check for Cowpilot deployment
+# Quick status check for mcp adapters deployment
 # Run this to verify everything is ready for Claude.ai registration
 
 set -e
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 APP_NAME="cowpilot"
 BASE_URL="https://$APP_NAME.fly.dev"
 
-echo -e "${CYAN}🔍 Cowpilot Status Check${NC}"
+echo -e "${CYAN}🔍 mcp adapters Status Check${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 TOTAL_CHECKS=0
@@ -95,7 +95,7 @@ echo -e "${CYAN}Summary:${NC} $PASSED_CHECKS/$TOTAL_CHECKS checks passed"
 if [ $PASSED_CHECKS -eq $TOTAL_CHECKS ]; then
     echo -e "${GREEN}✓ All systems ready for Claude.ai registration!${NC}"
     echo -e "\n${YELLOW}Registration info:${NC}"
-    echo -e "  Name:        ${CYAN}Cowpilot Tools${NC}"
+    echo -e "  Name:        ${CYAN}mcp adapters Tools${NC}"
     echo -e "  Description: ${CYAN}MCP server providing various utility tools including echo, time, base64 encoding and more${NC}"
     echo -e "  URL:         ${CYAN}$BASE_URL${NC}"
 else

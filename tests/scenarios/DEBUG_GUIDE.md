@@ -16,7 +16,7 @@ Only when:
 ### View Raw SSE Stream
 ```bash
 # See exactly what the server sends
-curl -s -N -X POST https://cowpilot.fly.dev/ \
+curl -s -N -X POST https://mcp-adapters.fly.dev/ \
   -H 'Content-Type: application/json' \
   -H 'Accept: text/event-stream' \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
@@ -26,7 +26,7 @@ curl -s -N -X POST https://cowpilot.fly.dev/ \
 ```bash
 # Extract JSON from SSE format
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
+  curl -s -N -X POST https://mcp-adapters.fly.dev/ \
     -H 'Content-Type: application/json' \
     -H 'Accept: text/event-stream' \
     -d @- | grep '^data: ' | sed 's/^data: //' | jq .

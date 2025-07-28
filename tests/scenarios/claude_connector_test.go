@@ -16,8 +16,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/vcto/cowpilot/internal/auth"
-	"github.com/vcto/cowpilot/internal/middleware"
+	"github.com/vcto/mcp-adapters/internal/auth"
+	"github.com/vcto/mcp-adapters/internal/middleware"
 )
 
 // Helper function to create a client with a cookie jar.

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== Testing Cowpilot ==="
+echo "=== Testing mcp adapters ==="
 go mod download
 make test
 make build

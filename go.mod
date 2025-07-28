@@ -1,4 +1,4 @@
-module github.com/vcto/cowpilot
+module github.com/vcto/mcp-adapters
 
 go 1.23
 

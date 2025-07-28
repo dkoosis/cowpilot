@@ -19,14 +19,20 @@ type CreateCustomerRequest struct {
 	Email     string `json:"email"`
 }
 
-// Address represents a customer address
+// Address represents a customer address (Spektrix format)
 type Address struct {
-	Country  string `json:"country"`
-	Postcode string `json:"postcode"`
-	Line1    string `json:"line1,omitempty"`
-	Line2    string `json:"line2,omitempty"`
-	City     string `json:"city,omitempty"`
-	State    string `json:"state,omitempty"`
+	IsDelivery             bool   `json:"isDelivery"`
+	IsBilling              bool   `json:"isBilling"`
+	Country                string `json:"country"`
+	AdministrativeDivision string `json:"administrativeDivision,omitempty"`
+	Name                   string `json:"name"`
+	Line1                  string `json:"line1"`
+	Line2                  string `json:"line2,omitempty"`
+	Line3                  string `json:"line3,omitempty"`
+	Line4                  string `json:"line4,omitempty"`
+	Line5                  string `json:"line5,omitempty"`
+	Postcode               string `json:"postcode"`
+	Town                   string `json:"town"`
 }
 
 // Tag represents a Spektrix tag

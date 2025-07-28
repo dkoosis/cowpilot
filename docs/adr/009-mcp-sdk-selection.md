@@ -11,7 +11,7 @@ tags: ["go", "mcp", "sdk", "dependency", "architecture"]
 Accepted
 
 ## Context
-We need to implement an MCP server in Go for the Cowpilot project. Two primary SDK options exist:
+We need to implement an MCP server in Go for the mcp adapters project. Two primary SDK options exist:
 - `github.com/modelcontextprotocol/go-sdk` - Official SDK maintained by Anthropic/Google
 - `github.com/mark3labs/mcp-go` - Community SDK by Mark III Labs
 

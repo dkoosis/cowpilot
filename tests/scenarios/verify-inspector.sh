@@ -15,7 +15,7 @@ if npx @modelcontextprotocol/inspector --version &> /dev/null; then
     echo "  make e2e-test-prod"
     echo ""
     echo "Or test manually with:"
-    echo "  npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list"
+    echo "  npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/list"
 else
     echo "❌ MCP Inspector not found"
     echo ""

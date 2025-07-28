@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Direct SSE/JSON-RPC Examples for Cowpilot
+# Direct SSE/JSON-RPC Examples for mcp adapters
 # Based on https://blog.fka.dev/blog/2025-03-25-inspecting-mcp-servers-using-cli/
 
-SERVER="https://cowpilot.fly.dev/"
+SERVER="https://mcp-adapters.fly.dev/"
 
 echo "Direct MCP Server Testing using curl and jq"
 echo "==========================================="

@@ -82,7 +82,9 @@ func (c *Client) makeRequest(method, endpoint string, payload interface{}) (*htt
 
 // handleResponse processes API response and returns parsed data or error
 func (c *Client) handleResponse(resp *http.Response, result interface{}) error {
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close() // Ignore close error
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -111,12 +113,35 @@ func (c *Client) SearchCustomers(email string) ([]Customer, error) {
 		return nil, err
 	}
 
-	var customers []Customer
-	if err := c.handleResponse(resp, &customers); err != nil {
-		return nil, err
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	return customers, nil
+	// 404 is normal - customer doesn't exist
+	if resp.StatusCode == 404 {
+		return []Customer{}, nil
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	if len(body) == 0 {
+		return []Customer{}, nil
+	}
+
+	// Spektrix returns single customer object (not array) for email search
+	var customer Customer
+	if err := json.Unmarshal(body, &customer); err != nil {
+		return nil, fmt.Errorf("failed to parse customer: %w", err)
+	}
+
+	return []Customer{customer}, nil
 }
 
 // GetCustomer retrieves customer by ID
@@ -149,6 +174,28 @@ func (c *Client) CreateCustomer(customer CreateCustomerRequest) (*Customer, erro
 	}
 
 	return &result, nil
+}
+
+// FindOrCreateCustomer implements upsert pattern
+func (c *Client) FindOrCreateCustomer(email, firstName, lastName string) (*Customer, error) {
+	customers, err := c.SearchCustomers(email)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return existing customer if found
+	if len(customers) > 0 {
+		return &customers[0], nil
+	}
+
+	// Create new customer
+	req := CreateCustomerRequest{
+		FirstName: firstName,
+		LastName:  lastName,
+		Email:     email,
+	}
+
+	return c.CreateCustomer(req)
 }
 
 // AddCustomerAddress adds address to existing customer (step 2 of 2-step process)

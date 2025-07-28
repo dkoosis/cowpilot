@@ -1,6 +1,6 @@
 # Claude.ai Integration
 
-Connect Cowpilot MCP server to Claude.ai for enhanced AI capabilities.
+Connect mcp adapters MCP server to Claude.ai for enhanced AI capabilities.
 
 ## Status
 
@@ -19,7 +19,7 @@ Connect Cowpilot MCP server to Claude.ai for enhanced AI capabilities.
 ## Quick Setup
 
 1. Deploy: `fly deploy`
-2. Test: `npx @modelcontextprotocol/inspector https://cowpilot.fly.dev/mcp --transport sse`
+2. Test: `npx @modelcontextprotocol/inspector https://mcp-adapters.fly.dev/mcp --transport sse`
 3. Add to Claude.ai: Settings → Connectors → Add More
 
 ## Documentation

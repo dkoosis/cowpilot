@@ -30,11 +30,11 @@ After reviewing the MCP Inspector documentation, I corrected the implementation 
 **Usage**:
 ```bash
 # Direct execution
-./tests/e2e/mcp_scenarios.sh https://cowpilot.fly.dev/
+./tests/e2e/mcp_scenarios.sh https://mcp-adapters.fly.dev/
 
 # Or via npx for manual testing
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/call --tool-name hello
+npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/list
+npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/call --tool-name hello
 ```
 
 ### 2. `/tests/e2e/e2e_test.go`
@@ -51,7 +51,7 @@ npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method too
 
 **Usage**:
 ```bash
-MCP_SERVER_URL=https://cowpilot.fly.dev/ go test -v ./tests/e2e/
+MCP_SERVER_URL=https://mcp-adapters.fly.dev/ go test -v ./tests/e2e/
 ```
 
 ### 3. `/tests/e2e/README.md`

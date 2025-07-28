@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/vcto/cowpilot/internal/debug"
+	"github.com/vcto/mcp-adapters/internal/debug"
 )
 
 func main() {

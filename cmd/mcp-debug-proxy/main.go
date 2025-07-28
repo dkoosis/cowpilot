@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/vcto/cowpilot/internal/debug"
+	"github.com/vcto/mcp-adapters/internal/debug"
 )
 
 const (

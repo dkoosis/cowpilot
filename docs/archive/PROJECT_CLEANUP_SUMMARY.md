@@ -15,7 +15,7 @@ Moved 8 Cowgnition ADRs and error handling prompt for future reference:
 - REVIEW-GUIDE.md ✓
 - README.md ✓
 
-### 3. Kept Cowpilot-specific files in place
+### 3. Kept mcp adapters-specific files in place
 - ADR-009 (mark3labs/mcp-go selection)
 - All Go code and tests
 - Recent documentation
@@ -26,7 +26,7 @@ cowpilot/
 ├── cmd/cowpilot/          # Main app
 ├── internal/              # Server code  
 ├── tests/e2e/             # E2E test suite
-├── docs/                  # Cowpilot docs
+├── docs/                  # mcp adapters docs
 │   └── adr/              # Only ADR-009 remains
 ├── prompts/              # Code review prompts
 └── cowgnition-reference/ # Preserved patterns

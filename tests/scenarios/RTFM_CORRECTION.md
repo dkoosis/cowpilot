@@ -16,8 +16,8 @@ The test suite now properly uses the MCP Inspector CLI:
 
 ```bash
 # Correct usage examples:
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/call --tool-name hello
+npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/list
+npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/call --tool-name hello
 ```
 
 ## Files Updated

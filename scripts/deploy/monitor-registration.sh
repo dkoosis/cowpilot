@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monitor Cowpilot Registration Attempts on Claude.ai
+# Monitor mcp adapters Registration Attempts on Claude.ai
 # This script helps monitor OAuth flow and debug registration issues
 
 set -e
@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 APP_NAME="cowpilot"
 
-echo -e "${CYAN}🔍 Cowpilot Registration Monitor${NC}"
+echo -e "${CYAN}🔍 mcp adapters Registration Monitor${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Check if fly CLI is available
@@ -35,7 +35,7 @@ fi
 # Show registration info
 echo -e "\n${YELLOW}Claude.ai Registration Info:${NC}"
 echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "Name:        ${CYAN}Cowpilot Tools${NC}"
+echo -e "Name:        ${CYAN}mcp adapters Tools${NC}"
 echo -e "Description: ${CYAN}MCP server providing various utility tools including echo, time, base64 encoding and more${NC}"
 echo -e "URL:         ${CYAN}https://$APP_NAME.fly.dev${NC}"
 

@@ -1,7 +1,7 @@
-# Cowpilot Makefile
+# mcp adapters Makefile
 
 # Variables
-BINARY_NAME=cowpilot
+BINARY_NAME=mcp-adapters
 RTM_BINARY_NAME=rtm-server
 SPEKTRIX_BINARY_NAME=spektrix-server
 DEBUG_PROXY_NAME=mcp-debug-proxy
@@ -98,7 +98,7 @@ unit-test:
 # Run integration tests
 integration-test:
 	@echo "Running integration tests against deployed instance..."
-	@export MCP_SERVER_URL="https://cowpilot.fly.dev/mcp" && \
+	@export MCP_SERVER_URL="https://mcp-adapters.fly.dev/mcp" && \
 	if [ -n "$(GOTESTSUM)" ]; then \
 		$(GOTESTSUM) --format testdox -- -race ./tests/...; \
 	else \
@@ -115,7 +115,7 @@ scenario-test:
 	@echo "Running scenario tests..."
 	@if [ -z "$(MCP_SERVER_URL)" ]; then \
 		echo "MCP_SERVER_URL not set. Using production server..."; \
-		export MCP_SERVER_URL="https://cowpilot.fly.dev/"; \
+		export MCP_SERVER_URL="https://mcp-adapters.fly.dev/"; \
 	fi
 	@if [ -n "$(GOTESTSUM)" ]; then \
 		$(GOTESTSUM) --format dots-v2 -- -v $(SCENARIO_TEST_DIR)/...; \
@@ -172,9 +172,9 @@ scenario-test-local:
 scenario-test-prod:
 	@echo "Running scenario tests against production..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTESTSUM) --format testdox -- $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://mcp-adapters.fly.dev/" && $(GOTESTSUM) --format testdox -- $(SCENARIO_TEST_DIR)/...; \
 	else \
-		export MCP_SERVER_URL="https://cowpilot.fly.dev/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://mcp-adapters.fly.dev/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi
 
 # Run raw SSE/JSON-RPC tests
@@ -257,10 +257,20 @@ dev:
 	@which air > /dev/null || (echo "air not found. Install with: go install github.com/air-verse/air@latest" && exit 1)
 	air
 
-# Deploy RTM server to Fly.io (runs tests first)
-deploy: build-rtm
-	@echo "All tests passed. Deploying RTM server to Fly.io..."
+# Deploy RTM server (production target)
+deploy-rtm: build-rtm
+	@echo "Deploying RTM server to cowpilot app..."
 	fly deploy
+
+# Deploy Spektrix server
+deploy-spektrix: build-spektrix
+	@echo "Deploying Spektrix server..."
+	fly apps create mcp-adapters-spektrix || true
+	fly deploy --app mcp-adapters-spektrix --build-arg SERVER_TYPE=spektrix
+	@echo ""
+	@echo "⚠️  Set Spektrix secrets:"
+	@echo "fly secrets set -a mcp-adapters-spektrix SPEKTRIX_CLIENT_NAME=your_client SPEKTRIX_API_USER=your_user SPEKTRIX_API_KEY=your_key"
+	@echo ""
 
 # CI-specific test with junit output
 test-ci:
@@ -284,7 +294,7 @@ help:
 	@echo "  integration-test - Run integration tests"
 	@echo "  scenario-test    - Run scenario tests (Go + shell scripts)"
 	@echo "  scenario-test-local - Run scenario tests against local server (localhost:8080)"
-	@echo "  scenario-test-prod - Run scenario tests against production (cowpilot.fly.dev)"
+	@echo "  scenario-test-prod - Run scenario tests against production (mcp-adapters.fly.dev)"
 	@echo "  scenario-test-raw - Run raw SSE/JSON-RPC tests using curl and jq"
 	@echo "  clean            - Remove build artifacts"
 	@echo "  fmt              - Format code"

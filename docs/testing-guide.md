@@ -1,4 +1,4 @@
-# Cowpilot Testing Guide
+# mcp adapters Testing Guide
 
 ## 🧪 Testing Philosophy
 

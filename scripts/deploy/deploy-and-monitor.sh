@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quick deploy and monitor script for Cowpilot
+# Quick deploy and monitor script for mcp adapters
 
 # Get the directory of this script
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

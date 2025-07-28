@@ -3,13 +3,13 @@
 ## Essential Commands
 ```bash
 # Test production server instantly
-curl -s https://cowpilot.fly.dev/health
+curl -s https://mcp-adapters.fly.dev/health
 
 # See what tools are available
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list
+npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/list
 
 # Call the hello tool
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/call --tool-name hello
+npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/call --tool-name hello
 ```
 
 ## Adding a New Tool
@@ -21,7 +21,7 @@ npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method too
 6. Deploy: `fly deploy`
 
 ## Current State Summary
-- **Live Server**: https://cowpilot.fly.dev/ ✅
+- **Live Server**: https://mcp-adapters.fly.dev/ ✅
 - **Tools**: hello ✅
 - **Tests**: Comprehensive E2E suite with dual approach ✅
 - **Next**: Add more tools, auth, resources, monitoring

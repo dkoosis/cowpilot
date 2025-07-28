@@ -4,7 +4,7 @@
 
 ```bash
 # Required for production
-SERVER_URL=https://cowpilot.fly.dev
+SERVER_URL=https://mcp-adapters.fly.dev
 PORT=8080
 CORS_ALLOWED_ORIGINS=https://claude.ai
 
@@ -34,13 +34,13 @@ MCP_DEBUG=true
 1. Deploy to fly.io:
 ```bash
 fly deploy
-fly env set SERVER_URL=https://cowpilot.fly.dev
+fly env set SERVER_URL=https://mcp-adapters.fly.dev
 ```
 
 2. Add to Claude.ai:
 - Settings → Connectors → Add More
-- URL: `https://cowpilot.fly.dev`
-- Name: "Cowpilot RTM Tools"
+- URL: `https://mcp-adapters.fly.dev`
+- Name: "mcp adapters RTM Tools"
 - Description: "Remember The Milk integration with task management tools"
 
 3. Connect:

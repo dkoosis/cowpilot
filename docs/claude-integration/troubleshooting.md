@@ -4,7 +4,7 @@
 
 ### CORS Errors
 ```
-Access to fetch at 'https://cowpilot.fly.dev/mcp' from origin 'https://claude.ai' has been blocked by CORS policy
+Access to fetch at 'https://mcp-adapters.fly.dev/mcp' from origin 'https://claude.ai' has been blocked by CORS policy
 ```
 **Fix**: Ensure server is running with CORS middleware enabled. Check logs for "CORS: Enabled for [https://claude.ai]"
 
@@ -13,7 +13,7 @@ Access to fetch at 'https://cowpilot.fly.dev/mcp' from origin 'https://claude.ai
 Failed to establish SSE connection
 ```
 **Fix**: 
-- Verify server supports SSE: `curl -H "Accept: text/event-stream" https://cowpilot.fly.dev/mcp`
+- Verify server supports SSE: `curl -H "Accept: text/event-stream" https://mcp-adapters.fly.dev/mcp`
 - Check fly.io deployment status: `fly status`
 
 ### Invalid Configuration
@@ -27,7 +27,7 @@ Connector configuration invalid
 
 ### Tools Not Appearing
 **Fix**:
-1. Test with inspector: `npx @modelcontextprotocol/inspector https://cowpilot.fly.dev/mcp --method tools/list`
+1. Test with inspector: `npx @modelcontextprotocol/inspector https://mcp-adapters.fly.dev/mcp --method tools/list`
 2. Check server logs: `fly logs`
 3. Verify all 11 tools are registered
 
@@ -47,7 +47,7 @@ fly logs --tail
 
 3. **Verify CORS headers**:
 ```bash
-curl -I -X OPTIONS https://cowpilot.fly.dev/mcp \
+curl -I -X OPTIONS https://mcp-adapters.fly.dev/mcp \
   -H "Origin: https://claude.ai" \
   -H "Access-Control-Request-Method: POST"
 ```

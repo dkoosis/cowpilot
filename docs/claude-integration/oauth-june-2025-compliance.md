@@ -6,8 +6,8 @@
 `GET /.well-known/oauth-protected-resource`
 ```json
 {
-  "resource": "https://cowpilot.fly.dev",
-  "authorization_servers": ["https://cowpilot.fly.dev"]
+  "resource": "https://mcp-adapters.fly.dev",
+  "authorization_servers": ["https://mcp-adapters.fly.dev"]
 }
 ```
 
@@ -15,10 +15,10 @@
 `GET /.well-known/oauth-authorization-server`
 ```json
 {
-  "issuer": "https://cowpilot.fly.dev",
-  "authorization_endpoint": "https://cowpilot.fly.dev/oauth/authorize",
-  "token_endpoint": "https://cowpilot.fly.dev/oauth/token",
-  "registration_endpoint": "https://cowpilot.fly.dev/oauth/register",
+  "issuer": "https://mcp-adapters.fly.dev",
+  "authorization_endpoint": "https://mcp-adapters.fly.dev/oauth/authorize",
+  "token_endpoint": "https://mcp-adapters.fly.dev/oauth/token",
+  "registration_endpoint": "https://mcp-adapters.fly.dev/oauth/register",
   "response_types_supported": ["code"],
   "grant_types_supported": ["authorization_code"],
   "code_challenge_methods_supported": ["S256"]

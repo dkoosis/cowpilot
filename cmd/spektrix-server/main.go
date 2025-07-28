@@ -15,9 +15,9 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/vcto/cowpilot/internal/debug"
-	"github.com/vcto/cowpilot/internal/middleware"
-	"github.com/vcto/cowpilot/internal/spektrix"
+	"github.com/vcto/mcp-adapters/internal/debug"
+	"github.com/vcto/mcp-adapters/internal/middleware"
+	"github.com/vcto/mcp-adapters/internal/spektrix"
 )
 
 const (
@@ -88,7 +88,7 @@ func setupSpektrixResources(s *server.MCPServer, handler *spektrix.Handler) {
 		mcp.WithMIMEType("application/json"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 		if !handler.IsAuthenticated() {
-			return nil, fmt.Errorf("Spektrix authentication required")
+			return nil, fmt.Errorf("spektrix authentication required")
 		}
 
 		// This would contain the last search results
@@ -118,7 +118,7 @@ func setupSpektrixResources(s *server.MCPServer, handler *spektrix.Handler) {
 		mcp.WithMIMEType("application/json"),
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 		if !handler.IsAuthenticated() {
-			return nil, fmt.Errorf("Spektrix authentication required")
+			return nil, fmt.Errorf("spektrix authentication required")
 		}
 
 		tags, err := handler.GetClient().GetTags()
@@ -149,7 +149,7 @@ func setupSpektrixResources(s *server.MCPServer, handler *spektrix.Handler) {
 		"Customer Details",
 	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 		if !handler.IsAuthenticated() {
-			return nil, fmt.Errorf("Spektrix authentication required")
+			return nil, fmt.Errorf("spektrix authentication required")
 		}
 
 		// Extract customer ID from URI
@@ -270,8 +270,8 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 func spektrixAuthMiddleware(spektrixHandler *spektrix.Handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip auth for health endpoint
-			if r.URL.Path == "/health" {
+			// Skip auth for MCP and health endpoints
+			if strings.HasPrefix(r.URL.Path, "/mcp") || r.URL.Path == "/health" {
 				next.ServeHTTP(w, r)
 				return
 			}

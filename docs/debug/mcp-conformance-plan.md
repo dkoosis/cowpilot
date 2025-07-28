@@ -239,7 +239,7 @@ This plan addresses the critical gap in MCP protocol debugging and conformance v
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   MCP Client    │◄──►│  Debug Proxy     │◄──►│   MCP Server    │
-│   (Claude)      │    │  - Intercept     │    │   (Cowpilot)    │
+│   (Claude)      │    │  - Intercept     │    │   (mcp adapters)    │
 └─────────────────┘    │  - Log           │    └─────────────────┘
                        │  - Validate      │
                        │  - Monitor       │

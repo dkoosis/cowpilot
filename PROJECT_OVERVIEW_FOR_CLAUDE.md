@@ -1,16 +1,16 @@
-# Cowpilot Project Overview - Optimized for Claude
+# mcp adapters Project Overview - Optimized for Claude
 
 ## 🚀 Project Status: OPERATIONAL
 
 ### Quick Test
 ```bash
-curl https://cowpilot.fly.dev/health
+curl https://mcp-adapters.fly.dev/health
 # Should return: OK
 ```
 
 ### What Is This?
 - **MCP Server** implemented in Go
-- **Live at**: https://cowpilot.fly.dev/
+- **Live at**: https://mcp-adapters.fly.dev/
 - **Current Tools**: "hello" (returns "Hello, World!")
 - **Transport**: SSE (Server-Sent Events)
 - **Protocol**: MCP v2025-03-26

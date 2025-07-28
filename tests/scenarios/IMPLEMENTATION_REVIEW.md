@@ -1,7 +1,7 @@
 # E2E Testing Implementation Review
 
 ## Overview
-I was tasked with creating production-ready E2E tests for the Cowpilot MCP server to validate MCP protocol compliance against the live server at https://cowpilot.fly.dev/.
+I was tasked with creating production-ready E2E tests for the mcp adapters MCP server to validate MCP protocol compliance against the live server at https://mcp-adapters.fly.dev/.
 
 ## What Went Well ✅
 

@@ -21,7 +21,7 @@ func NewHandler() *Handler {
 	if client == nil {
 		return nil
 	}
-	
+
 	return &Handler{
 		client: client,
 	}
@@ -40,6 +40,7 @@ func (h *Handler) GetClient() *Client {
 // SetupTools registers Spektrix tools with MCP server
 func (h *Handler) SetupTools(s *server.MCPServer) {
 	h.setupSearchCustomers(s)
+	h.setupFindOrCreateCustomer(s)
 	h.setupCreateCustomer(s)
 	h.setupAddAddress(s)
 	h.setupUpdateTags(s)
@@ -82,6 +83,48 @@ func (h *Handler) setupSearchCustomers(s *server.MCPServer) {
 	})
 }
 
+func (h *Handler) setupFindOrCreateCustomer(s *server.MCPServer) {
+	s.AddTool(mcp.NewTool("spektrix_find_or_create_customer",
+		mcp.WithDescription("Find existing customer or create new one (upsert pattern)"),
+		mcp.WithString("email", mcp.Required(), mcp.Description("Customer email address")),
+		mcp.WithString("firstName", mcp.Required(), mcp.Description("Customer first name")),
+		mcp.WithString("lastName", mcp.Required(), mcp.Description("Customer last name")),
+	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		args, ok := request.Params.Arguments.(map[string]interface{})
+		if !ok {
+			return mcp.NewToolResultError("invalid arguments format"), nil
+		}
+
+		email, _ := args["email"].(string)
+		firstName, _ := args["firstName"].(string)
+		lastName, _ := args["lastName"].(string)
+
+		if email == "" || firstName == "" || lastName == "" {
+			return mcp.NewToolResultError("email, firstName, and lastName are required"), nil
+		}
+
+		customer, err := h.client.FindOrCreateCustomer(email, firstName, lastName)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Find or create failed: %v", err)), nil
+		}
+
+		result := map[string]interface{}{
+			"customer": customer,
+			"action":   "found_or_created",
+		}
+
+		resultBytes, _ := json.MarshalIndent(result, "", "  ")
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.TextContent{
+					Type: "text",
+					Text: string(resultBytes),
+				},
+			},
+		}, nil
+	})
+}
+
 func (h *Handler) setupCreateCustomer(s *server.MCPServer) {
 	s.AddTool(mcp.NewTool("spektrix_create_customer",
 		mcp.WithDescription("Create a new customer (step 1 of 2-step process)"),
@@ -93,11 +136,11 @@ func (h *Handler) setupCreateCustomer(s *server.MCPServer) {
 		if !ok {
 			return mcp.NewToolResultError("invalid arguments format"), nil
 		}
-		
+
 		firstName, _ := args["firstName"].(string)
 		lastName, _ := args["lastName"].(string)
 		email, _ := args["email"].(string)
-		
+
 		if firstName == "" || lastName == "" || email == "" {
 			return mcp.NewToolResultError("firstName, lastName, and email are required"), nil
 		}
@@ -145,22 +188,25 @@ func (h *Handler) setupAddAddress(s *server.MCPServer) {
 		if !ok {
 			return mcp.NewToolResultError("invalid arguments format"), nil
 		}
-		
+
 		customerID, _ := args["customerId"].(string)
 		country, _ := args["country"].(string)
 		postcode, _ := args["postcode"].(string)
-		
+
 		if customerID == "" || country == "" || postcode == "" {
 			return mcp.NewToolResultError("customerId, country, and postcode are required"), nil
 		}
 
 		address := Address{
-			Country:  country,
-			Postcode: postcode,
-			Line1:    getString(args, "line1"),
-			Line2:    getString(args, "line2"),
-			City:     getString(args, "city"),
-			State:    getString(args, "state"),
+			IsDelivery:             true,
+			IsBilling:              true,
+			Country:                country,
+			AdministrativeDivision: getString(args, "state"),
+			Name:                   "", // Will be set by client
+			Line1:                  getString(args, "line1"),
+			Line2:                  getString(args, "line2"),
+			Postcode:               postcode,
+			Town:                   getString(args, "city"),
 		}
 
 		err := h.client.AddCustomerAddress(customerID, address)
@@ -169,9 +215,9 @@ func (h *Handler) setupAddAddress(s *server.MCPServer) {
 		}
 
 		result := map[string]interface{}{
-			"success":     true,
-			"customerId":  customerID,
-			"address":     address,
+			"success":    true,
+			"customerId": customerID,
+			"address":    address,
 		}
 
 		resultBytes, _ := json.MarshalIndent(result, "", "  ")
@@ -196,10 +242,10 @@ func (h *Handler) setupUpdateTags(s *server.MCPServer) {
 		if !ok {
 			return mcp.NewToolResultError("invalid arguments format"), nil
 		}
-		
+
 		customerID, _ := args["customerId"].(string)
 		tagIdsStr, _ := args["tagIds"].(string)
-		
+
 		if customerID == "" {
 			return mcp.NewToolResultError("customerId is required"), nil
 		}
@@ -270,7 +316,7 @@ func splitAndTrim(s, sep string) []string {
 	if s == "" {
 		return []string{}
 	}
-	
+
 	parts := make([]string, 0)
 	for _, part := range strings.Split(s, sep) {
 		if trimmed := strings.TrimSpace(part); trimmed != "" {

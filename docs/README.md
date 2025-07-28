@@ -1,4 +1,4 @@
-# Cowpilot Documentation
+# mcp adapters Documentation
 
 ## 📍 Document Map
 

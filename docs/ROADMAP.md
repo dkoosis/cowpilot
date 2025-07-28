@@ -1,4 +1,4 @@
-# Cowpilot Development Roadmap
+# mcp adapters Development Roadmap
 
 ## Phase 1: Foundation ✓ Planning
 - Set up Go project structure

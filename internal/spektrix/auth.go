@@ -1,5 +1,28 @@
 package spektrix
 
+// 🚨 CRITICAL WARNING - AUTHENTICATION LOGIC FROM SANDY PROJECT 🚨
+//
+// This authentication implementation is the result of extensive debugging
+// and testing. Any changes will likely break Spektrix integration.
+//
+// 🔍 CRITICAL DISCOVERIES THAT MUST BE PRESERVED:
+// 1. Custom HMAC-SHA1 implementation required (built-in fails)
+// 2. Specific byte array handling for payload signatures
+// 3. Exact string formatting for authorization headers
+// 4. POST requests require MD5 hash even for empty bodies
+// 5. SpektrixAPI3 prefix required in Authorization header
+// 6. Date header must be exact GMT format
+//
+// 🚨 ENDPOINT DISCOVERIES (will save you days of debugging):
+// ✅ POST /customers (PLURAL) - works for customer creation
+// ❌ POST /customer (SINGULAR) - returns 401 Unauthorized (don't use!)
+//
+// 🔧 DEBUGGING TOOLS AVAILABLE:
+// - Spektrix API Signature Tool: https://integrate.spektrix.com/docs/authentication
+// - Use this to verify your signatures match Spektrix expectations
+//
+// SERIOUSLY: DO NOT TOUCH THIS CODE UNLESS YOU HAVE DAYS TO DEBUG
+
 import (
 	"crypto/md5"
 	"encoding/base64"

@@ -15,8 +15,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/vcto/cowpilot/internal/debug"
-	"github.com/vcto/cowpilot/internal/middleware"
+	"github.com/vcto/mcp-adapters/internal/debug"
+	"github.com/vcto/mcp-adapters/internal/middleware"
 )
 
 const (

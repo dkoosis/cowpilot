@@ -1,4 +1,4 @@
-# Cowpilot Test Strategy
+# mcp adapters Test Strategy
 
 ## Test Layers
 

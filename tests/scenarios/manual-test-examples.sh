@@ -7,7 +7,7 @@ echo ""
 echo "These commands can be run directly to test the cowpilot server:"
 echo ""
 
-SERVER="https://cowpilot.fly.dev/"
+SERVER="https://mcp-adapters.fly.dev/"
 
 echo "1. List available tools:"
 echo "   npx @modelcontextprotocol/inspector --cli $SERVER --method tools/list"

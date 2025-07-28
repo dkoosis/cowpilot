@@ -1,2 +1,3 @@
 #!/bin/bash
-chmod +x scripts/test/test-oauth-callback.sh
+chmod +x migrate-project.sh
+echo "✅ Made migrate-project.sh executable"

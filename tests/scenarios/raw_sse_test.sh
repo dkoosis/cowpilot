@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Raw SSE/JSON-RPC Test Suite for Cowpilot MCP Server
+# Raw SSE/JSON-RPC Test Suite for mcp adapters MCP Server
 # Based on https://blog.fka.dev/blog/2025-03-25-inspecting-mcp-servers-using-cli/
 # Tests MCP protocol at the raw HTTP/SSE level
 

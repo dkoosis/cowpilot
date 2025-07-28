@@ -1,7 +1,7 @@
 # MCP Integration Test Strategy
 
 ## Overview
-Integration tests run against the DEPLOYED instance at https://cowpilot.fly.dev/mcp by default.
+Integration tests run against the DEPLOYED instance at https://mcp-adapters.fly.dev/mcp by default.
 This ensures we're testing the actual production environment.
 
 ## Test Types
@@ -12,7 +12,7 @@ This ensures we're testing the actual production environment.
 - Fast, no external dependencies
 
 ### 2. Integration Tests (`make integration-test`)
-- Run against DEPLOYED instance (https://cowpilot.fly.dev/mcp)
+- Run against DEPLOYED instance (https://mcp-adapters.fly.dev/mcp)
 - Test actual MCP protocol compliance
 - Verify deployed service is working
 - Default for CI/CD and `make test`
@@ -31,7 +31,7 @@ make test   # Runs: unit tests → integration tests (deployed)
 
 ## Environment Variables
 
-- `MCP_SERVER_URL`: Override test target (defaults to https://cowpilot.fly.dev/mcp)
+- `MCP_SERVER_URL`: Override test target (defaults to https://mcp-adapters.fly.dev/mcp)
 - `LOCAL_TEST=true`: Force local testing (for development)
 
 ## Why Test Against Deployed?

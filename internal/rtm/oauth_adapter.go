@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vcto/cowpilot/internal/auth"
+	"github.com/vcto/mcp-adapters/internal/auth"
 )
 
 // OAuthAdapter adapts RTM's frob-based auth to OAuth flow

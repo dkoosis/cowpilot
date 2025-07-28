@@ -17,10 +17,10 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/vcto/cowpilot/internal/auth"
-	"github.com/vcto/cowpilot/internal/debug"
-	"github.com/vcto/cowpilot/internal/middleware"
-	"github.com/vcto/cowpilot/internal/rtm"
+	"github.com/vcto/mcp-adapters/internal/auth"
+	"github.com/vcto/mcp-adapters/internal/debug"
+	"github.com/vcto/mcp-adapters/internal/middleware"
+	"github.com/vcto/mcp-adapters/internal/rtm"
 )
 
 // Version information
@@ -1146,7 +1146,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogo(w http.ResponseWriter, r *http.Request) {
-	// Cowpilot logo - blue circle with white cow
+	// mcp adapters logo - blue circle with white cow
 	logo := `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
 		<circle cx="32" cy="32" r="32" fill="#1976d2"/>
 		<!-- Cow head -->

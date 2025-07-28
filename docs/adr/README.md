@@ -1,4 +1,4 @@
-# Architectural Decision Records (ADRs) for Cowpilot
+# Architectural Decision Records (ADRs) for mcp adapters
 
 ### File Naming Convention
 

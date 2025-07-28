@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# E2E Test Suite for Cowpilot MCP Server
+# E2E Test Suite for mcp adapters MCP Server
 # Uses official @modelcontextprotocol/inspector in CLI mode
 
 set -euo pipefail
@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Server URL (default to production if not provided)
-SERVER_URL="${1:-https://cowpilot.fly.dev/}"
+SERVER_URL="${1:-https://mcp-adapters.fly.dev/}"
 
 # Test results
 TOTAL_TESTS=0

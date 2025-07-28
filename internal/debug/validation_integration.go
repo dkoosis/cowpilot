@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/vcto/cowpilot/internal/protocol/validation"
+	"github.com/vcto/mcp-adapters/internal/protocol/validation"
 )
 
 // ValidatedMessageInterceptor extends MessageInterceptor with validation

@@ -4,8 +4,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/vcto/cowpilot/internal/debug"
-	"github.com/vcto/cowpilot/internal/validator"
+	"github.com/vcto/mcp-adapters/internal/debug"
+	"github.com/vcto/mcp-adapters/internal/validator"
 	"os"
 )
 

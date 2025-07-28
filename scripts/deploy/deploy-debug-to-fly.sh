@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy Cowpilot to Fly.io with Debug Enabled
+# Deploy mcp adapters to Fly.io with Debug Enabled
 # This script handles the complete deployment process including cleanup, build, deploy, and verification
 
 set -e
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 APP_NAME="cowpilot"
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
-echo -e "${CYAN}🚀 Cowpilot Debug Deployment Script${NC}"
+echo -e "${CYAN}🚀 mcp adapters Debug Deployment Script${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Function to check command status
@@ -178,7 +178,7 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 
 echo -e "${GREEN}✓ Deployment complete!${NC}"
 echo -e "\n${YELLOW}To register on Claude.ai:${NC}"
-echo -e "  Name:        ${CYAN}Cowpilot Tools${NC} (no punctuation)"
+echo -e "  Name:        ${CYAN}mcp adapters Tools${NC} (no punctuation)"
 echo -e "  Description: ${CYAN}MCP server providing various utility tools including echo, time, base64 encoding and more${NC}"
 echo -e "  URL:         ${CYAN}https://$APP_NAME.fly.dev${NC}"
 

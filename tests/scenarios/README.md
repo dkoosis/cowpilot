@@ -2,15 +2,15 @@
 
 ```bash
 # Using MCP Inspector
-npx @modelcontextprotocol/inspector --cli https://cowpilot.fly.dev/ --method tools/list
+npx @modelcontextprotocol/inspector --cli https://mcp-adapters.fly.dev/ --method tools/list
 
 # Using raw curl/jq
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
+  curl -s -N -X POST https://mcp-adapters.fly.dev/ \
     -H 'Content-Type: application/json' \
     -H 'Accept: text/event-stream' \
     -d @- | grep '^data: ' | sed 's/^data: //' | jq .
-```# Scenario Tests for Cowpilot
+```# Scenario Tests for mcp adapters
 
 This directory contains scenario tests that validate MCP protocol compliance for the cowpilot server.
 
@@ -40,7 +40,7 @@ Direct protocol testing using `curl` and `jq` based on the approach from [this b
 ### Against Production (Fly.io)
 
 ```bash
-MCP_SERVER_URL=https://cowpilot.fly.dev/ go test -v ./tests/scenarios/
+MCP_SERVER_URL=https://mcp-adapters.fly.dev/ go test -v ./tests/scenarios/
 ```
 
 ### Against Local Server
@@ -60,10 +60,10 @@ go test -v ./tests/scenarios/
 chmod +x tests/scenarios/mcp_scenarios.sh
 
 # Run against production
-./tests/scenarios/mcp_scenarios.sh https://cowpilot.fly.dev/
+./tests/scenarios/mcp_scenarios.sh https://mcp-adapters.fly.dev/
 
 # Raw SSE tests
-./tests/scenarios/raw_sse_test.sh https://cowpilot.fly.dev/
+./tests/scenarios/raw_sse_test.sh https://mcp-adapters.fly.dev/
 
 # Run against local
 ./tests/scenarios/mcp_scenarios.sh http://localhost:8080/
@@ -85,7 +85,7 @@ Add to your CI pipeline:
 ```yaml
 - name: Run Scenario Tests
   env:
-    MCP_SERVER_URL: https://cowpilot.fly.dev/
+    MCP_SERVER_URL: https://mcp-adapters.fly.dev/
   run: |
     npm install -g @modelcontextprotocol/inspector
     go test -v ./tests/scenarios/

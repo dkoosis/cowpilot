@@ -4,7 +4,7 @@
 echo "🧪 MCP Integration Tests"
 
 # Configuration
-MCP_SERVER_URL="${MCP_SERVER_URL:-https://cowpilot.fly.dev/mcp}"
+MCP_SERVER_URL="${MCP_SERVER_URL:-https://mcp-adapters.fly.dev/mcp}"
 LOCAL_TEST="${LOCAL_TEST:-false}"
 
 # Check if testing locally

@@ -15,18 +15,10 @@ NC='\033[0m' # No Color
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# Check current directory
-if [[ ! -f "cmd/cowpilot/main.go" ]]; then
-    echo -e "${RED} ✗ Not in cowpilot project root"
-    exit 1
-fi
-
-echo -e "${GREEN} ✓${NC} Project root verified"
-
 FAILED=0
 
 # Test 1: Project Structure
-required_dirs=("cmd/cowpilot" "internal/debug" "internal/testing" "scripts/test" "docs/adr")
+required_dirs=("cmd/everything" "cmd/rtm-server" "cmd/spektrix-server" "internal/debug" "scripts/test" "docs/adr")
 for dir in "${required_dirs[@]}"; do
     if [[ -d "$dir" ]]; then
         echo -e "${GREEN} ✓${NC} $dir exists"
@@ -37,7 +29,7 @@ for dir in "${required_dirs[@]}"; do
 done
 
 # Test 2: Build Test
-if go build -o bin/cowpilot cmd/cowpilot/main.go 2>/dev/null; then
+if go build -o bin/cowpilot cmd/everything/main.go 2>/dev/null; then
     echo -e "${GREEN} ✓${NC} Build successful"
     size=$(ls -lh bin/cowpilot | awk '{print $5}')
     echo -e "\n${CYAN} ▶${NC} Binary size: $size"
@@ -82,9 +74,9 @@ fi
 # Test 5: Feature Verification (based on STATE.yaml)
 
 # Count implementations
-tool_count=$(grep -c 'AddTool' cmd/cowpilot/main.go 2>/dev/null || echo 0)
-resource_count=$(grep -c 'AddResource' cmd/cowpilot/main.go 2>/dev/null || echo 0)
-prompt_count=$(grep -c 'AddPrompt' cmd/cowpilot/main.go 2>/dev/null || echo 0)
+tool_count=$(grep -c 'AddTool' cmd/everything/main.go 2>/dev/null || echo 0)
+resource_count=$(grep -c 'AddResource' cmd/everything/main.go 2>/dev/null || echo 0)
+prompt_count=$(grep -c 'AddPrompt' cmd/everything/main.go 2>/dev/null || echo 0)
 
 #echo -e "${CYAN} ▶${NC} Tools: $tool_count/11 expected"
 if [ "$tool_count" -eq 11 ]; then
@@ -139,7 +131,7 @@ else
 fi
 
 # Test 9: Production Health Check
-if curl -s --max-time 5 "https://cowpilot.fly.dev/health" 2>/dev/null | grep -q "OK"; then
+if curl -s --max-time 5 "https://mcp-adapters.fly.dev/health" 2>/dev/null | grep -q "OK"; then
     echo -e "${GREEN} ✓${NC} Production server healthy"
 else
     echo -e "${YELLOW}        ⚠️  Production server unreachable"

@@ -34,7 +34,7 @@ make e2e-test-raw    # Run the raw SSE/JSON-RPC test suite
 ```bash
 # Single command to test tools/list
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
-  curl -s -N -X POST https://cowpilot.fly.dev/ \
+  curl -s -N -X POST https://mcp-adapters.fly.dev/ \
     -H 'Content-Type: application/json' \
     -H 'Accept: text/event-stream' \
     -d @- | grep '^data: ' | sed 's/^data: //' | jq .
@@ -42,7 +42,7 @@ echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | \
 
 ### Full Raw Test Suite
 ```bash
-./tests/e2e/raw_sse_test.sh https://cowpilot.fly.dev/
+./tests/e2e/raw_sse_test.sh https://mcp-adapters.fly.dev/
 ```
 
 ## Benefits of Dual Approach

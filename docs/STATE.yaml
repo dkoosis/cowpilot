@@ -71,7 +71,7 @@
   ✓TESTS_CLEANED: [deleted_broken_integration_test→imports_nonexistent_packages,kept_working_e2e_framework]
   ✓RESOLVED: go_vet_error→missing_internal/mcp_package[file_already_removed]
   ✓DEPLOYMENT: fly.io[single_instance,min_machines_running=1,auth_disabled=true]
-  ✓CLAUDE_REGISTERED: https://cowpilot.fly.dev/mcp[tools_working✓]
+  ✓CLAUDE_REGISTERED: https://mcp-adapters.fly.dev/mcp[tools_working✓]
 
 ✓DEBUG_SYSTEM:
   STATUS: ✓phase1_implemented→✓adr012_runtime_config_complete
@@ -278,7 +278,7 @@ SAMPLE_DATA:
       4. ✓auth_disabled→simplified_testing
     RATIONALE: foundational_capability_must_be_maintained
     TEST_COVERAGE: [tools/list✓,tools/call✓,resources/list✓,resources/read✓,prompts/list✓]
-    ‡TEST_STRATEGY: integration_tests_run_against_DEPLOYED_instance[https://cowpilot.fly.dev/mcp]
+    ‡TEST_STRATEGY: integration_tests_run_against_DEPLOYED_instance[https://mcp-adapters.fly.dev/mcp]
     DOCUMENTED: φdocs/TEST_STRATEGY.md[✓clear_distinction_local_vs_deployed]
   ∇TODO_MAKEFILE: make_build_stop_on_compile_failures[build_errors_should_halt]
   ‡PRIORITY2: ✓RTM_OAuth_bridge[frob_to_oauth_fixed]

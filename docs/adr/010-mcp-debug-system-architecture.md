@@ -13,7 +13,7 @@ superseded-by: ""
 Accepted
 
 ## Context
-The Cowpilot MCP server currently lacks comprehensive debugging and protocol conformance validation capabilities. This creates several critical gaps:
+The mcp adapters MCP server currently lacks comprehensive debugging and protocol conformance validation capabilities. This creates several critical gaps:
 
 1. **Protocol Conformance**: No automated validation that our MCP implementation follows the specification correctly
 2. **Debugging Difficulties**: Limited visibility into MCP conversations makes debugging client-server interactions challenging
@@ -35,7 +35,7 @@ We will implement a comprehensive **MCP Debug System** using a **non-invasive pr
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   MCP Client    │◄──►│  Debug Proxy     │◄──►│   MCP Server    │
-│   (Claude)      │    │  - Intercept     │    │   (Cowpilot)    │
+│   (Claude)      │    │  - Intercept     │    │   (mcp adapters)    │
 └─────────────────┘    │  - Log           │    └─────────────────┘
                        │  - Validate      │
                        │  - Monitor       │

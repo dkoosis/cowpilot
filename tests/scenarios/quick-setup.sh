@@ -1,7 +1,7 @@
 #!/bin/bash
 # Quick setup for E2E testing
 
-echo "Setting up E2E tests for Cowpilot..."
+echo "Setting up E2E tests for mcp adapters..."
 echo ""
 
 # Make scripts executable from project root
@@ -44,4 +44,4 @@ echo "   - Test local:       make e2e-test-local"
 echo "   - Custom server:    MCP_SERVER_URL=https://your-server/ make e2e-test"
 echo ""
 echo "   Or run directly:"
-echo "   ./tests/e2e/mcp_scenarios.sh https://cowpilot.fly.dev/"
+echo "   ./tests/e2e/mcp_scenarios.sh https://mcp-adapters.fly.dev/"

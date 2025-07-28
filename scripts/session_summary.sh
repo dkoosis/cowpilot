@@ -41,6 +41,6 @@ echo "  make scenario-test-local   # Test local server"
 echo ""
 
 echo "Current Status:"
-echo "  ✅ Server live at https://cowpilot.fly.dev/"
+echo "  ✅ Server live at https://mcp-adapters.fly.dev/"
 echo "  ✅ Scenario tests passing"
 echo "  ✅ Ready for feature development"

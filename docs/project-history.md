@@ -1,4 +1,4 @@
-# Cowpilot Project History & Lessons Learned
+# mcp adapters Project History & Lessons Learned
 
 ## The Journey: TypeScript → Go
 

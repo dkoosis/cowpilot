@@ -9,14 +9,14 @@ fly deploy
 
 2. Test SSE transport:
 ```bash
-npx @modelcontextprotocol/inspector https://cowpilot.fly.dev/mcp --transport sse --method initialize
+npx @modelcontextprotocol/inspector https://mcp-adapters.fly.dev/mcp --transport sse --method initialize
 ```
 
 3. Add to Claude.ai:
 - Go to Settings → Connectors
 - Click "Add More"
-- Enter URL: `https://cowpilot.fly.dev/mcp`
-- Name: "Cowpilot Tools" (no punctuation)
+- Enter URL: `https://mcp-adapters.fly.dev/mcp`
+- Name: "mcp adapters Tools" (no punctuation)
 - Description: "Development tools including encoding, JSON formatting, and text operations" (>30 chars)
 
 ## Environment Variables
@@ -29,13 +29,13 @@ npx @modelcontextprotocol/inspector https://cowpilot.fly.dev/mcp --transport sse
 
 ```bash
 # Test preflight
-curl -X OPTIONS https://cowpilot.fly.dev/mcp \
+curl -X OPTIONS https://mcp-adapters.fly.dev/mcp \
   -H "Origin: https://claude.ai" \
   -H "Access-Control-Request-Method: POST" \
   -H "Access-Control-Request-Headers: Content-Type" -v
 
 # Test SSE
-curl -X POST https://cowpilot.fly.dev/mcp \
+curl -X POST https://mcp-adapters.fly.dev/mcp \
   -H "Accept: text/event-stream" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
