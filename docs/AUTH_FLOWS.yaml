@@ -55,6 +55,53 @@
       2. handle_pending→client_retry_OR_wait_synchronously
     ‡KEY_INSIGHT: primary_issue_broken_rtm_auth_flow_not_race_condition
 
+‡SPEKTRIX_HMAC_FLOW:
+  TYPE: hmac_sha1_signatures[NOT_oauth]
+  ‡CRITICAL: custom_hmac_required[native_google_apps_script_fails]
+  
+  CREDENTIALS:
+    CLIENT_NAME: spektrix_client_name
+    API_USER: spektrix_api_username  
+    API_KEY: base64_encoded_secret_key
+  
+  ‡SIGNATURE_GENERATION:
+    STRING_TO_SIGN: METHOD\nURL\nDATE\n[MD5_BODY_IF_PRESENT]
+    KEY_PROCESSING: base64_decode(api_key)→byte_array→string_conversion
+    HMAC: custom_hmac_sha1(string_to_sign,processed_key)→base64_encode
+    AUTH_HEADER: "SpektrixAPI3 {API_USER}:{SIGNATURE}"
+  
+  ‡PAYLOAD_REQUIREMENTS:
+    CONTENT_TYPE: "application/json"[required]
+    BODY_ENCODING: JSON.stringify()→Utilities.newBlob().getBytes()[byte_array_required]
+    MD5_HASH: required_even_for_empty_bodies_in_signature
+    DATE_FORMAT: "EEE, dd MMM yyyy HH:mm:ss 'GMT'"[exact_format]
+  
+  ‡ENDPOINT_PATTERNS[CRITICAL]:
+    ✓CORRECT: POST_/customers[plural]
+    ❌BROKEN: POST_/customer[singular]→401_unauthorized
+    ✓CUSTOMER_CREATE: POST_/customers{firstName,lastName,email}
+    ✓ADDRESS_ADD: POST_/customers/{id}/addresses[separate_step]
+    ✓CUSTOMER_SEARCH: GET_/customers?email={email}
+    ✓TAG_UPDATE: PUT_/customers/{id}/tags[{id:tag_id}]
+  
+  ‡AUTHENTICATION_MODE:
+    REQUIRED: system_owner_permissions
+    ❌FAILS: customer_session_mode
+  
+  λLIMITATIONS:
+    NO_TAG_CREATE: tags_must_pre_exist_in_spektrix
+    TWO_STEP_CREATE: customer_first→address_separate
+    NO_BATCH_OPS: individual_api_calls_required
+  
+  ‡ERRORS:
+    401: [signature_mismatch,wrong_endpoint_pattern,insufficient_permissions]
+    400: [malformed_payload,wrong_content_type,invalid_data]
+  
+  ‡DEBUG_TOOLS[from_sandy_project]:
+    SIGNATURE_VERIFICATION: https://integrate.spektrix.com/docs/authentication
+    COMPARE_IMPLEMENTATIONS: custom_vs_native_hmac_testing
+    ENDPOINT_TESTING: /customers_vs_/customer_validation
+
 GENERIC_OAUTH2[reference]:
   FLOW:
     1_AUTHORIZE: GET→/oauth/authorize?client_id={}&redirect_uri={}&state={}

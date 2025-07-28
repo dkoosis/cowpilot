@@ -13,12 +13,30 @@
   ‡FLOW_FIXED: intermediate_page→check_auth_status→enable_continue→callback→verified_token→tools_working
   ‡ARCHITECTURE_FIX: pass_rtm_handler_instance_to_auth_middleware[shared_token_state]
   
+✓MULTI_SERVER_ARCHITECTURE[2025-07-27]:
+  STATUS: ✓implemented→segregated_servers_with_shared_codebase
+  STRUCTURE: single_repo+shared_internal_packages+separate_binaries
+  SERVERS:
+    ✓RTM_SERVER: cmd/rtm-server→focused_rtm_tools+resources[port_8081]
+    ✓TEST_SERVER: cmd/test-server→demo_tools+examples[port_8082] 
+    ✓EVERYTHING_SERVER: cmd/cowpilot→all_capabilities[port_8080]
+  ✓RTM_RESOURCES: [rtm://today,rtm://inbox,rtm://overdue,rtm://week,rtm://lists,rtm://lists/{list_name},rtm://smart/{list_name}]
+  ✓RTM_TOOLS[8]: [rtm_auth_url,rtm_lists,rtm_search,rtm_quick_add,rtm_update,rtm_complete,rtm_manage_list]
+  ✓SHARED_PACKAGES: [internal/rtm,internal/auth,internal/debug,internal/middleware]
+  BENEFITS: [code_reuse,unified_deployment,consistent_patterns,domain_segregation]
+  APPROACH: follows_mcp-go-main_examples_pattern
+  
 ∇RTM_FUTURE_UX[TBD]:
   ∇USER_PROVIDED_CREDENTIALS: require_user_rtm_api_key+secret[not_server_env_vars]
   ∇PERMISSION_SCOPES: [read_only_option,designated_lists_filter,tag_restrictions]
   ∇AUTH_FLOW_REDESIGN: user_inputs_credentials→scoped_permissions→rtm_oauth
   ∇SECURITY_REVIEW: multi_user_credential_storage_best_practices[encryption,isolation,rotation,audit]
   ∇STEP4_USER_SCOPED_OAUTH: modify_oauth_adapter_to_use_stored_credentials_per_user
+  ∇RATE_LIMIT_HANDLING: review_rtm_api_limits+error_codes→intelligent_backoff+retry
+  ∇BATCH_OPERATIONS: review_rtm_batch_capabilities[if_any]→optimize_multi_task_operations
+  ∇PROJECT_RENAME: cowpilot→more_generic_name[big_change_deferred]
+  ∇AUTH_SPEC_COMPLIANCE: verify_6/18_auth_spec_compliance[anthropic_update_july_2025]
+  ∇MOBILE_TESTING: verify_rtm_workflow_ios+android[newly_supported]
   RATIONALE: user_owns_credentials+granular_access_control
   DOCUMENTED: φdocs/AUTH_FLOWS.yaml→RTM_DEBUG_FINDINGS[2025-07-27]
   ISSUE: ✓RESOLVED_oauth_tests_failing_with_400
@@ -343,7 +361,7 @@ SAMPLE_DATA:
   internal/auth/: [oauth_adapter.go,middleware.go,token_store.go,csrf_token_test.go,oauth_callback_server.go]
   internal/debug/: [config.go,interceptor.go,storage.go,validation_integration.go]
   internal/middleware/: cors.go
-  internal/rtm/: [client.go]→NEW_STARTED
+  internal/rtm/: [client.go,handlers.go,oauth_adapter.go,setup.go,credential_store.go]→RTM_COMPLETE
   internal/validator/: [core.go,jsonrpc.go,mcp.go,security.go]
   internal/testutil/: [assertions.go,requests.go]
   internal/contracts/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]

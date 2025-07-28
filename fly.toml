@@ -9,7 +9,7 @@ primary_region = 'ewr'
 [build]
 
 [env]
-  PORT = '8080'
+  PORT = '8081'
   TOKEN_DB_PATH = '/data/tokens.db'
 
 [mounts]
@@ -17,7 +17,7 @@ primary_region = 'ewr'
   destination = '/data'
 
 [http_service]
-  internal_port = 8080
+  internal_port = 8081
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true

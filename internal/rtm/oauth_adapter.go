@@ -332,7 +332,7 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
                         // Success! Enable continue button
                         clearInterval(checkInterval);
                         document.getElementById('status').className = 'success';
-                        document.getElementById('status').innerHTML = '[✓] Authorization successful! You can now continue.';
+                        document.getElementById('status').innerHTML = '[&#x2713;] Authorization successful! You can now continue.';
                         document.getElementById('continueBtn').disabled = false;
                         document.getElementById('continueBtn').style.background = '#28a745';
                         if (authWindow) authWindow.close();

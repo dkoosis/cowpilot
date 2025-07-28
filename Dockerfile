@@ -7,17 +7,20 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o cowpilot ./cmd/cowpilot
+# Build everything server
+RUN go build -o everything ./cmd/everything
+# Build RTM server
+RUN go build -o rtm-server ./cmd/rtm-server
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates tzdata sqlite-libs
 WORKDIR /root/
 
-COPY --from=builder /app/cowpilot .
+COPY --from=builder /app/rtm-server .
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8081/health || exit 1
 
-RUN chmod +x ./cowpilot
+RUN chmod +x ./rtm-server
 
-CMD ["./cowpilot"]
+CMD ["./rtm-server"]

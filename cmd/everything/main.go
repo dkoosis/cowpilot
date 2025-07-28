@@ -77,6 +77,11 @@ func main() {
 	// Add native resources
 	setupResources(s)
 
+	// Add RTM resources if handler available
+	if rtmHandler != nil {
+		setupRTMResources(s, rtmHandler)
+	}
+
 	// Add native prompts
 	setupPrompts(s)
 
@@ -179,6 +184,9 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 
 	// Health check
 	mux.HandleFunc("/health", handleHealth)
+
+	// Logo for Claude.ai connector display
+	mux.HandleFunc("/logo", handleLogo)
 
 	// MCP server handles requests at /mcp endpoint
 	mux.Handle("/mcp", handler)
@@ -837,6 +845,274 @@ func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(
 	}
 }
 
+func setupRTMResources(s *server.MCPServer, handler *rtm.Handler) {
+	// Today's tasks
+	s.AddResource(mcp.NewResource("rtm://today",
+		"Today's Tasks",
+		mcp.WithResourceDescription("Tasks due today, sorted by priority"),
+		mcp.WithMIMEType("application/json"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		if handler.GetClient().AuthToken == "" {
+			return nil, fmt.Errorf("RTM authentication required")
+		}
+
+		tasks, err := handler.GetClient().GetTasks("due:today", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get today's tasks: %v", err)
+		}
+
+		data, err := json.MarshalIndent(map[string]interface{}{
+			"title": "Today's Tasks",
+			"date":  time.Now().Format("2006-01-02"),
+			"tasks": tasks,
+			"count": len(tasks),
+		}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      "rtm://today",
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		}, nil
+	})
+
+	// Inbox tasks
+	s.AddResource(mcp.NewResource("rtm://inbox",
+		"Inbox",
+		mcp.WithResourceDescription("Tasks in the default inbox"),
+		mcp.WithMIMEType("application/json"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		if handler.GetClient().AuthToken == "" {
+			return nil, fmt.Errorf("RTM authentication required")
+		}
+
+		tasks, err := handler.GetClient().GetTasks("list:Inbox", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get inbox tasks: %v", err)
+		}
+
+		data, err := json.MarshalIndent(map[string]interface{}{
+			"title": "Inbox Tasks",
+			"tasks": tasks,
+			"count": len(tasks),
+		}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      "rtm://inbox",
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		}, nil
+	})
+
+	// Overdue tasks
+	s.AddResource(mcp.NewResource("rtm://overdue",
+		"Overdue Tasks",
+		mcp.WithResourceDescription("Tasks past their due date"),
+		mcp.WithMIMEType("application/json"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		if handler.GetClient().AuthToken == "" {
+			return nil, fmt.Errorf("RTM authentication required")
+		}
+
+		tasks, err := handler.GetClient().GetTasks("dueBefore:today", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get overdue tasks: %v", err)
+		}
+
+		data, err := json.MarshalIndent(map[string]interface{}{
+			"title": "Overdue Tasks",
+			"tasks": tasks,
+			"count": len(tasks),
+		}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      "rtm://overdue",
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		}, nil
+	})
+
+	// This week's tasks
+	s.AddResource(mcp.NewResource("rtm://week",
+		"This Week",
+		mcp.WithResourceDescription("Tasks due in the next 7 days"),
+		mcp.WithMIMEType("application/json"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		if handler.GetClient().AuthToken == "" {
+			return nil, fmt.Errorf("RTM authentication required")
+		}
+
+		tasks, err := handler.GetClient().GetTasks("due:within 1 week", "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get week's tasks: %v", err)
+		}
+
+		data, err := json.MarshalIndent(map[string]interface{}{
+			"title": "This Week's Tasks",
+			"tasks": tasks,
+			"count": len(tasks),
+		}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      "rtm://week",
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		}, nil
+	})
+
+	// All lists
+	s.AddResource(mcp.NewResource("rtm://lists",
+		"All Lists",
+		mcp.WithResourceDescription("All lists with task counts"),
+		mcp.WithMIMEType("application/json"),
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		if handler.GetClient().AuthToken == "" {
+			return nil, fmt.Errorf("RTM authentication required")
+		}
+
+		lists, err := handler.GetClient().GetLists()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get lists: %v", err)
+		}
+
+		data, err := json.MarshalIndent(map[string]interface{}{
+			"title": "All Lists",
+			"lists": lists,
+			"count": len(lists),
+		}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      "rtm://lists",
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		}, nil
+	})
+
+	// Template: Tasks in specific list
+	s.AddResourceTemplate(mcp.NewResourceTemplate("rtm://lists/{list_name}",
+		"List Tasks",
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		if handler.GetClient().AuthToken == "" {
+			return nil, fmt.Errorf("RTM authentication required")
+		}
+
+		listName := extractListNameFromURI(request.Params.URI)
+		if listName == "" {
+			return nil, fmt.Errorf("invalid list URI format")
+		}
+
+		tasks, err := handler.GetClient().GetTasks("list:"+listName, "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get list tasks: %v", err)
+		}
+
+		data, err := json.MarshalIndent(map[string]interface{}{
+			"title":     fmt.Sprintf("Tasks in '%s'", listName),
+			"list_name": listName,
+			"tasks":     tasks,
+			"count":     len(tasks),
+		}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      request.Params.URI,
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		}, nil
+	})
+
+	// Template: Smart lists
+	s.AddResourceTemplate(mcp.NewResourceTemplate("rtm://smart/{list_name}",
+		"Smart List",
+	), func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+		if handler.GetClient().AuthToken == "" {
+			return nil, fmt.Errorf("RTM authentication required")
+		}
+
+		smartListName := extractListNameFromURI(request.Params.URI)
+		if smartListName == "" {
+			return nil, fmt.Errorf("invalid smart list URI format")
+		}
+
+		lists, err := handler.GetClient().GetLists()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get lists: %v", err)
+		}
+
+		var smartListID string
+		for _, list := range lists {
+			if list.Name == smartListName && list.Smart == "1" {
+				smartListID = list.ID
+				break
+			}
+		}
+
+		if smartListID == "" {
+			return nil, fmt.Errorf("smart list '%s' not found", smartListName)
+		}
+
+		tasks, err := handler.GetClient().GetTasks("", smartListID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get smart list tasks: %v", err)
+		}
+
+		data, err := json.MarshalIndent(map[string]interface{}{
+			"title":           fmt.Sprintf("Smart List: '%s'", smartListName),
+			"smart_list_name": smartListName,
+			"smart_list_id":   smartListID,
+			"tasks":           tasks,
+			"count":           len(tasks),
+		}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      request.Params.URI,
+				MIMEType: "application/json",
+				Text:     string(data),
+			},
+		}, nil
+	})
+}
+
+func extractListNameFromURI(uri string) string {
+	parts := strings.Split(uri, "/")
+	if len(parts) < 3 {
+		return ""
+	}
+	return parts[len(parts)-1]
+}
+
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	// Log health check requests for debugging
 	log.Printf("[HEALTH] Health check from %s", r.RemoteAddr)
@@ -867,4 +1143,36 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func handleLogo(w http.ResponseWriter, r *http.Request) {
+	// Cowpilot logo - blue circle with white cow
+	logo := `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+		<circle cx="32" cy="32" r="32" fill="#1976d2"/>
+		<!-- Cow head -->
+		<ellipse cx="32" cy="35" rx="15" ry="12" fill="white"/>
+		<!-- Horns -->
+		<path d="M20 28 Q18 24 16 26 Q17 29 20 28" fill="white"/>
+		<path d="M44 28 Q46 24 48 26 Q47 29 44 28" fill="white"/>
+		<!-- Ears -->
+		<ellipse cx="22" cy="30" rx="3" ry="5" fill="white"/>
+		<ellipse cx="42" cy="30" rx="3" ry="5" fill="white"/>
+		<!-- Eyes -->
+		<circle cx="28" cy="32" r="2.5" fill="black"/>
+		<circle cx="36" cy="32" r="2.5" fill="black"/>
+		<circle cx="28.5" cy="31.5" r="0.8" fill="white"/>
+		<circle cx="36.5" cy="31.5" r="0.8" fill="white"/>
+		<!-- Nostrils -->
+		<ellipse cx="30" cy="38" rx="1" ry="1.5" fill="black"/>
+		<ellipse cx="34" cy="38" rx="1" ry="1.5" fill="black"/>
+		<!-- Hair spikes -->
+		<path d="M32 22 L30 18 L32 20 L34 18 L32 22" fill="#333"/>
+		<path d="M28 23 L26 19 L28 21" fill="#333"/>
+		<path d="M36 23 L38 19 L36 21" fill="#333"/>
+	</svg>`
+
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(logo))
 }

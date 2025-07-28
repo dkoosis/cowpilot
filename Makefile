@@ -2,6 +2,8 @@
 
 # Variables
 BINARY_NAME=cowpilot
+RTM_BINARY_NAME=rtm-server
+SPEKTRIX_BINARY_NAME=spektrix-server
 DEBUG_PROXY_NAME=mcp-debug-proxy
 GO=go
 GOTEST=$(GO) test
@@ -10,9 +12,13 @@ GOFMT=gofmt
 GOLINT=golangci-lint
 
 # Build variables
-BUILD_DIR=./cmd/cowpilot
+BUILD_DIR=./cmd/everything
+RTM_BUILD_DIR=./cmd/rtm-server
+SPEKTRIX_BUILD_DIR=./cmd/spektrix-server
 DEBUG_PROXY_DIR=./cmd/mcp-debug-proxy
 MAIN_FILE=$(BUILD_DIR)/main.go
+RTM_MAIN_FILE=$(RTM_BUILD_DIR)/main.go
+SPEKTRIX_MAIN_FILE=$(SPEKTRIX_BUILD_DIR)/main.go
 DEBUG_PROXY_FILE=$(DEBUG_PROXY_DIR)/main.go
 OUTPUT_DIR=./bin
 
@@ -22,7 +28,7 @@ SCENARIO_TEST_DIR=./tests/scenarios
 COVERAGE_FILE=coverage.out
 GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
-.PHONY: all build build-debug debug-proxy run-debug-proxy test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
+.PHONY: all build build-rtm build-debug debug-proxy run-debug-proxy test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
 
 # Clean, format, lint, and run ALL tests including scenarios
 all: clean fmt vet lint test scenario-test-local
@@ -30,7 +36,27 @@ all: clean fmt vet lint test scenario-test-local
 # Run ALL tests (unit, integration, and scenario)
 test: unit-test integration-test scenario-test-local
 
-# Build the application (runs tests first)
+# Build the RTM server (production target)
+build-rtm: test
+	@echo "Building $(RTM_BINARY_NAME)..."
+	@mkdir -p $(OUTPUT_DIR)
+	$(GO) build -o $(OUTPUT_DIR)/$(RTM_BINARY_NAME) $(RTM_BUILD_DIR)
+
+# Build the Spektrix server
+build-spektrix: test
+	@echo "Building $(SPEKTRIX_BINARY_NAME)..."
+	@mkdir -p $(OUTPUT_DIR)
+	$(GO) build -o $(OUTPUT_DIR)/$(SPEKTRIX_BINARY_NAME) $(SPEKTRIX_BUILD_DIR)
+
+# Build all servers
+build-all: test
+	@echo "Building all servers..."
+	@mkdir -p $(OUTPUT_DIR)
+	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
+	$(GO) build -o $(OUTPUT_DIR)/$(RTM_BINARY_NAME) $(RTM_BUILD_DIR)
+	$(GO) build -o $(OUTPUT_DIR)/$(SPEKTRIX_BINARY_NAME) $(SPEKTRIX_BUILD_DIR)
+
+# Build the everything server (testing target)
 build: test
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(OUTPUT_DIR)
@@ -231,9 +257,9 @@ dev:
 	@which air > /dev/null || (echo "air not found. Install with: go install github.com/air-verse/air@latest" && exit 1)
 	air
 
-# Deploy to Fly.io (runs tests first)
-deploy: test
-	@echo "All tests passed. Deploying to Fly.io..."
+# Deploy RTM server to Fly.io (runs tests first)
+deploy: build-rtm
+	@echo "All tests passed. Deploying RTM server to Fly.io..."
 	fly deploy
 
 # CI-specific test with junit output

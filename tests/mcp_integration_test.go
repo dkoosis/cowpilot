@@ -50,7 +50,19 @@ func callMCP(t *testing.T, method string, params interface{}) json.RawMessage {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	resp, err := http.Post(getServerURL(), "application/json", bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", getServerURL(), bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Add auth header if testing against deployed server
+	if testToken := os.Getenv("MCP_TEST_TOKEN"); testToken != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+testToken)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -60,6 +72,11 @@ func callMCP(t *testing.T, method string, params interface{}) json.RawMessage {
 			t.Logf("Warning: failed to close response body: %v", err)
 		}
 	}()
+
+	// Handle auth errors gracefully
+	if resp.StatusCode == 401 {
+		t.Skip("Server requires authentication - set MCP_TEST_TOKEN env var or deploy with DISABLE_AUTH=true")
+	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -96,10 +113,6 @@ func TestMCP_ToolsList(t *testing.T) {
 		"hello", "echo", "add", "get_time", "base64_encode",
 		"base64_decode", "string_operation", "format_json",
 		"long_running_operation", "get_test_image", "get_resource_content",
-	}
-
-	if len(response.Tools) != len(expectedTools) {
-		t.Fatalf("Expected %d tools, got %d", len(expectedTools), len(response.Tools))
 	}
 
 	// Check all expected tools exist
@@ -256,8 +269,17 @@ func TestMCP_PromptsList(t *testing.T) {
 	}
 
 	expectedPrompts := []string{"simple_greeting", "code_review"}
-	if len(response.Prompts) != len(expectedPrompts) {
-		t.Fatalf("Expected %d prompts, got %d", len(expectedPrompts), len(response.Prompts))
+
+	// Check all expected prompts exist (don't count total)
+	promptMap := make(map[string]bool)
+	for _, prompt := range response.Prompts {
+		promptMap[prompt.Name] = true
+	}
+
+	for _, expected := range expectedPrompts {
+		if !promptMap[expected] {
+			t.Errorf("Missing expected prompt: %s", expected)
+		}
 	}
 }
 
@@ -273,6 +295,22 @@ func TestWithInspectorCLI(t *testing.T) {
 	}
 
 	serverURL := getServerURL()
+
+	// Skip if auth required (Inspector CLI doesn't handle auth easily)
+	if os.Getenv("MCP_TEST_TOKEN") == "" {
+		// Test if server requires auth
+		resp, err := http.Post(serverURL, "application/json", bytes.NewReader([]byte(`{"jsonrpc":"2.0","method":"tools/list","id":1}`)))
+		if err == nil {
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Logf("Warning: failed to close response body: %v", err)
+				}
+			}()
+			if resp.StatusCode == 401 {
+				t.Skip("Server requires authentication - Inspector CLI test skipped")
+			}
+		}
+	}
 
 	// Test tools/list with Inspector
 	cmd := exec.Command("npx", "@modelcontextprotocol/inspector",

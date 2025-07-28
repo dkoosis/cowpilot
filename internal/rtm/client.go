@@ -408,3 +408,120 @@ func (c *Client) getTimeline() (string, error) {
 
 	return result.Rsp.Timeline, nil
 }
+
+// UpdateTask updates task properties
+func (c *Client) UpdateTask(listID, seriesID, taskID string, updates map[string]string) error {
+	timeline, err := c.getTimeline()
+	if err != nil {
+		return err
+	}
+
+	for field, value := range updates {
+		params := map[string]string{
+			"timeline":      timeline,
+			"list_id":       listID,
+			"taskseries_id": seriesID,
+			"task_id":       taskID,
+		}
+
+		var method string
+		switch field {
+		case "name":
+			method = "rtm.tasks.setName"
+			params["name"] = value
+		case "due":
+			method = "rtm.tasks.setDueDate"
+			params["due"] = value
+		case "priority":
+			method = "rtm.tasks.setPriority"
+			params["priority"] = value
+		case "estimate":
+			method = "rtm.tasks.setEstimate"
+			params["estimate"] = value
+		case "tags":
+			method = "rtm.tasks.setTags"
+			params["tags"] = value
+		case "list":
+			method = "rtm.tasks.moveTo"
+			params["to_list_id"] = value
+		default:
+			return fmt.Errorf("unsupported field: %s", field)
+		}
+
+		_, err := c.Call(method, params)
+		if err != nil {
+			return fmt.Errorf("updating %s: %w", field, err)
+		}
+	}
+
+	return nil
+}
+
+// CreateList creates a new list
+func (c *Client) CreateList(name string) (*List, error) {
+	timeline, err := c.getTimeline()
+	if err != nil {
+		return nil, err
+	}
+
+	params := map[string]string{
+		"timeline": timeline,
+		"name":     name,
+	}
+
+	resp, err := c.Call("rtm.lists.add", params)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Rsp struct {
+			Stat string `json:"stat"`
+			List List   `json:"list"`
+		} `json:"rsp"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("parsing create list response: %w", err)
+	}
+
+	return &result.Rsp.List, nil
+}
+
+// RenameList renames a list
+func (c *Client) RenameList(listID, newName string) error {
+	timeline, err := c.getTimeline()
+	if err != nil {
+		return err
+	}
+
+	params := map[string]string{
+		"timeline": timeline,
+		"list_id":  listID,
+		"name":     newName,
+	}
+
+	_, err = c.Call("rtm.lists.setName", params)
+	return err
+}
+
+// ArchiveList archives or unarchives a list
+func (c *Client) ArchiveList(listID string, archive bool) error {
+	timeline, err := c.getTimeline()
+	if err != nil {
+		return err
+	}
+
+	params := map[string]string{
+		"timeline": timeline,
+		"list_id":  listID,
+	}
+
+	method := "rtm.lists.unarchive"
+	if archive {
+		method = "rtm.lists.archive"
+	}
+
+	_, err = c.Call(method, params)
+	return err
+}
