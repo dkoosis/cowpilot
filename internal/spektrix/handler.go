@@ -21,7 +21,7 @@ func NewHandler() *Handler {
 	if client == nil {
 		return nil
 	}
-
+	
 	return &Handler{
 		client: client,
 	}
@@ -89,15 +89,15 @@ func (h *Handler) setupCreateCustomer(s *server.MCPServer) {
 		mcp.WithString("lastName", mcp.Required(), mcp.Description("Customer last name")),
 		mcp.WithString("email", mcp.Required(), mcp.Description("Customer email address")),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]interface{})
-	if !ok {
-	return mcp.NewToolResultError("invalid arguments format"), nil
-	}
-	
-	firstName, _ := args["firstName"].(string)
-	lastName, _ := args["lastName"].(string)
-	email, _ := args["email"].(string)
-
+		args, ok := request.Params.Arguments.(map[string]interface{})
+		if !ok {
+			return mcp.NewToolResultError("invalid arguments format"), nil
+		}
+		
+		firstName, _ := args["firstName"].(string)
+		lastName, _ := args["lastName"].(string)
+		email, _ := args["email"].(string)
+		
 		if firstName == "" || lastName == "" || email == "" {
 			return mcp.NewToolResultError("firstName, lastName, and email are required"), nil
 		}
@@ -120,7 +120,7 @@ func (h *Handler) setupCreateCustomer(s *server.MCPServer) {
 
 		resultBytes, _ := json.MarshalIndent(result, "", "  ")
 		return &mcp.CallToolResult{
-			Content: []interface{}{
+			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
 					Text: string(resultBytes),
@@ -141,12 +141,15 @@ func (h *Handler) setupAddAddress(s *server.MCPServer) {
 		mcp.WithString("city", mcp.Description("City")),
 		mcp.WithString("state", mcp.Description("State/province")),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := request.Params.Arguments
-
+		args, ok := request.Params.Arguments.(map[string]interface{})
+		if !ok {
+			return mcp.NewToolResultError("invalid arguments format"), nil
+		}
+		
 		customerID, _ := args["customerId"].(string)
 		country, _ := args["country"].(string)
 		postcode, _ := args["postcode"].(string)
-
+		
 		if customerID == "" || country == "" || postcode == "" {
 			return mcp.NewToolResultError("customerId, country, and postcode are required"), nil
 		}
@@ -166,14 +169,14 @@ func (h *Handler) setupAddAddress(s *server.MCPServer) {
 		}
 
 		result := map[string]interface{}{
-			"success":    true,
-			"customerId": customerID,
-			"address":    address,
+			"success":     true,
+			"customerId":  customerID,
+			"address":     address,
 		}
 
 		resultBytes, _ := json.MarshalIndent(result, "", "  ")
 		return &mcp.CallToolResult{
-			Content: []interface{}{
+			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
 					Text: string(resultBytes),
@@ -189,11 +192,14 @@ func (h *Handler) setupUpdateTags(s *server.MCPServer) {
 		mcp.WithString("customerId", mcp.Required(), mcp.Description("Customer ID")),
 		mcp.WithString("tagIds", mcp.Required(), mcp.Description("Comma-separated tag IDs")),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		args := request.Params.Arguments
-
+		args, ok := request.Params.Arguments.(map[string]interface{})
+		if !ok {
+			return mcp.NewToolResultError("invalid arguments format"), nil
+		}
+		
 		customerID, _ := args["customerId"].(string)
 		tagIdsStr, _ := args["tagIds"].(string)
-
+		
 		if customerID == "" {
 			return mcp.NewToolResultError("customerId is required"), nil
 		}
@@ -216,7 +222,7 @@ func (h *Handler) setupUpdateTags(s *server.MCPServer) {
 
 		resultBytes, _ := json.MarshalIndent(result, "", "  ")
 		return &mcp.CallToolResult{
-			Content: []interface{}{
+			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
 					Text: string(resultBytes),
@@ -242,7 +248,7 @@ func (h *Handler) setupGetTags(s *server.MCPServer) {
 
 		resultBytes, _ := json.MarshalIndent(result, "", "  ")
 		return &mcp.CallToolResult{
-			Content: []interface{}{
+			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
 					Text: string(resultBytes),
@@ -264,7 +270,7 @@ func splitAndTrim(s, sep string) []string {
 	if s == "" {
 		return []string{}
 	}
-
+	
 	parts := make([]string, 0)
 	for _, part := range strings.Split(s, sep) {
 		if trimmed := strings.TrimSpace(part); trimmed != "" {
