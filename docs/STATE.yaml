@@ -240,9 +240,9 @@ SAMPLE_DATA:
     CONFIG: string_values_only[no_nested_objects]
     TRANSPORT: SSE+Streamable_HTTP_required
 
-∇PROTOCOL_CONTRACTS[2025-07-26]:
-  STATUS: ✓implemented→fixing_integration_tests
-  φinternal/contracts/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]
+✓PROTOCOL_SPECS[2025-07-27]:
+  STATUS: ✓implemented→tests_enabled
+  φinternal/protocol/specs/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]
   φdocs/reference/oauth-protocol-requirements.md: detailed_spec
   ‡OAUTH_REQUIREMENTS:
     GET_AUTHORIZE: [client_id,redirect_uri,state]→query_params
@@ -330,7 +330,20 @@ SAMPLE_DATA:
 
 ≈CONTEXT[current_session_july27_2025]:
   ✓DEPLOYMENT: fly.io[single_instance,auth_disabled,persistent_tokens]
-  ✓INTEGRATION_TESTS: all_passing→deployed_instance
+  ✓INTEGRATION_TEST_FIXES[2025-07-28]:
+    STATUS: ✓multiple_race_conditions_addressed
+    ISSUES_FIXED:
+      server_startup_race: [shell_script_path_fix,testmain_coordination_fix]
+      ipv6_localhost: explicit_ipv4_binding[127.0.0.1_vs_::1]
+      port_conflicts: lsof_cleanup_before_server_start
+      readiness_detection: [health_endpoint+mcp_endpoint_verification]
+      timing_improvements: [60_attempts_vs_30,500ms_intervals,progress_output]
+    REMAINING_RISKS:
+      environment_variables: server_might_need_additional_env_setup
+      tool_count_mismatch: everything_server_vs_rtm_server_expectations
+      multiple_test_runs: process_cleanup_between_runs
+      network_binding: server_ipv4_vs_ipv6_localhost_resolution
+    MONITORING: ✓comprehensive_logging_and_error_handling_added
   ✓COMPLETED: [P1_mcp_tests✓,P2_rtm_oauth✓,P3_sqlite_tokens✓,P4_validation✓]
   ✓PRODUCTION: persistent_volume[/data/tokens.db]+validation_ready
   ∇NEXT_OPTIONS: [RTM_credentials→fly_secrets,claude_ai_testing,practical_tools]
@@ -364,7 +377,7 @@ SAMPLE_DATA:
   internal/rtm/: [client.go,handlers.go,oauth_adapter.go,setup.go,credential_store.go]→RTM_COMPLETE
   internal/validator/: [core.go,jsonrpc.go,mcp.go,security.go]
   internal/testutil/: [assertions.go,requests.go]
-  internal/contracts/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]
+  internal/protocol/specs/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]
   tests/: [claude_connector_test.go,oauth_scenario_test.go,test-runner.go,mcp_integration_test.go→NEW]
   scripts/test/: [run-tests.sh,test-sse-transport.sh,test-mcp-integration.sh→NEW]
   docs/: [STATE.yaml,adr/*,claude-integration/*,debug/*,reference/*,oauth-protocol-requirements.md]

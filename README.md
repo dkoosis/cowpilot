@@ -11,15 +11,15 @@ MCP (Model Context Protocol) server implementation in Go - comprehensive everyth
 ```bash
 # Clone and test production server
 git clone https://github.com/vcto/mcp-adapters.git
-cd cowpilot
+cd mcp-adapters
 curl https://mcp-adapters.fly.dev/health  # Should return: OK
 
 # Build and test locally
 make build  # Runs all tests then builds
-./bin/cowpilot  # Run in stdio mode
+./bin/mcp-adapters  # Run in stdio mode
 
 # Run with HTTP/SSE server
-FLY_APP_NAME=local-test ./bin/cowpilot
+FLY_APP_NAME=local-test ./bin/mcp-adapters
 ```
 
 ## 📋 What's Implemented
@@ -57,7 +57,7 @@ make test-verbose  # Human-readable output
 make coverage      # Generate coverage report
 
 # Manual testing
-npx @modelcontextprotocol/inspector ./bin/cowpilot
+npx @modelcontextprotocol/inspector ./bin/mcp-adapters
 ```
 
 See [Testing Guide](docs/testing-guide.md) for comprehensive testing documentation.
@@ -67,7 +67,7 @@ See [Testing Guide](docs/testing-guide.md) for comprehensive testing documentati
 ### Adding a New Tool
 
 ```go
-// In cmd/cowpilot/main.go
+// In cmd/everything/main.go
 tool := mcp.NewTool("weather",
     mcp.WithDescription("Get weather for a location"),
     mcp.WithString("location", mcp.Required(), mcp.Description("City name")),

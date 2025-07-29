@@ -33,7 +33,7 @@ if curl -s http://localhost:8080/health > /dev/null 2>&1; then
 else
     # Build and start server
     echo -e "${BLUE} ▶${NC} Building server..."
-    if go build -o ./bin/cowpilot ./cmd/cowpilot 2>/dev/null; then
+    if go build -o ./bin/cowpilot ./cmd/everything 2>/dev/null; then
         echo -e "${GREEN} ✓${NC} Build successful"
     else
         echo -e "${RED} ✗${NC} Build failed"

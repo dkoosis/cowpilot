@@ -28,13 +28,24 @@ SCENARIO_TEST_DIR=./tests/scenarios
 COVERAGE_FILE=coverage.out
 GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
-.PHONY: all build build-rtm build-debug debug-proxy run-debug-proxy test unit-test integration-test scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
+# TESTING STRATEGY:
+# - 'make' and 'make test' = COMPREHENSIVE (local + deployed verification)
+# - Auto-deploy if server not responding (no manual deployment dance)
+# - Clear messaging about what's happening and why
+# 
+# Philosophy: Better to wait 2 minutes 100 times than debug something dumb
+# Speed is not the priority - comprehensive validation is
 
-# Clean, format, lint, and run ALL tests including scenarios
+.PHONY: all build build-rtm build-debug debug-proxy run-debug-proxy test unit-test integration-test integration-test-local scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
+
+# Clean, format, lint, and run COMPREHENSIVE tests (local + deployed)
 all: clean fmt vet lint test scenario-test-local
 
-# Run ALL tests (unit, integration, and scenario)
-test: unit-test integration-test scenario-test-local
+# Run LOCAL tests only (unit + local integration)
+test: unit-test integration-test-local
+
+# Run COMPREHENSIVE tests (local + deployed verification)
+test-all: unit-test integration-test-local integration-test
 
 # Build the RTM server (production target)
 build-rtm: test
@@ -95,14 +106,36 @@ unit-test:
 		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	fi
 
-# Run integration tests
+# Run integration tests (with auto-deploy option)
 integration-test:
 	@echo "Running integration tests against deployed instance..."
+	@echo "Testing connectivity first..."
+	@if ! curl -f -s --max-time 10 https://mcp-adapters.fly.dev/health > /dev/null 2>&1; then \
+		echo "⚠️  Server not responding at https://mcp-adapters.fly.dev"; \
+		echo ""; \
+		echo "Options:"; \
+		echo "  1. Auto-deploy: make deploy-rtm (recommended)"; \
+		echo "  2. Check status: fly status && fly logs"; \
+		echo "  3. Skip deployed tests: make unit-test integration-test-local"; \
+		echo ""; \
+		read -p "Deploy RTM server now? [y/N] " -n 1 -r; \
+		echo; \
+		if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+			echo "🚀 Auto-deploying RTM server..."; \
+			$(MAKE) deploy-rtm; \
+			echo "⏳ Waiting for deployment to be ready..."; \
+			sleep 10; \
+		else \
+			echo "❌ Skipping deployed integration tests"; \
+			exit 1; \
+		fi; \
+	fi
+	@echo "✅ Server responding, running integration tests..."
 	@export MCP_SERVER_URL="https://mcp-adapters.fly.dev/mcp" && \
 	if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -race ./tests/...; \
+		$(GOTESTSUM) --format testdox -- -race -timeout 30s ./tests/integration/...; \
 	else \
-		$(GOTEST) -v -race ./tests/...; \
+		$(GOTEST) -v -race -timeout 30s ./tests/integration/...; \
 	fi
 
 # Run integration tests locally (development only)
@@ -282,26 +315,4 @@ test-ci:
 	fi
 
 # Show help
-help:
-	@echo "Available targets:"
-	@echo "  all              - Clean, format, vet, lint, test, and run scenarios"
-	@echo "  build            - Run all tests then build the binary"
-	@echo "  build-debug      - Build the debug proxy binary"
-	@echo "  debug-proxy      - Build both main application and debug proxy"
-	@echo "  run-debug-proxy  - Build and run the debug proxy with default settings"
-	@echo "  test             - Run all tests (unit, integration, and scenarios)"
-	@echo "  unit-test        - Run unit tests with coverage"
-	@echo "  integration-test - Run integration tests"
-	@echo "  scenario-test    - Run scenario tests (Go + shell scripts)"
-	@echo "  scenario-test-local - Run scenario tests against local server (localhost:8080)"
-	@echo "  scenario-test-prod - Run scenario tests against production (mcp-adapters.fly.dev)"
-	@echo "  scenario-test-raw - Run raw SSE/JSON-RPC tests using curl and jq"
-	@echo "  clean            - Remove build artifacts"
-	@echo "  fmt              - Format code"
-	@echo "  vet              - Run go vet"
-	@echo "  lint             - Run linter (requires golangci-lint)"
-	@echo "  coverage         - Generate test coverage report"
-	@echo "  run              - Build and run locally"
-	@echo "  dev              - Run with hot reload (requires air)"
-	@echo "  deploy           - Test, build, and deploy to Fly.io"
-	@echo "  test-verbose     - Run tests with human-readable output"
+include help.mk

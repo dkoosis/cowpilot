@@ -331,45 +331,45 @@ func TestWithInspectorCLI(t *testing.T) {
 
 // Test runner helper
 func TestMain(m *testing.M) {
-	// Start server if not already running
+	// Check if server is running - don't start our own if one is already running
 	serverURL := getServerURL()
 
-	// Check if server is already running
-	resp, err := http.Get(serverURL)
-	if err != nil {
-		fmt.Printf("Server not running at %s, starting...\n", serverURL)
-
-		// Start the server
-		cmd := exec.Command("go", "run", "../cmd/cowpilot/main.go", "--disable-auth")
-		if err := cmd.Start(); err != nil {
-			fmt.Printf("Failed to start server: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Wait for server to be ready
-		for i := 0; i < 30; i++ {
-			if resp, err := http.Get(serverURL); err == nil {
+	// For local testing, assume external script handles server lifecycle
+	if serverURL == "http://localhost:8080/mcp" {
+		// Wait for server to be ready (started by external script)
+		fmt.Println("⏳ Waiting for server to be ready...")
+		for i := 0; i < 60; i++ { // Increased wait time
+			// Try both IPv4 and health endpoint
+			resp, err := http.Get("http://127.0.0.1:8080/health")
+			if err == nil {
 				if err := resp.Body.Close(); err != nil {
 					fmt.Printf("Warning: failed to close response body: %v\n", err)
 				}
-				break
+				// Also verify MCP endpoint is responding
+				client := &http.Client{Timeout: 5 * time.Second}
+				testReq, _ := http.NewRequest("POST", "http://127.0.0.1:8080/mcp",
+					bytes.NewReader([]byte(`{"jsonrpc":"2.0","method":"tools/list","id":1}`)))
+				testReq.Header.Set("Content-Type", "application/json")
+				if testResp, testErr := client.Do(testReq); testErr == nil {
+					if err := testResp.Body.Close(); err != nil {
+						fmt.Printf("Warning: failed to close test response body: %v\n", err)
+					}
+					fmt.Println("✅ Server ready for testing (health + MCP responding)")
+					break
+				}
 			}
-			time.Sleep(100 * time.Millisecond)
+			if i%10 == 0 && i > 0 {
+				fmt.Printf("  Still waiting... (%d/60)\n", i)
+			}
+			time.Sleep(500 * time.Millisecond)
+			if i == 59 {
+				fmt.Println("❌ Server not ready after 30 seconds")
+				os.Exit(1)
+			}
 		}
-
-		// Run tests
-		code := m.Run()
-
-		// Stop server
-		if err := cmd.Process.Kill(); err != nil {
-			fmt.Printf("Warning: failed to kill server process: %v\n", err)
-		}
-		os.Exit(code)
-	} else {
-		if err := resp.Body.Close(); err != nil {
-			fmt.Printf("Warning: failed to close response body: %v\n", err)
-		}
-		// Server already running, just run tests
 		os.Exit(m.Run())
 	}
+
+	// For deployed servers, just run tests directly
+	os.Exit(m.Run())
 }
