@@ -519,9 +519,23 @@ func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ValidateBearer checks if a bearer token is valid
+// ValidateBearer checks if a bearer token is valid by testing it against RTM API
 func (a *OAuthAdapter) ValidateBearer(token string) bool {
-	// For RTM, we could validate by making an API call
-	// For now, just check if non-empty
-	return token != ""
+	if token == "" {
+		return false
+	}
+
+	// Create a temporary client with the token to test it
+	testClient := NewClient(a.client.APIKey, a.client.Secret)
+	testClient.AuthToken = token
+
+	// Test token by making a minimal API call
+	_, err := testClient.GetLists()
+	if err != nil {
+		log.Printf("RTM DEBUG: Token validation failed: %v", err)
+		return false
+	}
+
+	log.Printf("RTM DEBUG: Token validation successful")
+	return true
 }

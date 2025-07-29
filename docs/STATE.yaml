@@ -1,383 +1,149 @@
-# STATE.yaml v7.6-claude-optimized
-# λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=native
-# MACHINE_CONTEXT_FOR_CLAUDE[not_human_readable]
+# STATE.yaml v8.0-claude-optimized
+# λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=working
+# MACHINE_CONTEXT_FOR_CLAUDE[accurate_current_state]
 
-‡RTM_AUTH_FLOW[FIXED_2025-07-27]:
-  STATUS: ✓fixed_ux_flow→✓fixed_token_passing→✓production_working
-  ‡RACE_CONDITION: ✓fixed→verify_before_callback
-  ‡PRIMARY_ISSUE: ✓fixed→user_must_complete_rtm_auth_before_continue
-  ‡TOKEN_PASSING_ISSUE: ✓fixed→oauth_token_reaches_registered_tools
-  ‡SOLUTION: /rtm/check-auth_endpoint→polls_frob_status_every_2s
-  ‡UX_IMPROVEMENTS: [continue_button_disabled_until_verified,visual_status_feedback,retry_mechanism]
-  ‡NEW_ENDPOINTS: /rtm/check-auth→json{authorized:bool,pending:bool,error:string}
-  ‡FLOW_FIXED: intermediate_page→check_auth_status→enable_continue→callback→verified_token→tools_working
-  ‡ARCHITECTURE_FIX: pass_rtm_handler_instance_to_auth_middleware[shared_token_state]
+‡CURRENT_ARCHITECTURE[2025-07-29]:
+  STATUS: ✓production_multi_server_system[PATHS_UPDATED]
+  PRIMARY_SERVERS:
+    demo: φcmd/demo-server/main.go→comprehensive_demo_server[port_8080]
+    rtm: φcmd/rtm_server/main.go→RTM_focused_server[port_8081]→✓DEPLOYED
+    spektrix: φcmd/spektrix_server/main.go→Spektrix_integration[port_TBD]
+    test_examples: φcmd/test-examples-server/main.go→testing_examples[port_8082]
+    debug_proxy: φcmd/mcp_debug_proxy/main.go→debug_system
+    oauth_spec_test: φcmd/oauth_spec_test/main.go→claude_ai_oauth_spec_compliance_test[port_8090]
+  DEPLOYMENT: ✓fly.io[app:cowpilot,port:8081,RTM_production]
+  BUILD_SYSTEM: ✓Makefile[comprehensive_testing,multi_target,FIXED_PATHS]
+
+✓RTM_PRODUCTION_STATUS[2025-07-29]:
+  STATUS: ✓deployed_and_functional
+  APP_NAME: cowpilot[fly.io]
+  ENDPOINT: https://cowpilot.fly.dev/mcp
+  PORT: 8081[production]
+  STORAGE: ✓persistent_sqlite[/data/tokens.db,cowpilot_data_volume]
+  AUTH_FLOW: ✓OAuth_implemented[RTM_API_integration]
+  CAPABILITIES: [8_RTM_tools,7_RTM_resources,debug_system]
+  HEALTH_CHECK: ✓/health[15s_intervals]
+
+✓RTM_TOOLS[8_implemented]:
+  rtm_auth_url→generate_authentication_url
+  rtm_lists→get_all_lists_with_metadata  
+  rtm_search→search_tasks_with_RTM_syntax
+  rtm_quick_add→create_task_smart_syntax
+  rtm_update→modify_task_properties
+  rtm_complete→mark_tasks_complete
+  rtm_manage_list→create_rename_archive_lists
+  CREDENTIALS: env[RTM_API_KEY,RTM_API_SECRET]
+
+✓RTM_RESOURCES[7_implemented]:
+  rtm://today→tasks_due_today_json
+  rtm://inbox→inbox_tasks_json
+  rtm://overdue→past_due_tasks_json  
+  rtm://week→next_7_days_tasks_json
+  rtm://lists→all_lists_with_counts_json
+  rtm://lists/{list_name}→specific_list_tasks[template]
+  rtm://smart/{list_name}→smart_list_tasks[template]
+
+✓DEBUG_SYSTEM[comprehensive]:
+  STATUS: ✓implemented_runtime_configurable
+  CONFIG: env[MCP_DEBUG_ENABLED,MCP_DEBUG_LEVEL]
+  STORAGE: ✓sqlite[debug_conversations.db]
+  FEATURES: [request_logging,protocol_validation,performance_monitoring]
+  MIDDLEWARE: ✓zero_overhead_when_disabled
+
+λMCP_GO_LIMITATIONS[current]:
+  VERSION: github.com/mark3labs/mcp-go@v0.34.1
+  ∅MISSING: [completions,logging_api,progress_notifications]
+  ✓AVAILABLE: [tools,resources,prompts,StreamableHTTP,stateless_mode]
+  WORKAROUNDS: [server_side_logging,context_cancellation,rich_responses]
+
+‡MCP_OAUTH_SPEC_EVOLUTION[CRITICAL_2025-07-29]:
+  STATUS: λOUR_ARCHITECTURE_MAY_BE_DEPRECATED
+  ANTHROPIC_ACKNOWLEDGMENT: "got_OAuth_wrong"_in_march_2025_spec
   
-✓MULTI_SERVER_ARCHITECTURE[2025-07-27]:
-  STATUS: ✓implemented→segregated_servers_with_shared_codebase
-  STRUCTURE: single_repo+shared_internal_packages+separate_binaries
-  SERVERS:
-    ✓RTM_SERVER: cmd/rtm-server→focused_rtm_tools+resources[port_8081]
-    ✓TEST_SERVER: cmd/test-server→demo_tools+examples[port_8082] 
-    ✓EVERYTHING_SERVER: cmd/cowpilot→all_capabilities[port_8080]
-  ✓RTM_RESOURCES: [rtm://today,rtm://inbox,rtm://overdue,rtm://week,rtm://lists,rtm://lists/{list_name},rtm://smart/{list_name}]
-  ✓RTM_TOOLS[8]: [rtm_auth_url,rtm_lists,rtm_search,rtm_quick_add,rtm_update,rtm_complete,rtm_manage_list]
-  ✓SHARED_PACKAGES: [internal/rtm,internal/auth,internal/debug,internal/middleware]
-  BENEFITS: [code_reuse,unified_deployment,consistent_patterns,domain_segregation]
-  APPROACH: follows_mcp-go-main_examples_pattern
-  
-∇RTM_FUTURE_UX[TBD]:
-  ∇USER_PROVIDED_CREDENTIALS: require_user_rtm_api_key+secret[not_server_env_vars]
-  ∇PERMISSION_SCOPES: [read_only_option,designated_lists_filter,tag_restrictions]
-  ∇AUTH_FLOW_REDESIGN: user_inputs_credentials→scoped_permissions→rtm_oauth
-  ∇SECURITY_REVIEW: multi_user_credential_storage_best_practices[encryption,isolation,rotation,audit]
-  ∇STEP4_USER_SCOPED_OAUTH: modify_oauth_adapter_to_use_stored_credentials_per_user
-  ∇RATE_LIMIT_HANDLING: review_rtm_api_limits+error_codes→intelligent_backoff+retry
-  ∇BATCH_OPERATIONS: review_rtm_batch_capabilities[if_any]→optimize_multi_task_operations
-  ∇PROJECT_RENAME: cowpilot→more_generic_name[big_change_deferred]
-  ∇AUTH_SPEC_COMPLIANCE: verify_6/18_auth_spec_compliance[anthropic_update_july_2025]
-  ∇MOBILE_TESTING: verify_rtm_workflow_ios+android[newly_supported]
-  RATIONALE: user_owns_credentials+granular_access_control
-  DOCUMENTED: φdocs/AUTH_FLOWS.yaml→RTM_DEBUG_FINDINGS[2025-07-27]
-  ISSUE: ✓RESOLVED_oauth_tests_failing_with_400
-  ROOT_CAUSE: HTML_token_extraction_off_by_one
-  PROBLEM: hardcoded_offset_26_incorrect_for_search_string
-  FIX: use_len(searchStr)_instead_of_magic_number
-  LEARNED: [avoid_magic_numbers,test_string_extraction,debug_first]
-
-‡DEV_GUIDELINES:
-  SESSION_PROTOCOL: ✓CHECK_STATE_YAML_FIRST→machine_optimized_context
-  RTFM_MANDATE: ∅never_guess[check:STATE.yaml,reference/schema.ts,reference/llms-full.txt,actual_source]
-  CODE_STANDARDS: [✓replace_not_duplicate,✓complete_functions_only,✓quality_first,✓explicit_gaps>technical_debt]
-  TECHNICAL_APPROACH: [✓assume_bugs_in_our_code,✓streaming_http,✓transparency,✓unfiltered_counsel]
-  VERIFICATION_REQUIRED: [✓check_actual_code,✓check_documentation,∅never_assume_functionality]
-  STATE_YAML_PURPOSE: ✓machine_optimized_claude_context[not_human_documentation]
-
-∞STATUS:
-  MODE: everything_server[tools+resources+prompts✓]+debug_proxy✓
-  BUILD: go build -o bin/cowpilot cmd/cowpilot/main.go
-  ✓BUILD_DEBUG: go build -o bin/mcp-debug-proxy cmd/mcp-debug-proxy/main.go
-  RUN: ./bin/cowpilot
-  ✓RUN_DEBUG: make run-debug-proxy
-  TEST: npx @modelcontextprotocol/inspector ./bin/cowpilot
-  ✓TEST_DEBUG: npx @modelcontextprotocol/inspector http://localhost:8080
-  ✓TESTING: [testutil.Assert→human_readable✓,gotestsum→format_testdox✓,main_test→BDD_scenarios✓,make_test→simplified✓,scenario_output→descriptive✓,protocol_compliance→comprehensive✓]
-  ✓TEST_SCRIPTS: [φscripts/test/run-tests.sh→unified_runner,project-health-check✓,mcp-protocol-smoke-test✓,transport-diagnostics✓,debug-integration✓,gotestsum_formatting✓,✓test-mcp-integration.sh→NEW]
-  ✓DEPLOY_SCRIPTS: [φscripts/deploy/deploy-debug-to-fly.sh→automated_deployment,check-status.sh→health_verification,monitor-registration.sh→live_debugging]
-  ✓FIXED_RAW_TEST: [scenario-test-raw→localhost_server✓,makefile_updated→auto_start_stop✓]
-  FIXED: [resource_handler→[]mcp.ResourceContents,prompt_Arguments→map[string]string,MimeType→MIMEType,CallToolRequest.Params.Arguments→type_assert_map[string]any]✓
-  CLEANED: [removed_unused_vars(samplePrompts,sampleResources,subscriptions),removed_deprecated_handlers(4),cleaned_comments]✓
-  ✓MIGRATION: [removed_internal/mcp+internal/transport→mark3labs/mcp-go_external_library]
-  ✓TESTS_CLEANED: [deleted_broken_integration_test→imports_nonexistent_packages,kept_working_e2e_framework]
-  ✓RESOLVED: go_vet_error→missing_internal/mcp_package[file_already_removed]
-  ✓DEPLOYMENT: fly.io[single_instance,min_machines_running=1,auth_disabled=true]
-  ✓CLAUDE_REGISTERED: https://mcp-adapters.fly.dev/mcp[tools_working✓]
-
-✓DEBUG_SYSTEM:
-  STATUS: ✓phase1_implemented→✓adr012_runtime_config_complete
-  PLAN: φdocs/debug/mcp-conformance-plan.md
-  PROBLEM: ∅rigorous_protocol_conformance+debug_capabilities
-  PHASES: [✓conversation_logging,protocol_validation,security_monitoring,dashboard,automated_testing]
-  ARCHITECTURE: ✓proxy_middleware[non_invasive,optional_enable,minimal_overhead]+✓runtime_configuration
-  PRIORITY: ∇implement_adr012→runtime_debug_config
-  ADR: φdocs/adr/010-mcp-debug-system-architecture.md✓+φdocs/adr/011-conditional-compilation-lightweight-debug.md†+φdocs/adr/012-runtime-debug-configuration.md✓
-  STRATEGY: ✓runtime_configuration[env_vars]+bounded_storage[memory/file]+developer_friendly
-  
-✓PHASE1[conversation_logging]:
-  DURATION: completed_july25_2025
-  DELIVERABLES: [✓internal/debug/interceptor.go,✓internal/debug/storage.go,✓cmd/mcp-debug-proxy/]
-  GOAL: ✓real_time_mcp_conversation_capture+analysis
-  STATUS: ✓implemented→∇refactoring_for_runtime_config
-  FEATURES: [✓sqlite_storage,✓message_interceptor,✓session_tracking,✓performance_monitoring,✓debug_proxy_server]
-  REFACTOR: ∇runtime_config[MCP_DEBUG=true,bounded_storage,single_build]
-  
-✓PHASE2[protocol_validation]:
-  DURATION: 2-3_weeks  
-  COMPONENTS: [✓json_rpc_validator,✓tools_validation,✓resources_validation,✓prompts_validation_explicit]
-  SECURITY: [✓parameter_injection_detection,✓access_pattern_flagging,✓error_sanitization]
-  STATUS: ✓implemented
-  
-∇PHASE3[debug_dashboard]:
-  TECH_STACK: [react_frontend,websocket_realtime,go_backend_api,chart_js_viz]
-  FEATURES: [live_conversation_monitor,protocol_analysis,interactive_testing]
-  STATUS: ∅pending_phase2
-  
-λMCP-GO:
-  VERSION: github.com/mark3labs/mcp-go[current]
-  ✓IMPORT_CHANGE: github.com/vcto/mcp-go→github.com/mark3labs/mcp-go[completed_migration]
-  ∅MISSING: [SetCompletionHandler,SetLoggingHandler,ProgressNotifications]
-  ✓EXISTS: [NewMCPServer,AddTool,AddResource,AddResourceTemplate,AddPrompt,ServeStdio,NewSSEServer]
-  ‡STREAMABLE_HTTP_SESSION_MANAGEMENT:
-    DEFAULT: InsecureStatefulSessionIdManager[uuid_based]
-    FLOW: initialize→returns_Mcp-Session-Id_header→client_must_send_in_subsequent_requests
-    VALIDATION: requires_mcp-session-{uuid}_format→returns_400_invalid_session_id
-    STATELESS_MODE: server.WithStateLess(true)→no_session_validation
-    CUSTOM: implement_SessionIdManager_interface
-    IMPACTS: [per_session_tools,logging_levels,sse_notifications]
-    SOURCE: /Users/vcto/Projects/mcp-go-main/server/streamable_http.go
-  ‡MCP_INSPECTOR_TRANSPORT:
-    AUTO_DETECTION: url_pattern_based[/mcp→http,/sse→sse,default→sse]
-    CLI_FLAG: only_affects_output_format_not_transport
-    FORCE_TRANSPORT: --transport_http|sse|stdio
-    ISSUE: default_endpoint_/→uses_sse_not_http
-    SOLUTIONS: [WithEndpointPath("/mcp"),--transport_http,WithStateLess(true)]
-    SOURCE: /Users/vcto/Projects/inspector-main/cli/src/transport.ts
-    ✓DOCUMENTED: φdocs/MCP_INSPECTOR_SESSION_ISSUE.md[comprehensive_reference]
-  
-∇TOOLS[11]:
-  hello→"Hello,World!"
-  echo[message:string]→"Echo:$message"
-  add[a,b:number]→a+b
-  get_time[format?:unix|iso|human]→time.Now()[default:iso]
-  base64_encode[text:string]→base64(text)
-  base64_decode[data:string]→decode(data)
-  string_operation[text,operation:upper|lower|reverse|length]→transform(text)
-  format_json[json:string,minify?:bool]→prettify|minify
-  long_running_operation[duration?,steps?:number]→simulate_progress
-  get_test_image[]→ImageContent{base64,image/png}
-  get_resource_content[uri]→EmbeddedResource{TextResourceContents|BlobResourceContents}
-
-✓RESOURCES[4]:
-  example://text/hello→TextResourceContents{text/plain}
-  example://text/readme→TextResourceContents{text/markdown}
-  example://image/logo→BlobResourceContents{image/png}
-  example://dynamic/{id}→TextResourceContents{application/json}[template]
-
-✓PROMPTS[2]:
-  simple_greeting→PromptMessage{user:greeting_request}
-  code_review[language,code:required]→PromptMessage{user:review_request}
-
-✓NATIVE_SUPPORT:
-  RESOURCES: ✓native{AddResource,AddResourceTemplate,WithResourceCapabilities}
-  PROMPTS: ✓native{AddPrompt,WithPromptCapabilities}
-  COMPLETIONS: ∅not_implemented
-  LOGGING: ∅not_implemented
-  PROGRESS: ∅not_implemented[λno_api]
-
-φMAIN: /Users/vcto/Projects/cowpilot/cmd/cowpilot/main.go
-  ‡TRANSPORT: StreamableHTTP[stateless]→HTTP_POST+SSE_auto_detect
-  ✓CONFIG: WithStateLess(true)→no_sessions✓testing_simplified
-  ✓CLIENTS: [Inspector→HTTP,Browser→SSE,curl→HTTP]
-  ✓FIXES: [inspector_--transport_http,json_rpc_tests,utc_time]
-  PATTERN_TOOL: s.AddTool(mcp.NewTool(name,opts...),handler)
-  PATTERN_MULTI: &mcp.CallToolResult{Content:[]interface{}{TextContent{},ImageContent{}}}
-  PATTERN_ERROR: mcp.NewToolResultError(msg),nil
-  PATTERN_EMBED: EmbeddedResource{Type:"resource",Resource:TextResourceContents{URI,MimeType,Text}}
-  ✓MIDDLEWARE_STACK: [protocolDetectionMiddleware→debug→auth→cors→streamableServer]
-  ✓ENDPOINTS: [/mcp,/health,/oauth/*,/.well-known/*]
-
-‡DECISIONS:
-  ✓LIBRARY: mcp-go[native_support]→tools+resources+prompts
-  ✓APPROACH: native_api_usage>no_workarounds_needed
-  RATIONALE: library_supports_features+clean_implementation
-  
-‡ACTIVE_BLOCKERS: 
-  λMCP_GO: ∅[completions,logging,progress]
-  ‡CLAUDE_AI: ∅[OAuth_DCR_testing_needed]
-  ‡OAUTH_CSRF: ✓csrf_uses_session_cookies[must_copy_cookies_GET→POST]
-  ‡TEST_ISSUES: ✓fixed[package_conflicts,missing_functions,csrf_cookie_flow]
-  ‡CSRF_ARCHITECTURE_CONFLICT:
-    PROBLEM: mixing_two_csrf_approaches[server_side_tokens+cookies]
-    CURRENT: stateTokens_map_in_OAuthCallbackServer[in_memory_not_shared]
-    ATTEMPTED: added_cookies_but_still_validating_against_memory_map
-    ROOT_CAUSE: ValidateStateToken_checks_s.stateTokens[state]_not_cookie
-    SOLUTION: pick_one_approach[prefer_cookies_for_stateless_deployment]
-    LEARNED: [rtfm_before_changing,understand_data_flow,avoid_mixing_patterns]
-
-SAMPLE_DATA:
-  RES: {
-    "example://text/hello": "Hello,World!This is a simple text resource from the everything server.",
-    "example://text/readme": "# Everything Server\n\nThis is an example MCP server...",
-    "example://image/logo": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-  }
-  PROMPTS: {
-    "simple_greeting": {args:∅,msg:"Please provide a friendly greeting for a new user joining our community."},
-    "code_review": {args:{language:required,code:required},msg:"Please review the following $language code..."}
-  }
-
-‡CLAUDE_AI_INTEGRATION[2025-07-27]:
-  GOAL: ✓enable_claude.ai_as_MCP_client[completed]
-  ‡CONSTRAINT: claude.ai_CANNOT_access_local_servers[browser_security]
-  ✓DEPLOYED: fly.io[auth_disabled,single_instance]
-  ✓REGISTERED: claude.ai_connector[tools_visible✓]
-  
-  ‡OAUTH_ENDPOINT_REQUIREMENTS[LEARNED_2025-07-27]:
-    CLAUDE_AI_EXPECTS: /authorize+/token[NOT_/oauth/authorize]
-    SOLUTION: support_both_paths[compatibility]
-    ENDPOINTS: [/authorize,/token,/oauth/authorize,/oauth/token]
-    LEARNED: claude.ai_oauth_paths_different_from_standard_conventions
-  
-  ✓P1_REMOTE_DEPLOYMENT[COMPLETE_2025-07-26]:
-    STATUS: ✓fly.io_deployed+✓CORS_implemented→∇healthcheck_needed
-    DELIVERABLES: [✓CORS_headers,✓health_endpoint,✓SSE_test_script]
-    CORS_CONFIG: ✓Access-Control-Allow-Origin:https://claude.ai
-    CORS_IMPL: ✓internal/middleware/cors.go[configurable_origins]
-    TEST_SCRIPT: ✓scripts/test/test-sse-transport.sh
-    DOCS: ✓docs/claude-integration/[README,deployment,troubleshooting]
-    ‡FLY_HEALTH: ✓fixed[removed_experimental_cmd,startup_race_fixed,cors_bypass]
-    READY_FOR: deployment+claude.ai_testing[pending_OAuth]
+  ‡SPEC_TIMELINE:
+    MARCH_2025: ❌MCP_server_as_auth_server_AND_resource_server
+    JUNE_18_2025: ✓separation_of_concerns→auth_server_separate_from_resource_server
     
-  ✓P2_OAUTH_IMPLEMENTATION[COMPLETE_2025-07-26]:
-    STATUS: ✓implemented→testing_needed
-    DELIVERABLES: [✓oauth_adapter,✓callback_server,✓middleware,✓csrf_protection]
-    IMPLEMENTED:
-      CALLBACK_SERVER: [✓timeouts,✓multiple_paths,✓graceful_shutdown]
-      SECURITY: [✓csrf_tokens,✓one_time_use,✓token_expiry]
-      MIDDLEWARE: [✓auth_bypass_for_oauth,✓bearer_validation]
-      TESTS: [✓40+_unit_tests,✓scenario_tests,✓naming_convention]
-    ISSUES_FIXED: [✓compilation_errors,✓linter_violations,✓unexported_fields]
-    READY_FOR: claude.ai_integration_testing
+  ‡CURRENT_COWPILOT_PATTERN[potentially_deprecated]:
+    STATUS: †following_march_2025_pattern
+    ROLE: φoauth_adapter.go→acting_as_authorization_server_AND_resource_server
+    ENDPOINTS: [/oauth/authorize,/oauth/token,/mcp]→dual_responsibility
+    PROBLEM: complex_frob_to_oauth_conversion_in_single_server
     
-  ✓P3_INTEGRATION_TEST[COMPLETE_2025-07-26]:
-    DELIVERABLES: [✓tests/claude_connector_test.go,∇CI_integration]
-    COVERAGE: [✓OAuth_flow,✓tool_calls,✓SSE_transport,✓error_handling,✓CORS_compliance,✓naming_compliance]
-    FEATURES: [✓complete_oauth_simulation,✓sse_transport_verification,✓tool_execution,✓capability_discovery,✓error_scenarios]
-    STATUS: ✓test_file_created→needs_execution_verification
+  ‡NEW_SPEC_REQUIREMENTS[june_18_2025]:
+    MCP_SERVER_ROLE: resource_server_ONLY→validate_tokens_serve_tools_resources
+    AUTH_SERVER_ROLE: separate_entity→handle_user_login_issue_tokens
+    DISCOVERY: RFC_9728→OAuth_2.0_Protected_Resource_Metadata
+    SECURITY: RFC_8707→Resource_Indicators_mandatory_for_clients
+    INTEGRATION: leverage_existing_identity_providers[Auth0,WorkOS,enterprise_SSO]
     
-  CONSTRAINTS:
-    NAMING: no_punctuation_in_connector_name[spaces_OK]
-    DESCRIPTION: >30_characters_required
-    CONFIG: string_values_only[no_nested_objects]
-    TRANSPORT: SSE+Streamable_HTTP_required
+  ‡CLAUDE_AI_SUPPORT_STATUS[2025-07-29]:
+    CLAUDE_WEB: ✓OAuth_support_confirmed→"worked_fine_a_month_ago"
+    CLAUDE_CODE: ✓OAuth_support_added→"only_added_it_this_week"[june_2025]
+    SPEC_COMPLIANCE: ✓expected_to_be_compliant_with_latest_spec
+    UNCERTAINTY: λneed_to_test_actual_new_spec_features
+    
+  ∇CRITICAL_DECISION_POINT:
+    OPTION_A: fix_current_auth_UX→maintain_deprecated_pattern
+    OPTION_B: migrate_to_new_spec→future_proof_but_risk_breaking
+    APPROACH: ∇TEST_CLAUDE_AI_NEW_SPEC_SUPPORT_FIRST
 
-✓PROTOCOL_SPECS[2025-07-27]:
-  STATUS: ✓implemented→tests_enabled
-  φinternal/protocol/specs/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]
-  φdocs/reference/oauth-protocol-requirements.md: detailed_spec
-  ‡OAUTH_REQUIREMENTS:
-    GET_AUTHORIZE: [client_id,redirect_uri,state]→query_params
-    POST_AUTHORIZE: [client_id,csrf_state,client_state,api_key]→form_body_NOT_query
-    ‡CSRF_FLOW: GET_sets_cookie→POST_must_include_cookie
-    TOKEN_ENDPOINT: [grant_type=authorization_code,code]→form_body
-    BEARER_FORMAT: "Authorization: Bearer <token>"→space_required
-  LEARNED:
-    FORM_VS_QUERY: POST_params_must_be_in_form_body[common_mistake]
-    COOKIE_JAR: tests_need_http.Client.Jar_for_csrf_cookies
-    CONTRACT_TESTING: proactive_validation>reactive_debugging
+∇IMMEDIATE_TASKS[priority_order]:
+  1. ∇MCP_OAUTH_SPEC_COMPLIANCE_TEST: bash_scripts/test-all-systems.sh→verify_all_systems_run_oauth_test
+  2. ∇ICON_DISPLAY: investigate_claude_mcp_server_icon_requirements
+  3. ∇RTM_AUTH_VERIFICATION: test_actual_oauth_flow_end_to_end  
+  4. ∇PRODUCTION_MONITORING: health_checks_logs_metrics
+  5. ∇USER_CREDENTIALS: allow_user_provided_RTM_keys_vs_server_env
 
-∇DOCUMENTATION_PLAN:
-  φdocs/claude-integration/
-    ∇README.md: overview+quickstart
-    ∇oauth-implementation.md: [flow_diagrams,token_management,refresh_logic]
-    ∇troubleshooting.md: [common_errors,debug_steps,inspector_usage]
-    ∇deployment.md: [fly.io_config,env_vars,monitoring]
-  φdocs/reference/
-    ∇oauth2_examples/: SDK_reference_implementations
-    ∇claude_api_spec.md: callback_URLs,requirements
-  EXISTING_SOLUTIONS:
-    AUTH: [Cloudflare_MCP_hosting,Auth0_integration,Azure_APIM]
-    EXAMPLES: [TypeScript_SDK,Python_SDK,fastmcp+mcpauth]
-    PATTERNS: [DCR_flow,token_refresh,PKCE]
+✓COMPLETED_TASKS[2025-07-29]:
+  1. ✓BUILD_TREE_INTEGRATION: docs-tree_target_exists_in_Makefile→generates_project_structure_md
+  2. ✓NAMING_ANALYSIS: comprehensive_analysis_applied_to_Go_MD_SH_YAML_files→report_generated
+  3. ✓FILE_REORGANIZATION: critical_medium_low_priority_renames→standardized_naming_conventions
+  4. ✓MCP_OAUTH_SPEC_TEST_CREATED: φcmd/oauth_spec_test/→minimal_resource_server_claude_ai_compliance_test
+  5. ✓MAKEFILE_PATH_UPDATES: fixed_help.mk→makefile_help.mk_and_directory_paths→build_system_working
+  6. ✓PACKAGE_CONFLICT_RESOLVED: tests/integration/mcp_integration_test.go→package_tests_to_integration
+  7. ✓IMPORT_PATH_FIXED: cmd/demo-server/main_test.go→internal/testing_to_testutil
+  8. ✓MCP_API_TYPE_FIXED: cmd/oauth_spec_test/main.go→CallToolRequestParams_to_CallToolRequest
+  9. ✓LINTER_ISSUES_RESOLVED: cmd/oauth_spec_test/main.go→errcheck_and_staticcheck_violations_fixed
+  10. ✓INTEGRATION_TEST_PATH_FIXED: scripts/test/test-mcp-integration.sh→cmd/everything_to_demo-server
+  11. ✓HEALTH_CHECK_PATHS_FIXED: scripts/test/project-health-check.sh→updated_all_directory_references
 
-∇NEXT:
-  ‡PRIORITY1: ✓MCP_foundation_testing[critical_brick]
-    IMPLEMENTED:
-      1. ✓tests/mcp_integration_test.go→comprehensive_coverage
-      2. ✓scripts/test/test-mcp-integration.sh→automated_runner
-      3. ✓fly.toml→single_instance_config
-      4. ✓auth_disabled→simplified_testing
-    RATIONALE: foundational_capability_must_be_maintained
-    TEST_COVERAGE: [tools/list✓,tools/call✓,resources/list✓,resources/read✓,prompts/list✓]
-    ‡TEST_STRATEGY: integration_tests_run_against_DEPLOYED_instance[https://mcp-adapters.fly.dev/mcp]
-    DOCUMENTED: φdocs/TEST_STRATEGY.md[✓clear_distinction_local_vs_deployed]
-  ∇TODO_MAKEFILE: make_build_stop_on_compile_failures[build_errors_should_halt]
-  ‡PRIORITY2: ✓RTM_OAuth_bridge[frob_to_oauth_fixed]
-    FIXED:
-      1. ✓dynamic_redirect_uri→uses_actual_callback_from_request
-      2. ✓csrf_cookie_flow→consistent_implementation
-      3. ✓session_tracking→preserves_all_oauth_params
-      4. ✓api_signature→proper_frob_auth_url
-      5. ✓auto_popup→better_ux_flow
-      6. ✓TokenResponse_types→added_auth/types.go
-    LEARNED: [preserve_oauth_params,use_actual_redirect_uri,consistent_csrf_flow]
-  PRIORITY3: ✓persistent_token_storage[SQLite_implemented]
-    IMPLEMENTED:
-      1. ✓TokenStoreInterface→swappable_implementations
-      2. ✓SQLiteTokenStore→persistent_with_WAL_mode
-      3. ✓CreateTokenStore→factory_with_env_config
-      4. ✓fly_volume→cowpilot_data_at_/data
-      5. ✓automatic_cleanup→24hr_expiry
-    CONFIG: TOKEN_DB_PATH=/data/tokens.db
-    DEPLOYMENT: fly volumes create cowpilot_data --size 1
-  PRIORITY4: ✓runtime_protocol_validation[via_debug_proxy]
-    IMPLEMENTED:
-      1. ✓ValidateProto_config→MCP_VALIDATE_PROTOCOL=true
-      2. ✓ValidateMode→monitor|enforce  
-      3. ✓validation_integration.go→uses_protocol/validation
-      4. ✓Validation_storage→violations_table+stats
-      5. ✓Zero_overhead→when_disabled
-    ENV_VARS: [MCP_VALIDATE_PROTOCOL,MCP_VALIDATE_MODE]
-    VALIDATION: ValidatedMessageInterceptor+ValidationEngine
-  PRIORITY5: ∇monitoring[usage_metrics]
-  COMPLETED: [✓fly_deployment,✓claude_registration,✓auth_disabled,✓integration_tests]
-  DEFERRED: [oauth_with_persistence,completions]
-  
-  ✓IMPLEMENTED: [fly.io_deployment,CORS_middleware,protocol_validation,11_tools]
-  ∇REFACTOR: [implement_OAuth2,add_auth_endpoints]
-  OPTIONS: [∇implement_OAuth‡|test_without_auth|research_Cloudflare_MCP]
-  
-‡VERIFY:
-  ✓tools.len==11
-  ✓echo("test")=="Echo: test"
-  ✓add(2,3)==5
-  ✓string_operation("hello","upper")=="HELLO"
-  ✓base64_encode("test")==base64_decode("dGVzdA==")
-  ✓get_test_image().Content[1].Type=="image"
-  ✓resources.list().includes("example://text/hello")
-  ✓prompts.get("code_review",{language:"go",code:"..."}).includes("review")
-  ✓get_resource_content("example://image/logo").Content[1].Type=="resource"
-  ✓FIXED: resource_handlers→return[]mcp.ResourceContents[interface]
+‡BUILD_AND_TEST[comprehensive]:
+  BUILD: make build-rtm→builds_and_tests_before_deploy
+  TEST_STRATEGY: [unit_tests,integration_local,integration_deployed,scenario_tests]
+  TOOLS: ✓gotestsum[human_readable_output]
+  CI: ✓comprehensive_validation_before_production
 
-≈CONTEXT[current_session_july27_2025]:
-  ✓DEPLOYMENT: fly.io[single_instance,auth_disabled,persistent_tokens]
-  ✓INTEGRATION_TEST_FIXES[2025-07-28]:
-    STATUS: ✓multiple_race_conditions_addressed
-    ISSUES_FIXED:
-      server_startup_race: [shell_script_path_fix,testmain_coordination_fix]
-      ipv6_localhost: explicit_ipv4_binding[127.0.0.1_vs_::1]
-      port_conflicts: lsof_cleanup_before_server_start
-      readiness_detection: [health_endpoint+mcp_endpoint_verification]
-      timing_improvements: [60_attempts_vs_30,500ms_intervals,progress_output]
-    REMAINING_RISKS:
-      environment_variables: server_might_need_additional_env_setup
-      tool_count_mismatch: everything_server_vs_rtm_server_expectations
-      multiple_test_runs: process_cleanup_between_runs
-      network_binding: server_ipv4_vs_ipv6_localhost_resolution
-    MONITORING: ✓comprehensive_logging_and_error_handling_added
-  ✓COMPLETED: [P1_mcp_tests✓,P2_rtm_oauth✓,P3_sqlite_tokens✓,P4_validation✓]
-  ✓PRODUCTION: persistent_volume[/data/tokens.db]+validation_ready
-  ∇NEXT_OPTIONS: [RTM_credentials→fly_secrets,claude_ai_testing,practical_tools]
-  CONFIDENCE: 🟢PRODUCTION_STABLE
-  
-✓SESSION_VALIDATED[july26_2025]:
-  STATUS: 🟢PRODUCTION_READY
-  GUIDELINES_REVIEWED: ✓session_protocol_acknowledged
-  MAINTENANCE_FOCUS: ✓state_yaml_optimization_for_claude_performance
-  BUILD: ✓clean_dependencies,✓comprehensive_tests,✓active_deployment
-  ✓IMPLEMENTED: [WithStateLess(true),timeHandler_UTC_fix,inspector_--transport_http,test_logic_fixes]
-  ✓DOCUMENTED: φdocs/MCP_INSPECTOR_SESSION_ISSUE.md[comprehensive_reference]
-  CONFIDENCE: HIGH→session_management_resolved
-  NEXT: [fix_csrf_session_cookies|verify_tests_pass|∇implement_adr012_runtime_config|production_hardening]
-  
-‡CONFIRMED_INSPECTOR_LIMITATION[2025-07-25]:
-  FACT: MCP_Inspector_CANNOT_pass_tool_arguments_to_URL_servers
-  ERROR_MSG: "Arguments cannot be passed to URL-based MCP server"
-  TESTED: [echo,add,base64_encode,string_operation→ALL_FAIL]
-  ROOT_CAUSE: inspector_design_limitation_not_bug
-  ✓SOLUTION: use_raw_JSON_RPC_via_curl_for_ALL_tool_tests_with_arguments
-  DECISION: ∅DO_NOT_REVISIT→documented_permanent_limitation
-  PATTERN: tools_without_args→use_inspector|tools_with_args→use_curl_json_rpc
+‡FILES_CRITICAL[claude_reference]:
+  φcmd/demo-server/main.go→demo_server_all_capabilities
+  φcmd/demo-server/main_test.go→[FIXED_IMPORT_PATH]
+  φcmd/rtm_server/main.go→production_RTM_focused_server  
+  φcmd/oauth_spec_test/→[main.go,run-test.sh,README.md]→claude_ai_oauth_spec_compliance_test[FIXED_API_AND_LINTER]
+  φscripts/test-oauth-build.sh→oauth_test_build_and_run_script
+  φscripts/test-makefile-and-oauth.sh→makefile_and_oauth_test_combined
+  φscripts/test-all-fixes.sh→comprehensive_build_test_and_oauth_verification
+  φscripts/test-final-fixes.sh→final_verification_script
+  φscripts/test-linter-fixes.sh→linter_verification_and_oauth_test
+  φscripts/test-integration-fix.sh→comprehensive_integration_and_oauth_test
+  φscripts/test-all-systems.sh→final_comprehensive_verification_script
+  φscripts/test/test-mcp-integration.sh→[FIXED_DEMO_SERVER_PATH]
+  φscripts/test/project-health-check.sh→[FIXED_ALL_DIRECTORY_PATHS]
+  φinternal/rtm/→[client.go,handlers.go,oauth_adapter.go,setup.go]
+  φinternal/debug/→[interceptor.go,storage.go,config.go]
+  φinternal/testutil/→[testing_utilities][RENAMED_FROM_testing]
+  φtests/integration/→[all_files_package_integration][FIXED]
+  φMakefile→comprehensive_build_test_deploy_system[FIXED_PATHS]
+  φmakefile_help.mk→makefile_help_file[RENAMED]
+  φfly.toml→production_deployment_config
 
-‡FILES_STRUCTURE[2025-07-27]:
-  cmd/cowpilot/: [main.go,main_test.go]→primary_server
-  cmd/mcp-debug-proxy/: main.go→debug_proxy
-  internal/auth/: [oauth_adapter.go,middleware.go,token_store.go,csrf_token_test.go,oauth_callback_server.go]
-  internal/debug/: [config.go,interceptor.go,storage.go,validation_integration.go]
-  internal/middleware/: cors.go
-  internal/rtm/: [client.go,handlers.go,oauth_adapter.go,setup.go,credential_store.go]→RTM_COMPLETE
-  internal/validator/: [core.go,jsonrpc.go,mcp.go,security.go]
-  internal/testutil/: [assertions.go,requests.go]
-  internal/protocol/specs/: [oauth.go,oauth_test_helpers.go,middleware.go,oauth_test.go]
-  tests/: [claude_connector_test.go,oauth_scenario_test.go,test-runner.go,mcp_integration_test.go→NEW]
-  scripts/test/: [run-tests.sh,test-sse-transport.sh,test-mcp-integration.sh→NEW]
-  docs/: [STATE.yaml,adr/*,claude-integration/*,debug/*,reference/*,oauth-protocol-requirements.md]
+∞SESSION_PROTOCOL:
+  ✓CHECK_STATE_YAML_FIRST: machine_optimized_claude_context
+  ✓RTFM_MANDATE: check_actual_code_not_assumptions  
+  ✓QUALITY_FOCUS: complete_solutions_not_quick_fixes
+  ✓CURRENT_BLOCKERS: understand_before_fixing
+
+∞CURRENT_FOCUS:
+  ISSUE: ∇oauth_spec_compliance_test_all_systems_verified
+  CONTEXT: all_build_test_health_systems_fixed_and_functional
+  GOAL: determine_claude_ai_mcp_oauth_spec_support_june_vs_march_2025
+  APPROACH: run_comprehensive_verification→run_oauth_test→register_in_claude_ai→observe_behavior→make_architectural_decision

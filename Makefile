@@ -12,15 +12,16 @@ GOFMT=gofmt
 GOLINT=golangci-lint
 
 # Build variables
-BUILD_DIR=./cmd/everything
-RTM_BUILD_DIR=./cmd/rtm-server
-SPEKTRIX_BUILD_DIR=./cmd/spektrix-server
-DEBUG_PROXY_DIR=./cmd/mcp-debug-proxy
+BUILD_DIR=./cmd/demo-server
+RTM_BUILD_DIR=./cmd/rtm_server
+SPEKTRIX_BUILD_DIR=./cmd/spektrix_server
+DEBUG_PROXY_DIR=./cmd/mcp_debug_proxy
 MAIN_FILE=$(BUILD_DIR)/main.go
 RTM_MAIN_FILE=$(RTM_BUILD_DIR)/main.go
 SPEKTRIX_MAIN_FILE=$(SPEKTRIX_BUILD_DIR)/main.go
 DEBUG_PROXY_FILE=$(DEBUG_PROXY_DIR)/main.go
 OUTPUT_DIR=./bin
+DOCS_DIR=./docs
 
 # Test variables
 UNIT_TEST_DIRS=./cmd/... ./internal/...
@@ -36,7 +37,7 @@ GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 # Philosophy: Better to wait 2 minutes 100 times than debug something dumb
 # Speed is not the priority - comprehensive validation is
 
-.PHONY: all build build-rtm build-debug debug-proxy run-debug-proxy test unit-test integration-test integration-test-local scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose
+.PHONY: all build build-rtm build-debug debug-proxy run-debug-proxy test unit-test integration-test integration-test-local scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose docs-tree
 
 # Clean, format, lint, and run COMPREHENSIVE tests (local + deployed)
 all: clean fmt vet lint test scenario-test-local
@@ -47,20 +48,40 @@ test: unit-test integration-test-local
 # Run COMPREHENSIVE tests (local + deployed verification)
 test-all: unit-test integration-test-local integration-test
 
+# Generate project documentation tree
+docs-tree:
+	@echo "Generating project tree documentation..."
+	@mkdir -p $(DOCS_DIR)
+	@if ! which tree > /dev/null; then echo "⚠️  tree command not found. Install with: brew install tree (macOS) or apt-get install tree (Ubuntu)"; exit 1; fi
+	@echo "# Project Structure" > $(DOCS_DIR)/project_structure.md
+	@echo "" >> $(DOCS_DIR)/project_structure.md
+	@echo "Generated on: $(date '+%Y-%m-%d %H:%M:%S')" >> $(DOCS_DIR)/project_structure.md
+	@echo "" >> $(DOCS_DIR)/project_structure.md
+	@echo '```' >> $(DOCS_DIR)/project_structure.md
+	@tree --gitignore -F --dirsfirst -a -I 'bin|*.log|*.db|coverage.*|test-results.*|.DS_Store' >> $(DOCS_DIR)/project_structure.md
+	@echo '```' >> $(DOCS_DIR)/project_structure.md
+	@echo "" >> $(DOCS_DIR)/project_structure.md
+	@echo "## Key Directories" >> $(DOCS_DIR)/project_structure.md
+	@echo "" >> $(DOCS_DIR)/project_structure.md
+	@echo '```' >> $(DOCS_DIR)/project_structure.md
+	@tree --gitignore -d -L 3 -I 'bin|.git' >> $(DOCS_DIR)/project_structure.md
+	@echo '```' >> $(DOCS_DIR)/project_structure.md
+	@echo "📁 Project structure updated in $(DOCS_DIR)/project_structure.md"
+
 # Build the RTM server (production target)
-build-rtm: test
+build-rtm: test docs-tree
 	@echo "Building $(RTM_BINARY_NAME)..."
 	@mkdir -p $(OUTPUT_DIR)
 	$(GO) build -o $(OUTPUT_DIR)/$(RTM_BINARY_NAME) $(RTM_BUILD_DIR)
 
 # Build the Spektrix server
-build-spektrix: test
+build-spektrix: test docs-tree
 	@echo "Building $(SPEKTRIX_BINARY_NAME)..."
 	@mkdir -p $(OUTPUT_DIR)
 	$(GO) build -o $(OUTPUT_DIR)/$(SPEKTRIX_BINARY_NAME) $(SPEKTRIX_BUILD_DIR)
 
 # Build all servers
-build-all: test
+build-all: test docs-tree
 	@echo "Building all servers..."
 	@mkdir -p $(OUTPUT_DIR)
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
@@ -68,7 +89,7 @@ build-all: test
 	$(GO) build -o $(OUTPUT_DIR)/$(SPEKTRIX_BINARY_NAME) $(SPEKTRIX_BUILD_DIR)
 
 # Build the everything server (testing target)
-build: test
+build: test docs-tree
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(OUTPUT_DIR)
 	$(GO) build -o $(OUTPUT_DIR)/$(BINARY_NAME) $(BUILD_DIR)
@@ -171,7 +192,7 @@ scenario-test-local:
 		echo "Last run took $$LAST_TIME seconds"; \
 	fi
 	@START_TIME=$$(date +%s); \
-	FLY_APP_NAME=local-test ./bin/cowpilot --disable-auth > server.log 2>&1 & \
+	FLY_APP_NAME=local-test ./bin/mcp-adapters --disable-auth > server.log 2>&1 & \
 	SERVER_PID=$$!; \
 	trap 'echo " ▶ Trapped signal, stopping server..."; kill $$SERVER_PID 2>/dev/null || true; if [ $$TEST_EXIT -ne 0 ]; then echo "--- Server Log ---"; cat server.log; fi' EXIT INT TERM; \
 	sleep 3; \
@@ -258,6 +279,7 @@ clean:
 	@rm -f debug_conversations.db
 	@rm -f *.db
 	@rm -f server.log
+	@rm -f $(DOCS_DIR)/project_structure.md
 
 # Format code
 fmt:
@@ -315,4 +337,4 @@ test-ci:
 	fi
 
 # Show help
-include help.mk
+include makefile_help.mk

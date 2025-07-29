@@ -76,6 +76,9 @@ test-results/
 .local/
 *.local
 
+# Auto-generated documentation
+docs/project_structure.md
+
 # ctags files
 tags
 tags.*

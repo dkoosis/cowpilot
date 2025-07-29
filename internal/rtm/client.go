@@ -343,13 +343,19 @@ func (c *Client) AddTask(name string, listID string) (*Task, error) {
 			Stat string `json:"stat"`
 			List struct {
 				ID         string `json:"id"`
-				Taskseries struct {
-					ID   string `json:"id"`
-					Name string `json:"name"`
-					Task struct {
-						ID       string `json:"id"`
-						Due      string `json:"due"`
-						Priority string `json:"priority"`
+				Taskseries []struct {
+					ID      string `json:"id"`
+					Name    string `json:"name"`
+					Created string `json:"created"`
+					URL     string `json:"url"`
+					Task    []struct {
+						ID         string `json:"id"`
+						Due        string `json:"due"`
+						HasDueTime string `json:"has_due_time"`
+						Added      string `json:"added"`
+						Completed  string `json:"completed"`
+						Deleted    string `json:"deleted"`
+						Priority   string `json:"priority"`
 					} `json:"task"`
 				} `json:"taskseries"`
 			} `json:"list"`
@@ -360,13 +366,26 @@ func (c *Client) AddTask(name string, listID string) (*Task, error) {
 		return nil, fmt.Errorf("parsing add task response: %w", err)
 	}
 
+	if len(result.Rsp.List.Taskseries) == 0 {
+		return nil, fmt.Errorf("no taskseries returned from RTM")
+	}
+
+	taskseries := result.Rsp.List.Taskseries[0]
+	if len(taskseries.Task) == 0 {
+		return nil, fmt.Errorf("no task returned in taskseries from RTM")
+	}
+
+	task := taskseries.Task[0]
 	return &Task{
-		ID:       result.Rsp.List.Taskseries.Task.ID,
-		Name:     result.Rsp.List.Taskseries.Name,
-		ListID:   result.Rsp.List.ID,
-		SeriesID: result.Rsp.List.Taskseries.ID,
-		Priority: result.Rsp.List.Taskseries.Task.Priority,
-		Due:      result.Rsp.List.Taskseries.Task.Due,
+		ID:        task.ID,
+		Name:      taskseries.Name,
+		ListID:    result.Rsp.List.ID,
+		SeriesID:  taskseries.ID,
+		Priority:  task.Priority,
+		Due:       task.Due,
+		Completed: task.Completed,
+		Deleted:   task.Deleted,
+		URL:       taskseries.URL,
 	}, nil
 }
 

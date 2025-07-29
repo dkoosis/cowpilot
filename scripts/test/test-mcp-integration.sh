@@ -22,7 +22,7 @@ if [[ "$LOCAL_TEST" == "true" ]]; then
         
         # Build the binary first
         cd /Users/vcto/Projects/cowpilot
-        go build -o bin/cowpilot cmd/everything/main.go
+        go build -o bin/cowpilot cmd/demo-server/main.go
         
         # Start server with minimal logging and error capture
         echo "🚀 Starting server (PID will be shown)..."

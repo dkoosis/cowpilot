@@ -1,0 +1,177 @@
+# RTM_ENHANCEMENTS_BACKLOG.yaml v1.0-claude-optimized
+# λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=complete 🔥=high-priority
+# MACHINE_CONTEXT_FOR_CLAUDE[rtm_long_running_tasks_roadmap]
+
+‡RTM_CONSTRAINTS[PERMANENT]:
+  API_RATE_LIMITS: 1_request_per_second_average+3_burst_capacity
+  NO_BATCH_OPERATIONS: ❌each_task_requires_separate_api_call
+  USER_EXPERIENCE_PROBLEM: ∅bulk_operations_take_5-15_seconds_with_no_feedback
+  SOLUTION_STRATEGY: ✓progress_notifications_with_async_background_processing
+
+🔥PHASE1_CORE_INFRASTRUCTURE[WEEK1_CRITICAL]:
+  STATUS: ∇implement_foundation→required_for_all_bulk_operations
+  PRIORITY: ‡CRITICAL→blocks_all_long_running_rtm_features
+  
+  ∇RTM_RATE_LIMITER[P1.1]:
+    STATUS: ∅missing→must_implement_first
+    LOCATION: φinternal/rtm/rate_limiter.go
+    INTERFACE: WaitForSlot()→blocks_until_safe_to_make_request
+    ALGORITHM: 1_rps_average+burst_tokens[3]+exponential_backoff_on_503
+    FEATURES: [thread_safe,context_cancellation,metrics_tracking]
+    TESTS: [burst_behavior,sustained_load,503_recovery,concurrent_access]
+    ESTIMATED: 0.5_days
+    
+  ∇BACKGROUND_TASK_MANAGER[P1.2]:
+    STATUS: ∅missing→core_async_infrastructure  
+    LOCATION: φinternal/rtm/background_tasks.go
+    INTERFACE: ProcessBulkAdd(taskID,items,listName,progressToken)
+    STORAGE: in_memory_map[taskID→TaskStatus]+cleanup_after_completion
+    GOROUTINE_MANAGEMENT: bounded_worker_pool+graceful_shutdown
+    ERROR_HANDLING: partial_failure_tracking+retry_logic
+    ESTIMATED: 1_day
+    
+  ∇PROGRESS_NOTIFICATION_SYSTEM[P1.3]:
+    STATUS: ∅missing→integrates_with_mcp_progress_api
+    DEPENDENCY: ✓mcp_progress_notifications_available
+    PATTERN: immediate_response+background_work+completion_notification
+    NOTIFICATION_TYPES: [task_started,progress_updates,completion_summary,error_reports]
+    ESTIMATED: 0.5_days
+
+🔥PHASE2_BULK_OPERATIONS[WEEK2-3]:
+  STATUS: ∇implement_core_user_features
+  DEPENDENCY: ✓PHASE1_complete
+  
+  🔥RTM_BULK_ADD[P2.1_HIGHEST_PRIORITY]:
+    STATUS: ∅missing→most_requested_feature
+    TOOL_NAME: rtm_bulk_add
+    USE_CASE: "Add milk, cheese, eggs, onions to my shopping list"
+    INPUT_PARSING: natural_language_list→["milk","cheese","eggs","onions"]
+    SMART_FEATURES: [list_auto_detection,duplicate_prevention,invalid_task_filtering]
+    UX_FLOW: immediate_response→background_processing→completion_notification
+    RESPONSE_TEMPLATE: "🚀 Starting to add N items... ~X seconds estimated. I'll notify when complete!"
+    COMPLETION_NOTIFICATION: "✅ Added N/M items: item1 ✓, item2 ✓, item3 ❌failed"
+    ESTIMATED: 1_day
+    
+  ∇RTM_BULK_COMPLETE[P2.2]:
+    STATUS: ∅missing→high_value_feature
+    TOOL_NAME: rtm_bulk_complete
+    USE_CASE: "Mark all my today's tasks as complete"
+    FILTERING: [due_date,tags,lists,priority,overdue]
+    SAFETY: confirmation_for_large_batches[>10_tasks]
+    ESTIMATED: 0.8_days
+    
+  ∇RTM_BULK_UPDATE[P2.3]:
+    STATUS: ∅missing→power_user_feature
+    TOOL_NAME: rtm_bulk_update  
+    USE_CASE: "Set all my work tasks to high priority"
+    UPDATE_FIELDS: [priority,due_date,estimate,tags,list_migration]
+    BATCH_VALIDATION: pre_flight_checks+dry_run_option
+    ESTIMATED: 1.2_days
+    
+  ∇RTM_MIGRATE_TASKS[P2.4]:
+    STATUS: ∅missing→list_management_feature
+    TOOL_NAME: rtm_migrate_tasks
+    USE_CASE: "Move all tasks from 'Work' to 'Projects' list"
+    FEATURES: [source_list_validation,destination_list_creation,tag_preservation]
+    ESTIMATED: 0.8_days
+
+∇PHASE3_SMART_PARSING[WEEK4]:
+  STATUS: ∇implement_ux_improvements
+  DEPENDENCY: ✓PHASE2_bulk_add_working
+  
+  ∇NATURAL_LANGUAGE_PARSING[P3.1]:
+    STATUS: ∅missing→enhances_all_bulk_operations
+    LOCATION: φinternal/rtm/task_parser.go
+    PARSING_PATTERNS: [comma_separated,and_or_lists,quoted_items,emoji_detection]
+    EXAMPLES: ["milk, cheese and eggs" → ["milk","cheese","eggs"]]
+    INTEGRATION: works_with_all_bulk_tools
+    ESTIMATED: 1_day
+    
+  ∇INTELLIGENT_BATCHING[P3.2]:
+    STATUS: ∅missing→performance_optimization
+    FEATURES: [burst_utilization,priority_ordering,failure_recovery]
+    ALGORITHM: use_3_burst_tokens_efficiently+retry_failed_at_end
+    METRICS: track_throughput+optimize_timing
+    ESTIMATED: 0.8_days
+    
+  ∇ENHANCED_NOTIFICATIONS[P3.3]:
+    STATUS: ∅missing→professional_completion_reporting
+    RICH_COMPLETION: detailed_summary+next_steps+troubleshooting_hints
+    ERROR_CATEGORIZATION: [rate_limited,network_error,invalid_input,rtm_api_error]
+    ESTIMATED: 0.5_days
+
+∇PHASE4_ADVANCED_FEATURES[FUTURE]:
+  STATUS: ∇implement_power_user_features
+  DEPENDENCY: ✓user_feedback_on_phases_1-3
+  
+  ∇RTM_SMART_ORGANIZE[P4.1]:
+    STATUS: ∅missing→ai_powered_organization
+    TOOL_NAME: rtm_smart_organize
+    USE_CASE: "Automatically organize my tasks by category"
+    AI_FEATURES: content_analysis+auto_categorization+list_suggestions
+    ESTIMATED: 2_days
+    
+  ∇RTM_IMPORT_EXPORT[P4.2]:
+    STATUS: ∅missing→data_migration_tools
+    FORMATS: [csv,json,todoist,things,omnifocus]
+    CHUNKING: handle_large_datasets+progress_tracking
+    ESTIMATED: 1.5_days
+    
+  ∇RTM_TASK_DEPENDENCIES[P4.3]:
+    STATUS: ∅missing→project_management_features
+    FEATURES: task_chains+dependency_validation+auto_due_date_calculation
+    ESTIMATED: 2_days
+
+∇PHASE5_MONITORING[ONGOING]:
+  STATUS: ∇implement_observability
+  
+  ∇RATE_LIMIT_MONITORING[P5.1]:
+    STATUS: ∅missing→prevents_503_errors
+    METRICS: [requests_per_second,burst_usage,503_error_rate,queue_depth]
+    ALERTING: warn_when_approaching_limits
+    ESTIMATED: 0.5_days
+    
+  ∇PERFORMANCE_ANALYTICS[P5.2]:
+    STATUS: ∅missing→continuous_improvement
+    TRACKING: [completion_times,failure_rates,user_satisfaction,throughput]
+    DASHBOARD: real_time_metrics+historical_trends
+    ESTIMATED: 1_day
+
+‡IMPLEMENTATION_STRATEGY:
+  DEVELOPMENT_APPROACH: incremental_delivery+user_feedback_loops
+  TESTING_STRATEGY: rate_limit_simulation+error_injection+load_testing
+  ROLLOUT_PLAN: feature_flags+gradual_enablement+rollback_capability
+  USER_COMMUNICATION: clear_expectations+progress_transparency+completion_notifications
+
+‡SUCCESS_METRICS[MEASURABLE]:
+  USER_SATISFACTION: ❌eliminate_complaints_about_bulk_operation_delays
+  ERROR_RATES: <5%_failure_rate_on_bulk_operations  
+  PERFORMANCE: progress_feedback_within_2_seconds_of_request
+  ADOPTION: users_prefer_bulk_tools_over_individual_operations
+  TECHNICAL: zero_503_errors_from_rate_limit_violations
+
+‡DEPENDENCIES[EXTERNAL]:
+  RTM_API_STABILITY: ✓confirmed_1rps_limit_enforced_consistently
+  MCP_PROGRESS_NOTIFICATIONS: ✓available_in_mark3labs_mcp-go
+  CLAUDE_WEB_PROGRESS_SUPPORT: ✓confirmed_shows_progress_notifications
+  
+‡RISKS_AND_MITIGATIONS:
+  RTM_RATE_LIMIT_CHANGES: †monitor_rtm_api_announcements+adaptive_rate_limiting
+  LARGE_BULK_OPERATIONS: †user_confirmation_for_operations_>20_items
+  NETWORK_FAILURES: †exponential_backoff+partial_completion_recovery
+  USER_EXPECTATION_MANAGEMENT: †clear_time_estimates+transparent_progress
+
+‡ESTIMATED_TOTAL_EFFORT:
+  PHASE1: 2_days[critical_foundation]
+  PHASE2: 3.8_days[core_bulk_features] 
+  PHASE3: 2.3_days[ux_improvements]
+  PHASE4: 5.5_days[advanced_features]
+  PHASE5: 1.5_days[monitoring]
+  TOTAL: ~15_days_development+testing+documentation
+
+≈IMPLEMENTATION_NOTES:
+  START_WITH: PHASE1→P1.1_rate_limiter[blocks_everything_else]
+  QUICK_WIN: P2.1_bulk_add[highest_user_impact]
+  VALIDATION: test_with_real_rtm_api+claude_web_progress_display
+  DEPLOYMENT: feature_flag_controlled+gradual_rollout
+  MAINTENANCE: ongoing_rate_limit_monitoring+performance_optimization
