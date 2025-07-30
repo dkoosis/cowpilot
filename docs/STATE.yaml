@@ -14,29 +14,19 @@
   DEPLOYMENT: ✓fly.io[app:rtm,port:8081,RTM_production]
   BUILD_SYSTEM: ✓Makefile[comprehensive_testing,multi_target,FIXED_PATHS]
 
-‡RTM_INFRASTRUCTURE_GAP[DISCOVERED_2025-07-29]:
-  STATUS: ❌rtm_missing_critical_endpoints
-  COMPARISON: φcmd/core/main.go→✓complete_oauth_health_wellknown_infrastructure
-              φcmd/rtm/main.go→❌missing_essential_endpoints
-  CLAUDE_AI_LOCALHOST_BLOCKED: ✓confirmed→cannot_test_with_localhost_urls
+‡RTM_INFRASTRUCTURE_GAP[RESOLVED_2025-07-29]:
+  STATUS: ✓rtm_complete_infrastructure_deployed
+  SOLUTION: shared_infrastructure_from_core→all_endpoints_working
+  SERVER_URL: ✓fixed_https://rtm.fly.dev_in_fly-rtm.toml
   
-  MISSING_FROM_RTM:
-    /.well-known/oauth-protected-resource: ∅missing
-    /.well-known/oauth-authorization-server: ∅missing  
-    /health: ∅basic_only
-    /logo: ∅missing
-    proper_auth_middleware_skips: ∅missing
-    protocol_detection_middleware: ∅missing
-    
-  CORE_HAS_EVERYTHING:
-    oauth_endpoints: ✓complete[both_rtm_and_generic]
-    wellknown_discovery: ✓rfc_9728_compliant
-    health_checks: ✓comprehensive
-    logo_endpoint: ✓claude_ai_display
-    middleware_stack: ✓complete
+  ✓RTM_API_CALLBACK_OPPORTUNITY[noted_2025-07-29]:
+    STATUS: ∇can_request_official_callback_url_for_public_app
+    CONTACT: http://www.rememberthemilk.com/services/api/appinfo.rtm
+    BENEFITS: [official_callback_url,custom_app_name,logo_during_auth]
+    REQUIREMENT: public_application_compliance_with_terms
 
 ✓RTM_PRODUCTION_STATUS[2025-07-29]:
-  STATUS: ❌deployed_but_infrastructure_incomplete
+  STATUS: ✓deployed_with_complete_infrastructure
   APP_NAME: rtm[fly.io]
   ENDPOINT: https://rtm.fly.dev/mcp
   PORT: 8081[production]

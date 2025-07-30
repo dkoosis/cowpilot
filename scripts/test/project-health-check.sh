@@ -96,7 +96,7 @@ fi
 if [ "$prompt_count" -eq 2 ]; then
     echo -e "${GREEN} ✓${NC} $prompt_count prompts of 2 expected"
 else
-    echo -e "${YELLOW}        ⚠️  Prompt count mismatch"
+    echo -e "${YELLOW} ⚠️  Prompt count mismatch"
 fi
 
 # Test 6: Debug System Check
@@ -119,7 +119,7 @@ for doc in "${docs[@]}"; do
     if [[ -f "$doc" ]]; then
         echo -e "${GREEN} ✓${NC} $doc present"
     else
-        echo -e "${YELLOW}        ⚠️  $doc missing"
+        echo -e "${YELLOW} ⚠️ $doc missing"
     fi
 done
 
@@ -127,7 +127,7 @@ done
 if go test -v ./internal/... -count=1 &>/dev/null; then
     echo -e "${GREEN} ✓${NC} Unit tests passing"
 else
-    echo -e "${YELLOW}        ⚠️  Some unit tests failing"
+    echo -e "${YELLOW} ⚠️ Some unit tests failing"
 fi
 
 # Test 9: Production Health Check
@@ -142,7 +142,7 @@ if curl -s --max-time 5 "https://core-test.fly.dev/health" 2>/dev/null | grep -q
         ((FAILED++))
     fi
 else
-    echo -e "${YELLOW}        ⚠️  Production server unreachable"
+    echo -e "${YELLOW} ⚠️ Production server unreachable"
 fi
 
 # Test 10: Git Status
@@ -156,7 +156,7 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
         echo -e "${YELLOW} ⚠️${NC} Uncommitted changes present"
     fi
 else
-    echo -e "${YELLOW}        ⚠️  Not a git repository"
+    echo -e "${YELLOW} ⚠️ Not a git repository"
 fi
 
 # Summary
@@ -166,6 +166,6 @@ if [ $FAILED -eq 0 ]; then
     echo ""
     exit 0
 else
-    echo -e "${RED} ✗ FAIL Project Health Check ($FAILED critical issues)"
+    echo -e "${RED} ✗ FAIL${NC} Project Health Check ($FAILED critical issues)"
     exit 1
 fi

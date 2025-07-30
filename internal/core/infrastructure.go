@@ -173,8 +173,8 @@ func setupOAuthEndpoints(mux *http.ServeMux, config InfrastructureConfig, handle
 		// OAuth discovery endpoints (RFC 9728 + Claude compatibility)
 		setupRTMWellKnownEndpoints(mux, config.ServerURL)
 
-		// Add auth middleware that accepts RTM tokens
-		*handler = rtmAuthMiddleware(rtmAdapter, config.RTMHandler)(*handler)
+		// Add auth middleware to the MCP handler
+		*handler = rtmAuthMiddleware(rtmAdapter, config.RTMHandler, config)(*handler)
 
 		log.Printf("OAuth: Enabled RTM OAuth adapter")
 	} else {
@@ -266,7 +266,7 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 }
 
 // rtmAuthMiddleware validates RTM bearer tokens
-func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(http.Handler) http.Handler {
+func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler, config InfrastructureConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip auth for OAuth and standard endpoints
@@ -277,6 +277,7 @@ func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(
 				r.URL.Path == "/logo" ||
 				r.URL.Path == "/authorize" ||
 				r.URL.Path == "/token" {
+				log.Printf("[AUTH] Skipping auth for: %s", r.URL.Path)
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -284,6 +285,7 @@ func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(
 			// Check Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf("Bearer realm=\"%s/.well-known/oauth-protected-resource\"", config.ServerURL))
 				http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
 				return
 			}

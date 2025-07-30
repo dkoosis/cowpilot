@@ -217,6 +217,13 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 	clientID := r.URL.Query().Get("client_id")
 	state := r.URL.Query().Get("state")
 	redirectURI := r.URL.Query().Get("redirect_uri")
+	responseType := r.URL.Query().Get("response_type")
+
+	// Debug logging for OAuth parameters
+	log.Printf("[OAUTH] /authorize called with: client_id=%s, state=%s, redirect_uri=%s, response_type=%s", 
+		clientID, state, redirectURI, responseType)
+	log.Printf("[OAUTH] Full query string: %s", r.URL.RawQuery)
+	log.Printf("[OAUTH] User-Agent: %s", r.Header.Get("User-Agent"))
 
 	// Generate CSRF token
 	csrfToken := uuid.New().String()

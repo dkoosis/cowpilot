@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 # mcp adapters Makefile
 
 # Variables
@@ -150,7 +151,7 @@ integration-test:
 		echo ""; \
 		read -p "Deploy test server now? [y/N] " -n 1 -r; \
 		echo; \
-		if [[ $REPLY =~ ^[Yy]$ ]]; then \
+		if [ "$$REPLY" = "y" ] || [ "$$REPLY" = "Y" ]; then \
 			echo "🚀 Auto-deploying test server..."; \
 			$(MAKE) deploy-core-tmp; \
 			echo "⏳ Waiting for deployment to be ready..."; \
@@ -177,7 +178,7 @@ integration-test-local:
 scenario-test:
 	@echo "Running scenario tests..."
 	@if [ -z "$(MCP_SERVER_URL)" ]; then \
-		echo "MCP_SERVER_URL not set. Using production server..."; \
+		echo "MCP_SERVER_URL not set. Using yduction server..."; \
 		export MCP_SERVER_URL="https://mcp-adapters.fly.dev/"; \
 	fi
 	@if [ -n "$(GOTESTSUM)" ]; then \

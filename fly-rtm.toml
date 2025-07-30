@@ -10,6 +10,7 @@ primary_region = 'ewr'
 
 [env]
   PORT = '8081'
+  SERVER_URL = 'https://rtm.fly.dev'
   TOKEN_DB_PATH = '/data/tokens.db'
 
 [mounts]
