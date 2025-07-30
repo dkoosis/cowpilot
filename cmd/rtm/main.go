@@ -393,8 +393,8 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 			mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
 				metadata := map[string]interface{}{
 					"authorization_servers": []string{serverURL},
-					"resource":               serverURL + "/mcp",
-					"scopes_supported":       []string{"rtm:read", "rtm:write"},
+					"resource":              serverURL + "/mcp",
+					"scopes_supported":      []string{"rtm:read", "rtm:write"},
 				}
 				w.Header().Set("Content-Type", "application/json")
 				if err := json.NewEncoder(w).Encode(metadata); err != nil {
@@ -405,12 +405,12 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 			// Authorization server metadata (Claude expects /authorize not /oauth/authorize)
 			mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
 				metadata := map[string]interface{}{
-					"issuer":                       serverURL,
-					"authorization_endpoint":       serverURL + "/authorize",
-					"token_endpoint":               serverURL + "/token", 
-					"scopes_supported":             []string{"rtm:read", "rtm:write"},
-					"response_types_supported":     []string{"code"},
-					"grant_types_supported":        []string{"authorization_code"},
+					"issuer":                        serverURL,
+					"authorization_endpoint":        serverURL + "/authorize",
+					"token_endpoint":                serverURL + "/token",
+					"scopes_supported":              []string{"rtm:read", "rtm:write"},
+					"response_types_supported":      []string{"code"},
+					"grant_types_supported":         []string{"authorization_code"},
 					"resource_indicators_supported": true,
 				}
 				w.Header().Set("Content-Type", "application/json")

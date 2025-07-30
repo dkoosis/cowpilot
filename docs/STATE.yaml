@@ -5,19 +5,19 @@
 ‡CURRENT_ARCHITECTURE[2025-07-29]:
   STATUS: ✓production_multi_server_system[PATHS_UPDATED]
   PRIMARY_SERVERS:
-    demo: φcmd/demo-server/main.go→comprehensive_demo_server[port_8080]
-    rtm: φcmd/rtm_server/main.go→RTM_focused_server[port_8081]→✓DEPLOYED
-    spektrix: φcmd/spektrix_server/main.go→Spektrix_integration[port_TBD]
+    core: φcmd/core/main.go→comprehensive_demo_server[port_8080]
+    rtm: φcmd/rtm/main.go→RTM_focused_server[port_8081]→✓DEPLOYED
+    spektrix: φcmd/spektrix/main.go→Spektrix_integration[port_TBD]
     test_examples: φcmd/test-examples-server/main.go→testing_examples[port_8082]
     debug_proxy: φcmd/mcp_debug_proxy/main.go→debug_system
     oauth_spec_test: φcmd/oauth_spec_test/main.go→claude_ai_oauth_spec_compliance_test[port_8090]
-  DEPLOYMENT: ✓fly.io[app:cowpilot,port:8081,RTM_production]
+  DEPLOYMENT: ✓fly.io[app:rtm,port:8081,RTM_production]
   BUILD_SYSTEM: ✓Makefile[comprehensive_testing,multi_target,FIXED_PATHS]
 
 ✓RTM_PRODUCTION_STATUS[2025-07-29]:
   STATUS: ✓deployed_and_functional
-  APP_NAME: cowpilot[fly.io]
-  ENDPOINT: https://cowpilot.fly.dev/mcp
+  APP_NAME: rtm[fly.io]
+  ENDPOINT: https://rtm.fly.dev/mcp
   PORT: 8081[production]
   STORAGE: ✓persistent_sqlite[/data/tokens.db,cowpilot_data_volume]
   AUTH_FLOW: ✓OAuth_implemented[RTM_API_integration]

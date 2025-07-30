@@ -72,7 +72,21 @@ echo "🔧 Running tests..."
 # Run Go tests with clean output
 cd /Users/vcto/Projects/cowpilot/tests
 if command -v gotestsum &> /dev/null; then
-    gotestsum --format testdox -- -run TestMCP ./...
+    START_TIME=$(date +%s.%N)
+    gotestsum --format standard-verbose -- -run TestMCP ./... 2>&1 | \
+    while IFS= read -r line; do
+        if [[ $line == *"=== RUN"* ]]; then
+            TEST_NAME=$(echo "$line" | sed 's/=== RUN TestMCP_//; s/_/ /g')
+            continue
+        elif [[ $line == *"--- PASS:"* ]]; then
+            DURATION=$(echo "$line" | grep -o '([0-9.]\+s)' | tr -d '()')
+            echo " ✓ MCP $TEST_NAME ($DURATION)"
+        fi
+    done
+    END_TIME=$(date +%s.%N)
+    DURATION=$(echo "$END_TIME - $START_TIME" | bc | awk '{printf "%.3f", $1}')
+    TEST_COUNT=$(gotestsum --format dots -- -run TestMCP ./... 2>/dev/null | grep -c "PASS" || echo "0")
+    echo "DONE $TEST_COUNT tests in ${DURATION}s"
 else
     go test -run TestMCP ./...
 fi

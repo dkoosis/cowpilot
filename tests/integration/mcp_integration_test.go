@@ -17,7 +17,7 @@ func getServerURL() string {
 	if url := os.Getenv("MCP_SERVER_URL"); url != "" {
 		return url
 	}
-	return "https://mcp-adapters.fly.dev/mcp"
+	return "https://core-test.fly.dev/mcp"
 }
 
 // JSON-RPC request structure

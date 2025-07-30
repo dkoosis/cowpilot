@@ -12,9 +12,9 @@ GOFMT=gofmt
 GOLINT=golangci-lint
 
 # Build variables
-BUILD_DIR=./cmd/demo-server
-RTM_BUILD_DIR=./cmd/rtm_server
-SPEKTRIX_BUILD_DIR=./cmd/spektrix_server
+BUILD_DIR=./cmd/core
+RTM_BUILD_DIR=./cmd/rtm
+SPEKTRIX_BUILD_DIR=./cmd/spektrix
 DEBUG_PROXY_DIR=./cmd/mcp_debug_proxy
 MAIN_FILE=$(BUILD_DIR)/main.go
 RTM_MAIN_FILE=$(RTM_BUILD_DIR)/main.go
@@ -39,14 +39,23 @@ GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 
 .PHONY: all build build-rtm build-debug debug-proxy run-debug-proxy test unit-test integration-test integration-test-local scenario-test scenario-test-local scenario-test-prod scenario-test-raw test-ci clean fmt vet lint coverage run help test-verbose docs-tree
 
-# Clean, format, lint, and run COMPREHENSIVE tests (local + deployed)
-all: clean fmt vet lint test scenario-test-local
+# Clean, format, lint, build all servers, and run COMPREHENSIVE tests
+all: clean fmt vet lint build-all test-all deploy-verification
 
 # Run LOCAL tests only (unit + local integration)
 test: unit-test integration-test-local
 
 # Run COMPREHENSIVE tests (local + deployed verification)
 test-all: unit-test integration-test-local integration-test
+
+# Verify deployed servers are working
+deploy-verification:
+	@echo "Verifying deployed servers..."
+	@echo "Testing core server..."
+	@curl -f -s https://core-tmp.fly.dev/health > /dev/null || echo "⚠️ Core server not responding"
+	@echo "Testing RTM server..."
+	@curl -f -s https://rtm.fly.dev/health > /dev/null || echo "⚠️ RTM server not responding"
+	@bash scripts/test/project-health-check.sh
 
 # Generate project documentation tree
 docs-tree:
@@ -131,19 +140,19 @@ unit-test:
 integration-test:
 	@echo "Running integration tests against deployed instance..."
 	@echo "Testing connectivity first..."
-	@if ! curl -f -s --max-time 10 https://mcp-adapters.fly.dev/health > /dev/null 2>&1; then \
-		echo "⚠️  Server not responding at https://mcp-adapters.fly.dev"; \
+	@if ! curl -f -s --max-time 10 https://core-tmp.fly.dev/health > /dev/null 2>&1; then \
+		echo "⚠️  Server not responding at https://core-tmp.fly.dev"; \
 		echo ""; \
 		echo "Options:"; \
-		echo "  1. Auto-deploy: make deploy-rtm (recommended)"; \
-		echo "  2. Check status: fly status && fly logs"; \
+		echo "  1. Auto-deploy: make deploy-core-tmp (recommended)"; \
+		echo "  2. Check status: fly status -a core-tmp && fly logs -a core-tmp"; \
 		echo "  3. Skip deployed tests: make unit-test integration-test-local"; \
 		echo ""; \
-		read -p "Deploy RTM server now? [y/N] " -n 1 -r; \
+		read -p "Deploy test server now? [y/N] " -n 1 -r; \
 		echo; \
-		if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-			echo "🚀 Auto-deploying RTM server..."; \
-			$(MAKE) deploy-rtm; \
+		if [[ $REPLY =~ ^[Yy]$ ]]; then \
+			echo "🚀 Auto-deploying test server..."; \
+			$(MAKE) deploy-core-tmp; \
 			echo "⏳ Waiting for deployment to be ready..."; \
 			sleep 10; \
 		else \
@@ -152,7 +161,7 @@ integration-test:
 		fi; \
 	fi
 	@echo "✅ Server responding, running integration tests..."
-	@export MCP_SERVER_URL="https://mcp-adapters.fly.dev/mcp" && \
+	@export MCP_SERVER_URL="https://core-tmp.fly.dev/mcp" && \
 	if [ -n "$(GOTESTSUM)" ]; then \
 		$(GOTESTSUM) --format testdox -- -race -timeout 30s ./tests/integration/...; \
 	else \
@@ -226,9 +235,9 @@ scenario-test-local:
 scenario-test-prod:
 	@echo "Running scenario tests against production..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		export MCP_SERVER_URL="https://mcp-adapters.fly.dev/" && $(GOTESTSUM) --format testdox -- $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://core-tmp.fly.dev/" && $(GOTESTSUM) --format testdox -- $(SCENARIO_TEST_DIR)/...; \
 	else \
-		export MCP_SERVER_URL="https://mcp-adapters.fly.dev/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
+		export MCP_SERVER_URL="https://core-tmp.fly.dev/" && $(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
 	fi
 
 # Run raw SSE/JSON-RPC tests
@@ -312,19 +321,25 @@ dev:
 	@which air > /dev/null || (echo "air not found. Install with: go install github.com/air-verse/air@latest" && exit 1)
 	air
 
+# Deploy test/core server (ephemeral)
+deploy-core-tmp: build
+	@echo "Deploying test server to core-tmp app..."
+	fly apps create core-tmp || true
+	fly deploy -a core-tmp -c fly-core-tmp.toml
+
 # Deploy RTM server (production target)
 deploy-rtm: build-rtm
-	@echo "Deploying RTM server to cowpilot app..."
-	fly deploy
+	@echo "Deploying RTM server to rtm app..."
+	fly deploy -a rtm -c fly-rtm.toml
 
 # Deploy Spektrix server
 deploy-spektrix: build-spektrix
 	@echo "Deploying Spektrix server..."
-	fly apps create mcp-adapters-spektrix || true
-	fly deploy --app mcp-adapters-spektrix --build-arg SERVER_TYPE=spektrix
+	fly apps create spektrix || true
+	fly deploy -a spektrix --build-arg SERVER_TYPE=spektrix
 	@echo ""
 	@echo "⚠️  Set Spektrix secrets:"
-	@echo "fly secrets set -a mcp-adapters-spektrix SPEKTRIX_CLIENT_NAME=your_client SPEKTRIX_API_USER=your_user SPEKTRIX_API_KEY=your_key"
+	@echo "fly secrets set -a spektrix SPEKTRIX_CLIENT_NAME=your_client SPEKTRIX_API_USER=your_user SPEKTRIX_API_KEY=your_key"
 	@echo ""
 
 # CI-specific test with junit output

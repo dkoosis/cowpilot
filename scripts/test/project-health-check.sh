@@ -131,11 +131,11 @@ else
 fi
 
 # Test 9: Production Health Check
-if curl -s --max-time 5 "https://cowpilot.fly.dev/health" 2>/dev/null | grep -q "OK"; then
+if curl -s --max-time 5 "https://core-test.fly.dev/health" 2>/dev/null | grep -q "OK"; then
     echo -e "${GREEN} ✓${NC} Production server healthy"
     
     # Test OAuth discovery endpoints
-    if curl -s --max-time 5 "https://cowpilot.fly.dev/.well-known/oauth-protected-resource" 2>/dev/null | jq . >/dev/null 2>&1; then
+    if curl -s --max-time 5 "https://core-test.fly.dev/.well-known/oauth-protected-resource" 2>/dev/null | jq . >/dev/null 2>&1; then
         echo -e "${GREEN} ✓${NC} OAuth discovery endpoints working"
     else
         echo -e "${RED} ✗ OAuth discovery broken"

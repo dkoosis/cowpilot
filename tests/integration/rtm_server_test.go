@@ -20,8 +20,8 @@ func TestRTMServer(t *testing.T) {
 	}
 
 	// Only run this test against the deployed RTM server
-	if !strings.Contains(serverURL, "mcp-adapters.fly.dev") {
-		t.Skip("RTM server test only runs against deployed instance")
+	if !strings.Contains(serverURL, "cowpilot.fly.dev") {
+		t.Skip("RTM server test only runs against cowpilot.fly.dev instance")
 		return
 	}
 
