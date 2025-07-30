@@ -1,12 +1,12 @@
-# STATE.yaml v8.0-claude-optimized
+# STATE.yaml v8.1-claude-optimized
 # λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=working
 # MACHINE_CONTEXT_FOR_CLAUDE[accurate_current_state]
 
 ‡CURRENT_ARCHITECTURE[2025-07-29]:
   STATUS: ✓production_multi_server_system[PATHS_UPDATED]
   PRIMARY_SERVERS:
-    core: φcmd/core/main.go→comprehensive_demo_server[port_8080]
-    rtm: φcmd/rtm/main.go→RTM_focused_server[port_8081]→✓DEPLOYED
+    core: φcmd/core/main.go→comprehensive_demo_server[port_8080]→✓HAS_ALL_INFRASTRUCTURE
+    rtm: φcmd/rtm/main.go→RTM_focused_server[port_8081]→❌MISSING_INFRASTRUCTURE→✓DEPLOYED
     spektrix: φcmd/spektrix/main.go→Spektrix_integration[port_TBD]
     test_examples: φcmd/test-examples-server/main.go→testing_examples[port_8082]
     debug_proxy: φcmd/mcp_debug_proxy/main.go→debug_system
@@ -14,15 +14,36 @@
   DEPLOYMENT: ✓fly.io[app:rtm,port:8081,RTM_production]
   BUILD_SYSTEM: ✓Makefile[comprehensive_testing,multi_target,FIXED_PATHS]
 
+‡RTM_INFRASTRUCTURE_GAP[DISCOVERED_2025-07-29]:
+  STATUS: ❌rtm_missing_critical_endpoints
+  COMPARISON: φcmd/core/main.go→✓complete_oauth_health_wellknown_infrastructure
+              φcmd/rtm/main.go→❌missing_essential_endpoints
+  CLAUDE_AI_LOCALHOST_BLOCKED: ✓confirmed→cannot_test_with_localhost_urls
+  
+  MISSING_FROM_RTM:
+    /.well-known/oauth-protected-resource: ∅missing
+    /.well-known/oauth-authorization-server: ∅missing  
+    /health: ∅basic_only
+    /logo: ∅missing
+    proper_auth_middleware_skips: ∅missing
+    protocol_detection_middleware: ∅missing
+    
+  CORE_HAS_EVERYTHING:
+    oauth_endpoints: ✓complete[both_rtm_and_generic]
+    wellknown_discovery: ✓rfc_9728_compliant
+    health_checks: ✓comprehensive
+    logo_endpoint: ✓claude_ai_display
+    middleware_stack: ✓complete
+
 ✓RTM_PRODUCTION_STATUS[2025-07-29]:
-  STATUS: ✓deployed_and_functional
+  STATUS: ❌deployed_but_infrastructure_incomplete
   APP_NAME: rtm[fly.io]
   ENDPOINT: https://rtm.fly.dev/mcp
   PORT: 8081[production]
   STORAGE: ✓persistent_sqlite[/data/tokens.db,cowpilot_data_volume]
   AUTH_FLOW: ✓OAuth_implemented[RTM_API_integration]
   CAPABILITIES: [8_RTM_tools,7_RTM_resources,debug_system]
-  HEALTH_CHECK: ✓/health[15s_intervals]
+  HEALTH_CHECK: ∅basic_only[needs_enhancement]
 
 ✓RTM_TOOLS[8_implemented]:
   rtm_auth_url→generate_authentication_url
@@ -88,12 +109,32 @@
     OPTION_B: migrate_to_new_spec→future_proof_but_risk_breaking
     APPROACH: ∇TEST_CLAUDE_AI_NEW_SPEC_SUPPORT_FIRST
 
-∇IMMEDIATE_TASKS[priority_order]:
-  1. ∇MCP_OAUTH_SPEC_COMPLIANCE_TEST: bash_scripts/test-all-systems.sh→verify_all_systems_run_oauth_test
-  2. ∇ICON_DISPLAY: investigate_claude_mcp_server_icon_requirements
-  3. ∇RTM_AUTH_VERIFICATION: test_actual_oauth_flow_end_to_end  
-  4. ∇PRODUCTION_MONITORING: health_checks_logs_metrics
-  5. ∇USER_CREDENTIALS: allow_user_provided_RTM_keys_vs_server_env
+‡SHARED_INFRASTRUCTURE_STRATEGY[NEW_2025-07-29]:
+  PROBLEM: duplication_and_missing_endpoints_across_servers
+  SOLUTION: ∇extract_shared_infrastructure_to_internal/mcpserver
+  
+  ∇EXTRACT_TO_SHARED_PACKAGE:
+    TARGET: internal/mcpserver/→shared_infrastructure_package
+    CONTENTS: [oauth_setup,health_endpoints,wellknown_discovery,middleware_stack,cors_config,protocol_detection]
+    SOURCES: cmd/core/main.go→extract_working_infrastructure
+    
+  ∇SERVERS_USE_SHARED:
+    cmd/rtm/main.go: import_and_use_mcpserver.Setup()
+    cmd/spektrix/main.go: import_and_use_mcpserver.Setup()
+    cmd/core/main.go: refactor_to_use_shared_package
+    
+  BENEFITS:
+    single_source_of_truth: ✓no_more_duplication
+    consistent_behavior: ✓all_servers_identical_infrastructure  
+    easier_maintenance: ✓fix_once_apply_everywhere
+    claude_ai_compatibility: ✓guaranteed_consistent_endpoints
+
+∇IMMEDIATE_TASKS[updated_priority]:
+  1. ∇CREATE_SHARED_INFRASTRUCTURE: internal/mcpserver/setup.go→extract_from_core
+  2. ∇UPDATE_RTM_TO_USE_SHARED: cmd/rtm/main.go→import_mcpserver_setup
+  3. ∇UPDATE_SPEKTRIX_TO_USE_SHARED: cmd/spektrix/main.go→import_mcpserver_setup  
+  4. ∇UPDATE_CORE_TO_USE_SHARED: cmd/core/main.go→refactor_to_shared
+  5. ∇DEPLOY_AND_TEST_RTM: verify_all_endpoints_working
 
 ✓COMPLETED_TASKS[2025-07-29]:
   1. ✓BUILD_TREE_INTEGRATION: docs-tree_target_exists_in_Makefile→generates_project_structure_md
@@ -107,6 +148,7 @@
   9. ✓LINTER_ISSUES_RESOLVED: cmd/oauth_spec_test/main.go→errcheck_and_staticcheck_violations_fixed
   10. ✓INTEGRATION_TEST_PATH_FIXED: scripts/test/test-mcp-integration.sh→cmd/everything_to_demo-server
   11. ✓HEALTH_CHECK_PATHS_FIXED: scripts/test/project-health-check.sh→updated_all_directory_references
+  12. ✓RTM_INFRASTRUCTURE_GAP_IDENTIFIED: core_has_everything→rtm_missing_key_endpoints
 
 ‡BUILD_AND_TEST[comprehensive]:
   BUILD: make build-rtm→builds_and_tests_before_deploy
@@ -115,35 +157,38 @@
   CI: ✓comprehensive_validation_before_production
 
 ‡FILES_CRITICAL[claude_reference]:
-  φcmd/demo-server/main.go→demo_server_all_capabilities
-  φcmd/demo-server/main_test.go→[FIXED_IMPORT_PATH]
-  φcmd/rtm_server/main.go→production_RTM_focused_server  
+  φcmd/core/main.go→✓comprehensive_working_infrastructure[EXTRACT_SOURCE]
+  φcmd/rtm/main.go→❌missing_infrastructure[UPDATE_TARGET]
+  φcmd/spektrix/main.go→❌missing_infrastructure[UPDATE_TARGET]
+  φinternal/mcpserver/→∇NEW_SHARED_INFRASTRUCTURE_PACKAGE
   φcmd/oauth_spec_test/→[main.go,run-test.sh,README.md]→claude_ai_oauth_spec_compliance_test[FIXED_API_AND_LINTER]
-  φscripts/test-oauth-build.sh→oauth_test_build_and_run_script
-  φscripts/test-makefile-and-oauth.sh→makefile_and_oauth_test_combined
-  φscripts/test-all-fixes.sh→comprehensive_build_test_and_oauth_verification
-  φscripts/test-final-fixes.sh→final_verification_script
-  φscripts/test-linter-fixes.sh→linter_verification_and_oauth_test
-  φscripts/test-integration-fix.sh→comprehensive_integration_and_oauth_test
-  φscripts/test-all-systems.sh→final_comprehensive_verification_script
-  φscripts/test/test-mcp-integration.sh→[FIXED_DEMO_SERVER_PATH]
-  φscripts/test/project-health-check.sh→[FIXED_ALL_DIRECTORY_PATHS]
   φinternal/rtm/→[client.go,handlers.go,oauth_adapter.go,setup.go]
   φinternal/debug/→[interceptor.go,storage.go,config.go]
   φinternal/testutil/→[testing_utilities][RENAMED_FROM_testing]
-  φtests/integration/→[all_files_package_integration][FIXED]
   φMakefile→comprehensive_build_test_deploy_system[FIXED_PATHS]
-  φmakefile_help.mk→makefile_help_file[RENAMED]
   φfly.toml→production_deployment_config
 
 ∞SESSION_PROTOCOL:
   ✓CHECK_STATE_YAML_FIRST: machine_optimized_claude_context
   ✓RTFM_MANDATE: check_actual_code_not_assumptions  
   ✓QUALITY_FOCUS: complete_solutions_not_quick_fixes
-  ✓CURRENT_BLOCKERS: understand_before_fixing
+  ✓NO_GUESSING: document_actual_findings_not_assumptions
 
 ∞CURRENT_FOCUS:
-  ISSUE: ∇oauth_spec_compliance_test_all_systems_verified
-  CONTEXT: all_build_test_health_systems_fixed_and_functional
-  GOAL: determine_claude_ai_mcp_oauth_spec_support_june_vs_march_2025
-  APPROACH: run_comprehensive_verification→run_oauth_test→register_in_claude_ai→observe_behavior→make_architectural_decision
+  ISSUE: ✓RTM_INFRASTRUCTURE_EXTRACTED_TO_SHARED_CORE
+  STATUS: ∇testing_builds_before_deploy
+  SOLUTION_IMPLEMENTED: internal/core/infrastructure.go→shared_oauth_health_wellknown_endpoints
+  RTM_UPDATED: cmd/rtm/main.go→uses_core.SetupInfrastructure()
+  
+  ∇IMMEDIATE_NEXT_STEPS:
+    1. ∇TEST_BUILDS: go_build_rtm_and_core→verify_compilation
+    2. ∇DEPLOY_RTM: make_deploy-rtm→fly.io_with_new_infrastructure
+    3. ∇TEST_CLAUDE_REGISTRATION: register_https://rtm.fly.dev/mcp→verify_discovery
+    4. ∇UPDATE_SPEKTRIX: apply_same_shared_infrastructure_pattern
+    5. ∇UPDATE_CORE: refactor_core_to_use_shared_infrastructure
+  
+  ✅ARCHITECTURAL_SUCCESS:
+    PROBLEM: RTM_missing_oauth_discovery_health_endpoints
+    SOLUTION: extracted_working_infrastructure_from_core→internal/core/infrastructure.go
+    PATTERN: all_servers_call_core.SetupInfrastructure()→guaranteed_consistency
+    BENEFITS: [single_source_truth,claude_ai_compatible,easier_maintenance]

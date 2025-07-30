@@ -6,17 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/vcto/mcp-adapters/internal/core"
 	"github.com/vcto/mcp-adapters/internal/debug"
-	"github.com/vcto/mcp-adapters/internal/middleware"
 	"github.com/vcto/mcp-adapters/internal/rtm"
 )
 
@@ -78,6 +75,42 @@ func main() {
 			log.Fatalf("Server error: %v\n", err)
 		}
 	}
+}
+
+func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig, authDisabled bool, rtmHandler *rtm.Handler) {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8081" // Different port from everything server
+	}
+
+	serverURL := os.Getenv("SERVER_URL")
+	if serverURL == "" {
+		serverURL = "http://localhost:" + port
+	}
+
+	// Parse allowed origins
+	var allowedOrigins []string
+	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
+		allowedOrigins = strings.Split(origins, ",")
+	}
+
+	// Configure infrastructure
+	config := core.InfrastructureConfig{
+		ServerURL:      serverURL,
+		Port:           port,
+		AuthDisabled:   authDisabled,
+		RTMHandler:     rtmHandler,
+		DebugStorage:   debugStorage,
+		DebugConfig:    debugConfig,
+		ServerName:     serverName,
+		AllowedOrigins: allowedOrigins,
+	}
+
+	// Setup infrastructure using shared core
+	result := core.SetupInfrastructure(mcpServer, config)
+
+	// Start server with graceful shutdown
+	core.StartServer(result, config)
 }
 
 func setupRTMResources(s *server.MCPServer, handler *rtm.Handler) {
@@ -346,179 +379,6 @@ func setupRTMResources(s *server.MCPServer, handler *rtm.Handler) {
 	})
 }
 
-func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debugConfig *debug.DebugConfig, authDisabled bool, rtmHandler *rtm.Handler) {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081" // Different port from everything server
-	}
-
-	serverURL := os.Getenv("SERVER_URL")
-	if serverURL == "" {
-		serverURL = "http://localhost:" + port
-	}
-
-	streamableServer := server.NewStreamableHTTPServer(
-		mcpServer,
-		server.WithStateLess(true),
-		server.WithEndpointPath("/mcp"),
-	)
-
-	handler := http.Handler(streamableServer)
-
-	if debugConfig.Enabled {
-		log.Printf("Debug middleware enabled for RTM server")
-		handler = debug.DebugMiddleware(debugStorage, debugConfig)(handler)
-	}
-
-	mux := http.NewServeMux()
-
-	if !authDisabled {
-		rtmAPIKey := os.Getenv("RTM_API_KEY")
-		rtmSecret := os.Getenv("RTM_API_SECRET")
-
-		if rtmAPIKey != "" && rtmSecret != "" {
-			rtmAdapter := rtm.NewOAuthAdapter(rtmAPIKey, rtmSecret, serverURL)
-			rtmSetup := rtm.NewSetupHandler()
-
-			// OAuth endpoints
-			mux.HandleFunc("/authorize", rtmAdapter.HandleAuthorize)
-			mux.HandleFunc("/token", rtmAdapter.HandleToken)
-			mux.HandleFunc("/oauth/authorize", rtmAdapter.HandleAuthorize)
-			mux.HandleFunc("/oauth/token", rtmAdapter.HandleToken)
-			mux.HandleFunc("/rtm/callback", rtmAdapter.HandleCallback)
-			mux.HandleFunc("/rtm/check-auth", rtmAdapter.HandleCheckAuth)
-			mux.HandleFunc("/rtm/setup", rtmSetup.HandleSetup)
-
-			// OAuth discovery endpoints (RFC 9728 + Claude compatibility)
-			mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
-				metadata := map[string]interface{}{
-					"authorization_servers": []string{serverURL},
-					"resource":              serverURL + "/mcp",
-					"scopes_supported":      []string{"rtm:read", "rtm:write"},
-				}
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(metadata); err != nil {
-					log.Printf("Failed to encode OAuth metadata: %v", err)
-				}
-			})
-
-			// Authorization server metadata (Claude expects /authorize not /oauth/authorize)
-			mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
-				metadata := map[string]interface{}{
-					"issuer":                        serverURL,
-					"authorization_endpoint":        serverURL + "/authorize",
-					"token_endpoint":                serverURL + "/token",
-					"scopes_supported":              []string{"rtm:read", "rtm:write"},
-					"response_types_supported":      []string{"code"},
-					"grant_types_supported":         []string{"authorization_code"},
-					"resource_indicators_supported": true,
-				}
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(metadata); err != nil {
-					log.Printf("Failed to encode auth server metadata: %v", err)
-				}
-			})
-
-			// Auth middleware
-			handler = rtmAuthMiddleware(rtmAdapter, rtmHandler)(handler)
-			log.Printf("OAuth: Enabled RTM OAuth adapter")
-		} else {
-			log.Fatal("RTM_API_KEY and RTM_API_SECRET required when auth enabled")
-		}
-	} else {
-		log.Println("OAuth: DISABLED via --disable-auth flag")
-	}
-
-	mux.HandleFunc("/health", handleHealth)
-	mux.Handle("/mcp", handler)
-	mux.Handle("/mcp/", handler)
-
-	corsConfig := middleware.DefaultCORSConfig()
-	if allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); allowedOrigins != "" {
-		corsConfig.AllowOrigins = append(corsConfig.AllowOrigins, strings.Split(allowedOrigins, ",")...)
-	}
-	finalHandler := middleware.CORS(corsConfig)(mux)
-
-	srv := &http.Server{
-		Addr:    ":" + port,
-		Handler: finalHandler,
-	}
-
-	log.Printf("Starting RTM MCP server on port %s", port)
-	log.Printf("Endpoint: %s/mcp", serverURL)
-
-	// Start server
-	serverErr := make(chan error, 1)
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			serverErr <- err
-		}
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-	log.Printf("RTM server ready")
-
-	// Wait for signals
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case err := <-serverErr:
-		log.Fatalf("Server error: %v", err)
-	case <-quit:
-		log.Println("Shutting down RTM server...")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
-	}
-
-	log.Println("RTM server stopped")
-}
-
-func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip auth for OAuth endpoints
-			if strings.HasPrefix(r.URL.Path, "/oauth/") ||
-				strings.HasPrefix(r.URL.Path, "/rtm/") ||
-				r.URL.Path == "/health" ||
-				r.URL.Path == "/authorize" ||
-				r.URL.Path == "/token" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
-				return
-			}
-
-			const bearerPrefix = "Bearer "
-			if !strings.HasPrefix(authHeader, bearerPrefix) {
-				http.Error(w, "Invalid Authorization format", http.StatusUnauthorized)
-				return
-			}
-
-			token := strings.TrimPrefix(authHeader, bearerPrefix)
-			if !adapter.ValidateBearer(token) {
-				http.Error(w, "Invalid token", http.StatusUnauthorized)
-				return
-			}
-
-			if rtmHandler != nil {
-				rtmHandler.SetAuthToken(token)
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 func extractListNameFromURI(uri string) string {
 	// Extract from "rtm://lists/Shopping" -> "Shopping"
 	// or "rtm://smart/Work" -> "Work"
@@ -527,17 +387,4 @@ func extractListNameFromURI(uri string) string {
 		return ""
 	}
 	return parts[len(parts)-1]
-}
-
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"status":    "healthy",
-		"server":    "rtm-server",
-		"transport": "StreamableHTTP",
-	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Failed to encode health response: %v", err)
-	}
 }

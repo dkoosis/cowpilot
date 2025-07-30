@@ -46,7 +46,7 @@ all: clean fmt vet lint build-all test-all deploy-verification
 test: unit-test integration-test-local
 
 # Run COMPREHENSIVE tests (local + deployed verification)
-test-all: unit-test integration-test-local integration-test
+test-all: unit-test integration-test-local integration-test cleanup-core-tmp
 
 # Verify deployed servers are working
 deploy-verification:
@@ -326,6 +326,12 @@ deploy-core-tmp: build
 	@echo "Deploying test server to core-tmp app..."
 	fly apps create core-tmp || true
 	fly deploy -a core-tmp -c fly-core-tmp.toml
+
+# Cleanup ephemeral test server
+cleanup-core-tmp:
+	@echo "Destroying ephemeral core-tmp app..."
+	fly apps destroy core-tmp --yes 2>/dev/null || true
+	@echo "✅ Cleanup complete"
 
 # Deploy RTM server (production target)
 deploy-rtm: build-rtm
