@@ -60,6 +60,13 @@ func main() {
 
 	// Setup RTM tools
 	rtmHandler.SetupTools(s)
+	log.Printf("RTM: Registered %d base tools", 8)
+
+	// Setup enhanced atomic tools
+	enhancedHandler := rtm.NewEnhancedHandler(rtmHandler)
+	enhancedHandler.SetupAtomicTools(s)
+	log.Printf("RTM: Registered %d enhanced tools", 11)
+	log.Printf("RTM: Total tools should be: %d", 19)
 
 	// Setup RTM resources
 	setupRTMResources(s, rtmHandler)

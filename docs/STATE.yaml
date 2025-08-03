@@ -51,6 +51,36 @@
   rtm_manage_list→create_rename_archive_lists
   CREDENTIALS: env[RTM_API_KEY,RTM_API_SECRET]
 
+∇RTM_TOOLS_BACKLOG[semantic_atomic_design]:
+  ‡SEARCH_ENHANCEMENTS:
+    search_rtm_tasks_smart→enhanced_search_with_saved_queries
+    get_rtm_task_by_position→retrieve_task_from_numbered_list[1,3,7]
+    save_rtm_search_preset→store_favorite_queries_like_priority_due
+  
+  ‡BATCH_OPERATIONS[atomic_decomposition]:
+    set_rtm_tasks_due_date→batch_update_due_dates["1,3,7,11","Wed"]
+    set_rtm_tasks_priority→batch_update_priorities
+    move_rtm_tasks_to_list→batch_move_between_lists
+    add_rtm_tags_to_tasks→batch_tag_addition
+    remove_rtm_tags_from_tasks→batch_tag_removal
+    †IMPLEMENTATION: server_side_sequential_processing[1sec_per_task]
+    †UX_PATTERNS:
+      ASYNC_OPTION_1: queue_rtm_batch_job→returns_job_id→check_rtm_job_status
+      ASYNC_OPTION_2: start_rtm_batch→immediate_return→background_processing
+      SYNC_OPTION: progressive_updates["3/10 complete..."]→streaming_results
+  
+  ‡INTELLIGENT_TASK_CREATION:
+    analyze_rtm_task_context→extract_tags_from_content[#call,#body]
+    find_rtm_related_info→search_contacts_notes_for_context[doc_phone]
+    suggest_rtm_task_defaults→smart_priority_due_based_on_content
+    create_rtm_task_smart→enhanced_creation_with_auto_tagging
+  
+  ‡CONTEXT_RESOURCES[precise_not_raw]:
+    rtm://search/{encoded_query}→dynamic_search_results
+    rtm://favorites→user_saved_search_presets
+    rtm://context/{task_content}→suggested_tags_priority_due
+    rtm://contacts→structured_contact_info_for_tasks
+
 ✓RTM_RESOURCES[7_implemented]:
   rtm://today→tasks_due_today_json
   rtm://inbox→inbox_tasks_json
@@ -126,6 +156,22 @@
     claude_ai_compatibility: ✓guaranteed_consistent_endpoints
 
 ∇IMMEDIATE_TASKS[updated_priority_2025-08-02]:
+  ‡RTM_OAUTH_TEST_COVERAGE[critical]:
+    STATUS: ∅no_tests_for_oauth_flow
+    ∇UNIT_TESTS: φinternal/rtm/oauth_adapter_test.go
+      - ∇TestCSRFCookieSettings→verify_SameSite_Secure_expiry
+      - ∇TestAuthSessionLifecycle→create_exists_remove_flow
+      - ∇TestCheckAuthStates→pending_authorized_token_ready
+      - ∇TestPKCEValidation→code_challenge_verification
+    ∇INTEGRATION_TESTS: φtests/integration/rtm_oauth_test.go
+      - ∇TestFullOAuthFlow→simulate_complete_flow
+      - ∇TestAuthStateTransitions→error_scenarios
+      - ∇TestConcurrentSessions→race_conditions
+    ∇E2E_TESTS: φtests/scenarios/rtm_auth_test.go
+      - ∇TestCompleteAuthWithMockRTM→end_to_end_validation
+      - ∇TestTokenPersistence→re_auth_existing_token
+    PRIORITY: high[auth_flow_is_critical_path]
+
   ◯NEXT_PRIORITIES:
     - ∇spektrix_server_deployment
     - ∇core_server_shared_infrastructure_refactor

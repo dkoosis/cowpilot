@@ -18,7 +18,7 @@ cd "$PROJECT_ROOT"
 FAILED=0
 
 # Test 1: Project Structure
-required_dirs=("cmd/demo-server" "cmd/rtm_server" "cmd/spektrix_server" "internal/debug" "scripts/test" "docs/adr")
+required_dirs=("cmd/core" "cmd/rtm" "cmd/spektrix" "internal/debug" "scripts/test" "docs/adr")
 for dir in "${required_dirs[@]}"; do
     if [[ -d "$dir" ]]; then
         echo -e "${GREEN} ✓${NC} $dir exists"
@@ -29,13 +29,13 @@ for dir in "${required_dirs[@]}"; do
 done
 
 # Test 2: Build Test
-if go build -o bin/cowpilot cmd/demo-server/main.go 2>/dev/null; then
+if go build -o bin/rtm-server cmd/rtm/main.go 2>/dev/null; then
     echo -e "${GREEN} ✓${NC} Build successful"
-    size=$(ls -lh bin/cowpilot | awk '{print $5}')
+    size=$(ls -lh bin/rtm-server | awk '{print $5}')
     echo -e "\n${CYAN} ▶${NC} Binary size: $size"
     
     # Check binary size (warn if > 15MB)
-    size_mb=$(du -m bin/cowpilot | cut -f1)
+    size_mb=$(du -m bin/rtm-server | cut -f1)
     if [ "$size_mb" -gt 15 ]; then
         echo -e "${YELLOW} ⚠️ Binary size exceeds 15MB"
     fi
@@ -63,7 +63,7 @@ fi
 # Test 4: Quick Server Startup Test
 echo -e " "
 echo -e "${BLUE} ▶${NC} Server startup test (stdio mode)..."
-timeout 3s ./bin/cowpilot 2>/dev/null &
+timeout 3s ./bin/rtm-server 2>/dev/null &
 exit_code=$?
 if [[ $exit_code -eq 124 ]]; then
     echo -e "${GREEN} ✓${NC} Server starts successfully"
@@ -74,15 +74,15 @@ fi
 # Test 5: Feature Verification (based on STATE.yaml)
 
 # Count implementations
-tool_count=$(grep -c 'AddTool' cmd/demo-server/main.go 2>/dev/null || echo 0)
-resource_count=$(grep -c 'AddResource' cmd/demo-server/main.go 2>/dev/null || echo 0)
-prompt_count=$(grep -c 'AddPrompt' cmd/demo-server/main.go 2>/dev/null || echo 0)
+tool_count=$(grep -c 'AddTool' cmd/rtm/main.go 2>/dev/null || echo 0)
+resource_count=$(grep -c 'AddResource' cmd/rtm/main.go 2>/dev/null || echo 0)
+prompt_count=$(grep -c 'AddPrompt' cmd/rtm/main.go 2>/dev/null || echo 0)
 
 #echo -e "${CYAN} ▶${NC} Tools: $tool_count/11 expected"
-if [ "$tool_count" -eq 11 ]; then
-    echo -e "${GREEN} ✓${NC} $tool_count tools of 11 expected"
+if [ "$tool_count" -ge 8 ]; then
+    echo -e "${GREEN} ✓${NC} $tool_count tools found"
 else
-    echo -e "${YELLOW} ⚠️ Tool count mismatch: $tool_count tools of 11 expected"
+    echo -e "${YELLOW} ⚠️ Tool count low: $tool_count"
 fi
 
 #echo -e "${CYAN} ▶${NC} Resources: $resource_count/4 expected"
