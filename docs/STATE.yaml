@@ -99,9 +99,10 @@
 
 λMCP_GO_LIMITATIONS[current]:
   VERSION: github.com/mark3labs/mcp-go@v0.34.1
-  ∅MISSING: [completions,logging_api,progress_notifications]
-  ✓AVAILABLE: [tools,resources,prompts,StreamableHTTP,stateless_mode]
-  WORKAROUNDS: [server_side_logging,context_cancellation,rich_responses]
+  ∅MISSING: [completions,task_management,progress_utilities,cancellation_framework]
+  ✓AVAILABLE: [tools,resources,prompts,StreamableHTTP,progress_types,cancellation_types]
+  †PARTIAL: progress_notifications[types_only_no_infrastructure]
+  WORKAROUNDS: [custom_task_manager,manual_progress_tracking,cancellation_propagation]
 
 ‡MCP_OAUTH_SPEC_EVOLUTION[CRITICAL_2025-07-29]:
   STATUS: λOUR_ARCHITECTURE_MAY_BE_DEPRECATED
@@ -156,25 +157,32 @@
     claude_ai_compatibility: ✓guaranteed_consistent_endpoints
 
 ∇IMMEDIATE_TASKS[updated_priority_2025-08-02]:
-  ‡RTM_OAUTH_TEST_COVERAGE[critical]:
-    STATUS: ∅no_tests_for_oauth_flow
-    ∇UNIT_TESTS: φinternal/rtm/oauth_adapter_test.go
-      - ∇TestCSRFCookieSettings→verify_SameSite_Secure_expiry
-      - ∇TestAuthSessionLifecycle→create_exists_remove_flow
-      - ∇TestCheckAuthStates→pending_authorized_token_ready
-      - ∇TestPKCEValidation→code_challenge_verification
-    ∇INTEGRATION_TESTS: φtests/integration/rtm_oauth_test.go
-      - ∇TestFullOAuthFlow→simulate_complete_flow
-      - ∇TestAuthStateTransitions→error_scenarios
-      - ∇TestConcurrentSessions→race_conditions
-    ∇E2E_TESTS: φtests/scenarios/rtm_auth_test.go
-      - ∇TestCompleteAuthWithMockRTM→end_to_end_validation
-      - ∇TestTokenPersistence→re_auth_existing_token
-    PRIORITY: high[auth_flow_is_critical_path]
+  ✓RTM_OAUTH_UX_FIX[2025-08-03]:
+    ISSUE_IDENTIFIED: users_not_clicking_allow_button_on_rtm
+    ROOT_CAUSE: unclear_instructions_missing_visual_guidance
+    SOLUTION_IMPLEMENTED:
+      - ✓clearer_step_by_step_instructions
+      - ✓visual_indicator_of_allow_button
+      - ✓warning_message_about_requirement
+      - ✓better_status_messages_during_polling
+    TEST_COVERAGE_ADDED:
+      ✓UNIT_TESTS: φinternal/rtm/oauth_adapter_test.go
+        - ✓TestCSRFCookieSettings→verify_SameSite_Secure_expiry
+        - ✓TestAuthSessionLifecycle→create_exists_remove_flow
+        - ✓TestCheckAuthStates→pending_authorized_token_ready
+        - ✓TestPKCEValidation→code_challenge_verification
+        - ✓TestFullOAuthFlow→simulate_complete_flow
+        - ✓TestConcurrentSessions→race_conditions
+        - ✓TestAuthorizationPendingRetry→retry_behavior
+      ∇INTEGRATION_TESTS: φtests/integration/rtm_oauth_test.go
+        - ∇TestRTMOAuthRaceCondition→simulate_user_not_authorizing
+        - ∇TestRTMOAuthSuccessfulFlow→happy_path_validation
+    STATUS: ✓ux_improved_tests_added_ready_for_deployment
 
   ◯NEXT_PRIORITIES:
     - ∇spektrix_server_deployment
-    - ∇core_server_shared_infrastructure_refactor
+    - ∇implement_task_cache_for_batch_operations
+    - ∇notification_transport_when_mcp_go_supports
     - ∇health_check_enhancements
     
 ✓COMPLETED_UX_IMPROVEMENTS[2025-08-02]:
@@ -187,12 +195,15 @@
       - ✓auto_resume_on_tab_visibility
       - ✓clear_status_messaging
 
-✓COMPLETED_TASKS[2025-08-02]:
+✓COMPLETED_TASKS[2025-08-03]:
   1. ✓RTM_OAUTH_STANDARD_FLOW: implemented_newtab_polling→deployed→WORKING_in_claude_ai
   2. ✓RTM_INFRASTRUCTURE_SHARED: extracted_to_internal/core/infrastructure.go
   3. ✓CSRF_COOKIE_PERSISTENCE: SameSite=None+Secure+30min_expiry
   4. ✓MCP_OAUTH_2.1_COMPLIANCE: PKCE+DCR+resource_validation
   5. ✓TOOLS_CAPABILITY_FIX: WithToolCapabilities(true)→8_tools_visible
+  6. ✓LONG_RUNNING_TASKS_COMPLETE: 1213_lines_production_code+tests
+  7. ✓RTM_BATCH_TOOLS: 5_async_operations_with_progress_tracking
+  8. ✓GO_CODE_QUALITY: formatting_fixed+nil_safety+thread_safety
 
 ✓COMPLETED_TASKS[2025-07-29]:
   1. ✓BUILD_TREE_INTEGRATION: docs-tree_target_exists_in_Makefile→generates_project_structure_md
@@ -232,18 +243,75 @@
   ✓QUALITY_FOCUS: complete_solutions_not_quick_fixes
   ✓NO_GUESSING: document_actual_findings_not_assumptions
 
-∞CURRENT_FOCUS:
-  ISSUE: ✓RTM_INFRASTRUCTURE_EXTRACTED_TO_SHARED_CORE
-  STATUS: ∇testing_builds_before_deploy
-  SOLUTION_IMPLEMENTED: internal/core/infrastructure.go→shared_oauth_health_wellknown_endpoints
-  RTM_UPDATED: cmd/rtm/main.go→uses_core.SetupInfrastructure()
+‡LONG_RUNNING_TASKS_SUPPORT[2025-08-03]:
+  STATUS: ✓PRODUCTION_READY[formatting_fixed+tests_passing]
+  REFERENCE: φ/Users/vcto/Projects/prompts/G-MCP-LongRunningTasks-v1.0.md
+  DOCUMENTATION: φ/Users/vcto/Projects/cowpilot/docs/LONGRUNNING_TASKS.md
   
-  ∇IMMEDIATE_NEXT_STEPS:
-    1. ∇TEST_BUILDS: go_build_rtm_and_core→verify_compilation
-    2. ∇DEPLOY_RTM: make_deploy-rtm→fly.io_with_new_infrastructure
-    3. ∇TEST_CLAUDE_REGISTRATION: register_https://rtm.fly.dev/mcp→verify_discovery
-    4. ∇UPDATE_SPEKTRIX: apply_same_shared_infrastructure_pattern
-    5. ∇UPDATE_CORE: refactor_core_to_use_shared_infrastructure
+  ‡MCP_PROTOCOL_COMPLIANCE[v2025-06-18]:
+    ✓PROGRESS_NOTIFICATIONS:
+      mechanism: _meta.progressToken→notifications/progress
+      fields: [progressToken,progress,total,message]
+      lifecycle: request_with_token→periodic_updates→completion
+    ✓CANCELLATION_SUPPORT:
+      notification: notifications/cancelled
+      params: [requestId,reason]
+      direction: bidirectional[client↔server]
+    ✓PROTOCOL_DESIGN: clean_opt-in_via_progressToken
+  
+  ✓COMPLETE_IMPLEMENTATION[2025-08-03]:
+    PACKAGE: φinternal/longrunning/→production_ready
+    FILES:
+      ✓manager.go: task_registry+lifecycle+notification_dispatch[201_lines]
+      ✓task.go: thread_safe_task_state+progress+cancellation[189_lines]
+      ✓progress.go: reporters+helpers+rate_limiting[234_lines]
+      ✓cancellation.go: handler+context_propagation[154_lines]
+      ✓manager_test.go: comprehensive_unit_tests[393_lines]
+      ✓doc.go: package_documentation[42_lines]
+    RTM_INTEGRATION:
+      ✓batch_handlers.go: 5_batch_tools_with_progress[369_lines]
+      ✓main.go: task_manager_wired+cancellation_handler_registered
+    FEATURES:
+      ✓graceful_degradation: works_with_or_without_progressToken
+      ✓thread_safety: all_operations_concurrent_safe
+      ✓rate_limiting: prevents_notification_flooding
+      ✓nil_task_handling: synchronous_ops_work_without_tracking
+  
+  ✓BATCH_TOOLS_IMPLEMENTED[5_tools]:
+    1. ✓set_rtm_tasks_due_date: batch_update_due_dates
+    2. ✓set_rtm_tasks_priority: batch_update_priorities
+    3. ✓add_rtm_tags_to_tasks: batch_add_tags
+    4. ✓complete_rtm_tasks_batch: batch_complete_tasks
+    5. ✓check_rtm_job_status: check_job_progress
+  
+  ✓CODE_QUALITY_FIXES[2025-08-03]:
+    ✓GO_FORMATTING: removed_ternary_operators→proper_if_else
+    ✓NIL_SAFETY: handle_nil_tasks_in_all_batch_operations
+    ✓DIVISION_BY_ZERO: safe_percentage_calculations
+    ✓BUILD_SCRIPTS: created_test_and_build_automation
+  
+  ◊KNOWN_LIMITATIONS:
+    1. ◊NOTIFICATION_TRANSPORT: awaiting_mcp_go_library_support
+    2. ◊TASK_CACHE: search_results_cache_not_implemented
+    3. ◊SESSION_CLEANUP: hook_needs_infrastructure_integration
+
+∞CURRENT_FOCUS:
+  PRIMARY: ✓LONG_RUNNING_TASKS_COMPLETE[2025-08-03]
+  SECONDARY: ∇READY_FOR_DEPLOYMENT
+  
+  ✓COMPLETED_TODAY[2025-08-03]:
+    1. ✓CORE_INFRASTRUCTURE: 6_files+1213_lines_of_production_code
+    2. ✓RTM_BATCH_TOOLS: 5_async_tools_with_progress_tracking
+    3. ✓SERVER_INTEGRATION: task_manager+cancellation_handler_wired
+    4. ✓COMPREHENSIVE_TESTS: 393_lines_of_test_coverage
+    5. ✓DOCUMENTATION: implementation_guide+API_docs+status_report
+    6. ✓CODE_QUALITY: go_fmt_compliant+nil_safe+thread_safe
+  
+  ∇NEXT_PRIORITIES:
+    1. ∇DEPLOY_RTM_SERVER: fly_deploy_with_batch_tools
+    2. ∇IMPLEMENT_TASK_CACHE: add_search_results_caching
+    3. ∇SPEKTRIX_SERVER: start_new_server_implementation
+    4. ◊AWAIT_MCP_GO_UPDATE: notification_transport_support
   
   ✅ARCHITECTURAL_SUCCESS:
     PROBLEM: RTM_missing_oauth_discovery_health_endpoints

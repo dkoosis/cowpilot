@@ -14,6 +14,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/vcto/mcp-adapters/internal/core"
 	"github.com/vcto/mcp-adapters/internal/debug"
+	"github.com/vcto/mcp-adapters/internal/longrunning"
 	"github.com/vcto/mcp-adapters/internal/rtm"
 )
 
@@ -50,6 +51,18 @@ func main() {
 		server.WithPromptCapabilities(false),
 	)
 
+	// Create task manager for long-running operations
+	taskManager := longrunning.NewManager(s)
+
+	// Register cancellation handler
+	cancellationHandler := longrunning.NewCancellationHandler(taskManager)
+	s.AddNotificationHandler("notifications/cancelled",
+		func(notification mcp.Notification) {
+			if err := cancellationHandler.Handle(notification); err != nil {
+				log.Printf("Error handling cancellation: %v", err)
+			}
+		})
+
 	// Check RTM credentials
 	rtmHandler := rtm.NewHandler()
 	if rtmHandler == nil {
@@ -66,7 +79,12 @@ func main() {
 	enhancedHandler := rtm.NewEnhancedHandler(rtmHandler)
 	enhancedHandler.SetupAtomicTools(s)
 	log.Printf("RTM: Registered %d enhanced tools", 11)
-	log.Printf("RTM: Total tools should be: %d", 19)
+
+	// Setup batch tools with progress support
+	rtmHandler.SetupBatchTools(s, taskManager)
+	log.Printf("RTM: Registered 5 batch tools with progress support")
+
+	log.Printf("RTM: Total tools should be: %d", 24)
 
 	// Setup RTM resources
 	setupRTMResources(s, rtmHandler)
@@ -115,6 +133,10 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 
 	// Setup infrastructure using shared core
 	result := core.SetupInfrastructure(mcpServer, config)
+
+	// TODO: Add session cleanup hook for task manager
+	// When a session ends, cancel all its tasks:
+	// taskManager.CancelSessionTasks(sessionID)
 
 	// Start server with graceful shutdown
 	core.StartServer(result, config)

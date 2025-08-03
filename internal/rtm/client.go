@@ -12,6 +12,16 @@ import (
 	"time"
 )
 
+// RTMError represents an RTM API error
+type RTMError struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+}
+
+func (e *RTMError) Error() string {
+	return fmt.Sprintf("RTM API error %d: %s", e.Code, e.Msg)
+}
+
 // Client handles RTM API communication
 type Client struct {
 	APIKey    string
@@ -165,9 +175,14 @@ func (c *Client) Call(method string, params map[string]string) ([]byte, error) {
 
 	if err := json.Unmarshal(body, &errorCheck); err == nil {
 		if errorCheck.Rsp.Stat == "fail" {
-			return nil, fmt.Errorf("RTM API error %s: %s",
-				errorCheck.Rsp.Err.Code,
-				errorCheck.Rsp.Err.Msg)
+			code := 0
+			if errorCheck.Rsp.Err.Code != "" {
+				fmt.Sscanf(errorCheck.Rsp.Err.Code, "%d", &code)
+			}
+			return nil, &RTMError{
+				Code: code,
+				Msg:  errorCheck.Rsp.Err.Msg,
+			}
 		}
 	}
 

@@ -1,25 +1,26 @@
 #!/bin/bash
-cd /Users/vcto/Projects/cowpilot
+# Quick build test for RTM server with long-running tasks
 
-echo "Testing RTM enhanced compilation..."
-if go test -c ./internal/rtm -o /dev/null 2>&1; then
-    echo "✓ RTM package compiles successfully"
-else
-    echo "✗ Compilation errors:"
-    go test -c ./internal/rtm 2>&1
-fi
+set -e
 
-echo ""
+echo "Running quick build test..."
+
+# Install dependencies
+echo "Installing dependencies..."
+go mod download
+
+# Run unit tests for longrunning package
+echo "Testing longrunning package..."
+go test ./internal/longrunning/...
+
+# Build RTM server
 echo "Building RTM server..."
-if go build -o build/rtm-server ./cmd/rtm 2>&1; then
-    echo "✓ RTM server builds successfully"
-    echo ""
-    echo "Enhanced RTM features ready:"
-    echo "• Batch operations with job queue"
-    echo "• Smart search with position tracking" 
-    echo "• Intelligent task creation"
-    echo "• 19 total tools (8 original + 11 atomic)"
-else
-    echo "✗ Build errors:"
-    go build -o build/rtm-server ./cmd/rtm 2>&1
-fi
+go build -o bin/rtm-server ./cmd/rtm
+
+echo "Build successful!"
+echo ""
+echo "To run the server locally:"
+echo "  RTM_API_KEY=your_key RTM_API_SECRET=your_secret ./bin/rtm-server"
+echo ""
+echo "Or with fly.io:"
+echo "  make deploy-rtm"

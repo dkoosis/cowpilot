@@ -358,7 +358,7 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
         function startChecking() {
             if (checkInterval) return;
             isChecking = true;
-            updateStatus('checking', 'Waiting for authorization...');
+            updateStatus('checking', 'Waiting for you to click "Allow" on the RTM page...');
             checkInterval = setInterval(checkAuthStatus, 2000);
             checkAuthStatus(); // Check immediately
         }
@@ -378,6 +378,9 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
                         updateStatus('error', data.error);
                         document.getElementById('checkBtn').disabled = false;
                         document.getElementById('checkBtn').textContent = 'Try Again';
+                    } else if (data.pending) {
+                        // Still waiting - update message periodically
+                        updateStatus('checking', 'Still waiting... Make sure you clicked "Allow" on the RTM page!');
                     }
                 })
                 .catch(err => {
@@ -410,11 +413,25 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
         <h1>Connect to Remember The Milk</h1>
         
         <div class="instructions">
-            <p>Click below to authorize access in a new tab.</p>
-            <p>After authorizing at RTM, return to this tab.</p>
+            <p><strong>Step 1:</strong> Click the button below to open Remember The Milk in a new tab</p>
+            <p><strong>Step 2:</strong> On the RTM page, click the blue "Allow" button to grant access</p>
+            <p><strong>Step 3:</strong> Return to this tab - we'll detect when you're done</p>
         </div>
         
-        <a href="%s" target="_blank" class="button" onclick="setTimeout(startChecking, 1000)">Authorize at RTM →</a>
+        <div class="warning" style="margin: 15px 0;">
+            <strong>⚠️ Important:</strong> You must click "Allow" on the Remember The Milk page, not just view it!
+        </div>
+        
+        <a href="%s" target="_blank" class="button" onclick="setTimeout(startChecking, 1000)">Open Remember The Milk →</a>
+        
+        <div style="margin: 20px 0; padding: 15px; background: #f0f8ff; border: 1px solid #4682b4; border-radius: 4px;">
+            <p style="margin: 0; color: #333;">💡 <strong>What to look for:</strong> On the RTM page, you'll see:</p>
+            <ul style="margin: 10px 0; padding-left: 30px;">
+                <li>Your application name</li>
+                <li>Permission details</li>
+                <li>A blue <strong>"Allow"</strong> button - click this!</li>
+            </ul>
+        </div>
         
         <div id="status" class="status" style="display: none;"></div>
         
@@ -528,7 +545,7 @@ func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if it's a "not authorized" error vs other errors
-	if fmt.Sprintf("%v", err) == "RTM API error 101: Invalid frob - did you authenticate?" {
+	if rtmErr, ok := err.(*RTMError); ok && rtmErr.Code == 101 {
 		// User hasn't authorized yet, return pending
 		w.Header().Set("Content-Type", "application/json")
 		if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -610,4 +627,16 @@ func (a *OAuthAdapter) ValidateBearer(token string) bool {
 
 	log.Printf("RTM DEBUG: Token validation successful")
 	return true
+}
+
+// SetClient sets the RTM client (for testing)
+func (a *OAuthAdapter) SetClient(client *Client) {
+	a.client = client
+}
+
+// GetSession retrieves a session by code (for testing)
+func (a *OAuthAdapter) GetSession(code string) *AuthSession {
+	a.sessionMutex.RLock()
+	defer a.sessionMutex.RUnlock()
+	return a.sessions[code]
 }
