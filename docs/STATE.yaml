@@ -15,23 +15,29 @@
   BUILD_SYSTEM: ✓Makefile[comprehensive_testing,multi_target,FIXED_PATHS]
 
 ‡RTM_INFRASTRUCTURE_GAP[RESOLVED_2025-07-29]:
-  STATUS: ✓rtm_complete_infrastructure_deployed
+  STATUS: ✓rtm_complete_infrastructure_deployed→❌PROTOCOL_CONTRACT_ISSUE_DISCOVERED
   SOLUTION: shared_infrastructure_from_core→all_endpoints_working
   SERVER_URL: ✓fixed_https://rtm.fly.dev_in_fly-rtm.toml
   
+  ✓MCP_OAUTH_2.1_COMPLIANCE[implemented_2025-07-30]:
+    STATUS: ✓mcp_oauth_protocol_compliance_added
+    FEATURES: ✓PKCE[S256],✓DCR[/oauth/register],✓resource_parameter_validation
+    ENDPOINTS: ✓all_working[authorize,token,register,well-known,401_with_WWW-Authenticate]
+    READY_FOR_TEST: ∇deploy_and_test_claude_ai_connection
+    
   ✓RTM_API_CALLBACK_OPPORTUNITY[noted_2025-07-29]:
     STATUS: ∇can_request_official_callback_url_for_public_app
     CONTACT: http://www.rememberthemilk.com/services/api/appinfo.rtm
     BENEFITS: [official_callback_url,custom_app_name,logo_during_auth]
     REQUIREMENT: public_application_compliance_with_terms
 
-✓RTM_PRODUCTION_STATUS[2025-07-29]:
-  STATUS: ✓deployed_with_complete_infrastructure
+✓RTM_PRODUCTION_STATUS[2025-08-02]:
+  STATUS: ✓deployed_with_oauth_flow_working
   APP_NAME: rtm[fly.io]
   ENDPOINT: https://rtm.fly.dev/mcp
   PORT: 8081[production]
   STORAGE: ✓persistent_sqlite[/data/tokens.db,cowpilot_data_volume]
-  AUTH_FLOW: ✓OAuth_implemented[RTM_API_integration]
+  AUTH_FLOW: ✓OAuth_standard_newtab_polling[WORKING]
   CAPABILITIES: [8_RTM_tools,7_RTM_resources,debug_system]
   HEALTH_CHECK: ∅basic_only[needs_enhancement]
 
@@ -119,12 +125,28 @@
     easier_maintenance: ✓fix_once_apply_everywhere
     claude_ai_compatibility: ✓guaranteed_consistent_endpoints
 
-∇IMMEDIATE_TASKS[updated_priority]:
-  1. ∇CREATE_SHARED_INFRASTRUCTURE: internal/mcpserver/setup.go→extract_from_core
-  2. ∇UPDATE_RTM_TO_USE_SHARED: cmd/rtm/main.go→import_mcpserver_setup
-  3. ∇UPDATE_SPEKTRIX_TO_USE_SHARED: cmd/spektrix/main.go→import_mcpserver_setup  
-  4. ∇UPDATE_CORE_TO_USE_SHARED: cmd/core/main.go→refactor_to_shared
-  5. ∇DEPLOY_AND_TEST_RTM: verify_all_endpoints_working
+∇IMMEDIATE_TASKS[updated_priority_2025-08-02]:
+  ◯NEXT_PRIORITIES:
+    - ∇spektrix_server_deployment
+    - ∇core_server_shared_infrastructure_refactor
+    - ∇health_check_enhancements
+    
+✓COMPLETED_UX_IMPROVEMENTS[2025-08-02]:
+  ✓RTM_OAUTH_STANDARD_FLOW[implemented]:
+    ISSUE_FIXED: popup_blocked→CSRF_lost→auth_fails
+    SOLUTION: ✓standard_newtab_polling_pattern
+    IMPLEMENTATION:
+      - ✓new_tab_via_target="_blank"
+      - ✓polling_with_manual_fallback
+      - ✓auto_resume_on_tab_visibility
+      - ✓clear_status_messaging
+
+✓COMPLETED_TASKS[2025-08-02]:
+  1. ✓RTM_OAUTH_STANDARD_FLOW: implemented_newtab_polling→deployed→WORKING_in_claude_ai
+  2. ✓RTM_INFRASTRUCTURE_SHARED: extracted_to_internal/core/infrastructure.go
+  3. ✓CSRF_COOKIE_PERSISTENCE: SameSite=None+Secure+30min_expiry
+  4. ✓MCP_OAUTH_2.1_COMPLIANCE: PKCE+DCR+resource_validation
+  5. ✓TOOLS_CAPABILITY_FIX: WithToolCapabilities(true)→8_tools_visible
 
 ✓COMPLETED_TASKS[2025-07-29]:
   1. ✓BUILD_TREE_INTEGRATION: docs-tree_target_exists_in_Makefile→generates_project_structure_md

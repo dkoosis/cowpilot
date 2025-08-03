@@ -32,8 +32,12 @@ func DefaultCORSConfig() CORSConfig {
 func CORS(config CORSConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip CORS for health checks
-			if r.URL.Path == "/health" {
+			// Skip CORS for health checks and OAuth endpoints
+			if r.URL.Path == "/health" ||
+				strings.HasPrefix(r.URL.Path, "/oauth/") ||
+				strings.HasPrefix(r.URL.Path, "/.well-known/") ||
+				r.URL.Path == "/authorize" ||
+				r.URL.Path == "/token" {
 				next.ServeHTTP(w, r)
 				return
 			}

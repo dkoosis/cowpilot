@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -166,6 +167,7 @@ func setupOAuthEndpoints(mux *http.ServeMux, config InfrastructureConfig, handle
 		mux.HandleFunc("/token", rtmAdapter.HandleToken)
 		mux.HandleFunc("/oauth/authorize", rtmAdapter.HandleAuthorize)
 		mux.HandleFunc("/oauth/token", rtmAdapter.HandleToken)
+		mux.HandleFunc("/oauth/register", rtmAdapter.HandleRegister)
 		mux.HandleFunc("/rtm/callback", rtmAdapter.HandleCallback)
 		mux.HandleFunc("/rtm/check-auth", rtmAdapter.HandleCheckAuth)
 		mux.HandleFunc("/rtm/setup", rtmSetup.HandleSetup)
@@ -216,13 +218,15 @@ func setupRTMWellKnownEndpoints(mux *http.ServeMux, serverURL string) {
 
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
 		metadata := map[string]interface{}{
-			"issuer":                        serverURL,
-			"authorization_endpoint":        serverURL + "/authorize",
-			"token_endpoint":                serverURL + "/token",
-			"scopes_supported":              []string{"rtm:read", "rtm:write"},
-			"response_types_supported":      []string{"code"},
-			"grant_types_supported":         []string{"authorization_code"},
-			"resource_indicators_supported": true,
+			"issuer":                           serverURL,
+			"authorization_endpoint":           serverURL + "/authorize",
+			"token_endpoint":                   serverURL + "/token",
+			"registration_endpoint":            serverURL + "/oauth/register",
+			"scopes_supported":                 []string{"rtm:read", "rtm:write"},
+			"response_types_supported":         []string{"code"},
+			"grant_types_supported":            []string{"authorization_code"},
+			"code_challenge_methods_supported": []string{"S256"},
+			"resource_indicators_supported":    true,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(metadata); err != nil {
@@ -285,6 +289,8 @@ func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler, confi
 			// Check Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				// CRITICAL: WWW-Authenticate header required by MCP OAuth spec (RFC 9728)
+				// Claude.ai needs this to show Connect button - DO NOT REMOVE
 				w.Header().Set("WWW-Authenticate", fmt.Sprintf("Bearer realm=\"%s/.well-known/oauth-protected-resource\"", config.ServerURL))
 				http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
 				return

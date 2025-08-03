@@ -116,10 +116,75 @@ GENERIC_OAUTH2[reference]:
     STANDARD_PATHS: /oauth/authorize+/oauth/token
     SOLUTION: support_both_endpoint_patterns
 
-GOOGLE_OAUTH2_PKCE:
-  ∇TODO: document_pkce_flow
-  λREQUIRES: code_challenge+verifier
-
-GITHUB_DEVICE_FLOW:
-  ∇TODO: document_device_flow
-  λNO_REDIRECT: polling_based_like_rtm
+‡MCP_OAUTH_PROTOCOL[claude_ai_requirements_2025-07-30]:
+  TYPE: rfc_9728_protected_resource_metadata+rfc_8414_auth_server_metadata
+  ‡CRITICAL: exact_protocol_contract_compliance_required
+  
+  ‡CLAUDE_AI_CONNECT_BUTTON_FLOW:
+    TRIGGER: 401_response_with_WWW-Authenticate_header
+    1_DISCOVERY: GET→/mcp→401+WWW-Authenticate:Bearer_realm="{server}/.well-known/oauth-protected-resource"
+    2_PROTECTED_RESOURCE: GET→/.well-known/oauth-protected-resource→{authorization_servers,resource,scopes}
+    3_AUTH_SERVER: GET→/.well-known/oauth-authorization-server→{authorization_endpoint,token_endpoint,etc}
+    4_OAUTH_FLOW: standard_oauth2_authorization_code_flow
+  
+  ‡REQUIRED_ENDPOINTS[all_must_work]:
+    /.well-known/oauth-protected-resource: rfc_9728_metadata
+    /.well-known/oauth-authorization-server: rfc_8414_metadata  
+    /authorize: oauth_authorization_endpoint
+    /token: oauth_token_endpoint
+    /mcp: protected_resource[401_if_unauthorized]
+  
+  ‡CRITICAL_401_RESPONSE[learned_twice_do_not_break]:
+    STATUS: HTTP_401_Unauthorized
+    HEADER: WWW-Authenticate:Bearer_realm="{serverURL}/.well-known/oauth-protected-resource"
+    BODY: any_error_message
+    PURPOSE: triggers_claude_ai_oauth_discovery
+    ‡WARNING: remove_this_header→connect_button_disappears
+  
+  ‡RFC_9728_PROTECTED_RESOURCE_METADATA[/.well-known/oauth-protected-resource]:
+    authorization_servers: ["https://rtm.fly.dev"]
+    resource: "https://rtm.fly.dev/mcp"
+    scopes_supported: ["rtm:read","rtm:write"]
+  
+  ‡RFC_8414_AUTH_SERVER_METADATA[/.well-known/oauth-authorization-server]:
+    issuer: "https://rtm.fly.dev"
+    authorization_endpoint: "https://rtm.fly.dev/authorize"
+    token_endpoint: "https://rtm.fly.dev/token"
+    scopes_supported: ["rtm:read","rtm:write"]
+    response_types_supported: ["code"]
+    grant_types_supported: ["authorization_code"]
+    resource_indicators_supported: true
+  
+  ‡CORS_REQUIREMENTS:
+    SKIP_CORS: [/oauth/*,/.well-known/*,/authorize,/token,/health]
+    REASON: claude_ai_cross_origin_oauth_discovery
+    DEFAULT_ALLOW: https://claude.ai
+  
+  ‡PROTOCOL_CONTRACT_ISSUE[discovered_2025-07-30]:
+    STATUS: ❌connect_button_shows→oauth_flow_fails→"error_connecting"
+    SYMPTOMS: endpoints_work→parameters_populate→but_flow_breaks
+    HYPOTHESIS: protocol_violation_in_oauth_response_format_or_flow
+    ‡TODO: debug_exact_contract_violation
+  
+  ‡AUTH_MIDDLEWARE_REQUIREMENTS:
+    SKIP_PATHS: [/oauth/*,/rtm/*,/.well-known/*,/health,/logo,/authorize,/token]
+    MCP_ENDPOINT: requires_auth[bearer_token]
+    AUTH_HEADER: "Authorization:Bearer_{token}"
+    VALIDATION: rtm_api_call_to_verify_token
+  
+  ‡LEARNED_TWICE_DO_NOT_FORGET:
+    1. WWW-Authenticate_header→critical_for_connect_button
+    2. CORS_must_skip_oauth_endpoints
+    3. exact_endpoint_paths_matter
+    4. protocol_contract_compliance_essential
+  
+  ‡CLAUDE_AI_UI_CHANGES[noted_2025-07-30]:
+    NEW: manual_oauth_client_id+secret_input_fields
+    OLD: auto_discovery_only
+    IMPACT: may_change_flow_expectations
+  
+  ‡MCP_SPEC_EVOLUTION[june_2025]:
+    CHANGE: auth_server_separate_from_mcp_server
+    OLD: march_2025→mcp_server_as_auth_server
+    NEW: june_2025→dedicated_auth_server_recommended
+    CURRENT: cowpilot_follows_old_pattern→may_need_migration

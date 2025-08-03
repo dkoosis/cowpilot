@@ -45,7 +45,7 @@ func main() {
 	s := server.NewMCPServer(
 		serverName,
 		serverVersion,
-		server.WithToolCapabilities(false),
+		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(true, true),
 		server.WithPromptCapabilities(false),
 	)

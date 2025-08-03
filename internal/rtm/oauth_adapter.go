@@ -1,11 +1,15 @@
 package rtm
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,13 +27,17 @@ type OAuthAdapter struct {
 
 // AuthSession tracks RTM auth progress with OAuth parameters
 type AuthSession struct {
-	Code        string // Our fake OAuth code
-	Frob        string // RTM frob
-	CreatedAt   time.Time
-	Token       string // Set after successful exchange
-	State       string // Client's CSRF state
-	RedirectURI string // Client's callback URL
-	ClientID    string // OAuth client ID
+	Code                string // Our fake OAuth code
+	Frob                string // RTM frob
+	CreatedAt           time.Time
+	Token               string // Set after successful exchange
+	State               string // Client's CSRF state
+	RedirectURI         string // Client's callback URL
+	ClientID            string // OAuth client ID
+	CodeChallenge       string // PKCE code challenge
+	CodeChallengeMethod string // PKCE method (S256)
+	CodeVerifier        string // PKCE code verifier
+	Resource            string // MCP resource parameter
 }
 
 // NewOAuthAdapter creates RTM OAuth adapter
@@ -58,15 +66,26 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	clientID := r.FormValue("client_id")
 	state := r.FormValue("state")
 	redirectURI := r.FormValue("redirect_uri")
+	codeChallenge := r.FormValue("code_challenge")
+	codeChallengeMethod := r.FormValue("code_challenge_method")
+	resource := r.FormValue("resource")
 
-	// Validate CSRF cookie
-	csrfCookie, err := r.Cookie("csrf_token")
-	if err != nil || csrfCookie.Value == "" {
-		http.Error(w, "Missing CSRF cookie", http.StatusBadRequest)
+	// Validate CSRF - check both cookie and form value
+	csrfState := r.FormValue("csrf_state")
+	if csrfState == "" {
+		http.Error(w, "Missing CSRF token in form", http.StatusBadRequest)
 		return
 	}
 
-	csrfState := r.FormValue("csrf_state")
+	csrfCookie, err := r.Cookie("csrf_token")
+	if err != nil || csrfCookie.Value == "" {
+		// Cookie might be lost due to popup blocking - validate using session-based CSRF
+		log.Printf("RTM: CSRF cookie missing, popup blocker scenario detected")
+		// For now, we'll reject but log the scenario
+		http.Error(w, "Missing CSRF cookie - please disable popup blocker and try again without refreshing", http.StatusBadRequest)
+		return
+	}
+
 	if csrfState != csrfCookie.Value {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
 		return
@@ -83,14 +102,31 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// Step 2: Create fake OAuth code
 	code := uuid.New().String()
 
+	// Validate PKCE if provided
+	if codeChallenge != "" {
+		if codeChallengeMethod != "S256" {
+			http.Error(w, "Unsupported code_challenge_method. Only S256 is supported.", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Validate resource parameter for MCP compliance
+	if resource != "" && !strings.HasPrefix(resource, a.serverURL+"/mcp") {
+		http.Error(w, "Invalid resource parameter", http.StatusBadRequest)
+		return
+	}
+
 	// Step 3: Store session with all OAuth parameters
 	session := &AuthSession{
-		Code:        code,
-		Frob:        frob,
-		CreatedAt:   time.Now(),
-		State:       state,
-		RedirectURI: redirectURI,
-		ClientID:    clientID,
+		Code:                code,
+		Frob:                frob,
+		CreatedAt:           time.Now(),
+		State:               state,
+		RedirectURI:         redirectURI,
+		ClientID:            clientID,
+		CodeChallenge:       codeChallenge,
+		CodeChallengeMethod: codeChallengeMethod,
+		Resource:            resource,
 	}
 
 	a.sessionMutex.Lock()
@@ -170,6 +206,8 @@ func (a *OAuthAdapter) HandleToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.FormValue("code")
+	codeVerifier := r.FormValue("code_verifier")
+
 	if code == "" {
 		a.sendTokenError(w, "invalid_request", "Missing code parameter")
 		return
@@ -183,6 +221,18 @@ func (a *OAuthAdapter) HandleToken(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		a.sendTokenError(w, "invalid_grant", "Invalid authorization code")
 		return
+	}
+
+	// Validate PKCE if challenge was provided
+	if session.CodeChallenge != "" {
+		if codeVerifier == "" {
+			a.sendTokenError(w, "invalid_request", "Missing code_verifier for PKCE")
+			return
+		}
+		if !a.validatePKCE(session.CodeChallenge, codeVerifier) {
+			a.sendTokenError(w, "invalid_grant", "Invalid code_verifier")
+			return
+		}
 	}
 
 	log.Printf("RTM DEBUG: Token request for code %s, session.Token='%s'", code, session.Token)
@@ -220,7 +270,7 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 	responseType := r.URL.Query().Get("response_type")
 
 	// Debug logging for OAuth parameters
-	log.Printf("[OAUTH] /authorize called with: client_id=%s, state=%s, redirect_uri=%s, response_type=%s", 
+	log.Printf("[OAUTH] /authorize called with: client_id=%s, state=%s, redirect_uri=%s, response_type=%s",
 		clientID, state, redirectURI, responseType)
 	log.Printf("[OAUTH] Full query string: %s", r.URL.RawQuery)
 	log.Printf("[OAUTH] User-Agent: %s", r.Header.Get("User-Agent"))
@@ -228,14 +278,15 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 	// Generate CSRF token
 	csrfToken := uuid.New().String()
 
-	// Set CSRF cookie
+	// Set CSRF cookie with better persistence
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    csrfToken,
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   600, // 10 minutes
+		Secure:   true,                  // Required for SameSite=None
+		SameSite: http.SameSiteNoneMode, // Allow cross-site for OAuth flow
+		MaxAge:   1800,                  // 30 minutes to handle popup blocking scenarios
 	})
 
 	html := fmt.Sprintf(`
@@ -257,8 +308,8 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
         <h1>Connect Remember The Milk</h1>
         <p>This will connect your Remember The Milk account to allow task management.</p>
         <div class="warning">
-            <strong>Note:</strong> You'll be redirected to Remember The Milk to authorize access. 
-            After authorizing, you may need to manually return to this window.
+        <strong>Note:</strong> You'll be redirected to Remember The Milk to authorize access. 
+        After authorizing, click the return link we'll provide to complete the connection.
         </div>
         <form method="POST">
             <input type="hidden" name="client_id" value="%s">
@@ -291,44 +342,25 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
         .container { border: 1px solid #ddd; border-radius: 8px; padding: 30px; text-align: center; }
         h1 { color: #333; }
-        .step { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 4px; }
-        .button { display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px; margin: 10px; text-align: center; border: none; cursor: pointer; }
+        .button { display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px; margin: 10px; cursor: pointer; font-size: 16px; border: none; }
         .button:hover { background: #0056b3; }
         .button:disabled { background: #6c757d; cursor: not-allowed; }
+        .status { margin: 20px 0; padding: 15px; border-radius: 4px; }
+        .checking { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
         .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
         .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
-        .checking { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
-        #status { margin: 20px 0; padding: 15px; border-radius: 4px; display: none; }
+        .instructions { margin: 20px 0; color: #666; }
     </style>
     <script>
-        let authWindow = null;
         let checkInterval = null;
+        let isChecking = false;
         
-        function openRTMAuth() {
-            authWindow = window.open('%s', 'rtm_auth', 'width=800,height=600');
-            
-            // Check if popup was blocked
-            if (!authWindow || authWindow.closed || typeof authWindow.closed == 'undefined') {
-                document.getElementById('status').style.display = 'block';
-                document.getElementById('status').className = 'error';
-                document.getElementById('status').innerHTML = 'Popup blocked! Please allow popups and try again.';
-                document.getElementById('retryBtn').style.display = 'inline-block';
-                return;
-            }
-            
-            document.getElementById('step2').style.display = 'block';
-            document.getElementById('continueBtn').disabled = true;
-            
-            // Start checking auth status instead of just polling window
-            startAuthCheck();
-        }
-        
-        function startAuthCheck() {
-            document.getElementById('status').style.display = 'block';
-            document.getElementById('status').className = 'checking';
-            document.getElementById('status').innerHTML = 'Waiting for authorization...';
-            
+        function startChecking() {
+            if (checkInterval) return;
+            isChecking = true;
+            updateStatus('checking', 'Waiting for authorization...');
             checkInterval = setInterval(checkAuthStatus, 2000);
+            checkAuthStatus(); // Check immediately
         }
         
         function checkAuthStatus() {
@@ -336,72 +368,64 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
                 .then(response => response.json())
                 .then(data => {
                     if (data.authorized) {
-                        // Success! Enable continue button
                         clearInterval(checkInterval);
-                        document.getElementById('status').className = 'success';
-                        document.getElementById('status').innerHTML = '[&#x2713;] Authorization successful! You can now continue.';
-                        document.getElementById('continueBtn').disabled = false;
-                        document.getElementById('continueBtn').style.background = '#28a745';
-                        if (authWindow) authWindow.close();
-                    } else if (data.error) {
-                        // Error occurred
+                        updateStatus('success', 'Authorization successful! Redirecting...');
+                        setTimeout(() => {
+                            window.location.href = '%s';
+                        }, 1000);
+                    } else if (data.error && !data.pending) {
                         clearInterval(checkInterval);
-                        document.getElementById('status').className = 'error';
-                        document.getElementById('status').innerHTML = '[✗] ' + data.error;
-                        document.getElementById('retryBtn').style.display = 'inline-block';
+                        updateStatus('error', data.error);
+                        document.getElementById('checkBtn').disabled = false;
+                        document.getElementById('checkBtn').textContent = 'Try Again';
                     }
-                    // If pending, keep checking
                 })
                 .catch(err => {
-                    console.log('Check failed:', err);
-                    // Continue checking on network errors
+                    console.error('Check failed:', err);
                 });
         }
         
-        function completeAuth() {
-            if (checkInterval) clearInterval(checkInterval);
-            window.location.href = '%s';
+        function updateStatus(type, message) {
+            const status = document.getElementById('status');
+            status.className = 'status ' + type;
+            status.textContent = message;
+            status.style.display = 'block';
         }
         
-        function retryAuth() {
-            document.getElementById('retryBtn').style.display = 'none';
-            document.getElementById('continueBtn').disabled = true;
-            document.getElementById('continueBtn').style.background = '#007bff';
-            openRTMAuth();
+        function manualCheck() {
+            document.getElementById('checkBtn').disabled = true;
+            startChecking();
         }
         
-        // Auto-open RTM auth on page load
-        window.onload = function() {
-            setTimeout(openRTMAuth, 500);
-        };
+        // Start checking when returning to tab
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && !isChecking) {
+                startChecking();
+            }
+        });
     </script>
 </head>
 <body>
     <div class="container">
         <h1>Connect to Remember The Milk</h1>
         
-        <div class="step">
-            <h2>Step 1: Authorize Access</h2>
-            <p>A new window will open for Remember The Milk authorization.</p>
-            <button onclick="openRTMAuth()" class="button">Open RTM Authorization</button>
+        <div class="instructions">
+            <p>Click below to authorize access in a new tab.</p>
+            <p>After authorizing at RTM, return to this tab.</p>
         </div>
         
-        <div id="status"></div>
+        <a href="%s" target="_blank" class="button" onclick="setTimeout(startChecking, 1000)">Authorize at RTM →</a>
         
-        <div class="step" id="step2" style="display: none;">
-            <h2>Step 2: Complete Authorization</h2>
-            <p><strong>Important:</strong> Click "Yes, I authorize access" in the RTM window, then continue below.</p>
-            <button id="continueBtn" onclick="completeAuth()" class="button" disabled>Continue to App</button>
-            <button id="retryBtn" onclick="retryAuth()" class="button" style="display: none; background: #dc3545;">Try Again</button>
-        </div>
+        <div id="status" class="status" style="display: none;"></div>
         
-        <div style="margin-top: 30px; font-size: 14px; color: #666;">
-            <p><strong>Troubleshooting:</strong> Make sure to click "Yes, I authorize access" in the RTM window. If you close the window without authorizing, use "Try Again".</p>
-            <p style="font-size: 12px;">Debug info: Code %s</p>
+        <div style="margin-top: 30px;">
+            <button id="checkBtn" class="button" onclick="manualCheck()" style="background: #28a745;">
+                I've Authorized
+            </button>
         </div>
     </div>
 </body>
-</html>`, rtmURL, checkAuthURL, callbackURL, code)
+</html>`, checkAuthURL, callbackURL, rtmURL)
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
@@ -524,6 +548,47 @@ func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
 	}); writeErr != nil {
 		log.Printf("Failed to write check auth error response: %v", writeErr)
 	}
+}
+
+// validatePKCE validates PKCE code_verifier against code_challenge
+func (a *OAuthAdapter) validatePKCE(codeChallenge, codeVerifier string) bool {
+	// Generate challenge from verifier using S256
+	h := sha256.Sum256([]byte(codeVerifier))
+	computedChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+	return computedChallenge == codeChallenge
+}
+
+// HandleRegister implements Dynamic Client Registration (RFC 7591)
+func (a *OAuthAdapter) HandleRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Generate client credentials
+	clientID := "rtm_" + generateRandomString(16)
+	clientSecret := generateRandomString(32)
+
+	response := map[string]interface{}{
+		"client_id":                clientID,
+		"client_secret":            clientSecret,
+		"client_id_issued_at":      time.Now().Unix(),
+		"client_secret_expires_at": 0, // Never expires
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode DCR response: %v", err)
+	}
+}
+
+// generateRandomString creates a cryptographically secure random string
+func generateRandomString(length int) string {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b)[:length]
 }
 
 // ValidateBearer checks if a bearer token is valid by testing it against RTM API
