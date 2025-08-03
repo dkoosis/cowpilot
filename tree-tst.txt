@@ -1,0 +1,103 @@
+.
+├── build
+├── cmd
+│   ├── core
+│   │   └── main_test.go
+│   ├── mcp_debug_proxy
+│   ├── oauth_spec_test
+│   │   ├── oauth-spec-test
+│   │   └── run-test.sh
+│   ├── rtm
+│   ├── spektrix
+│   └── test-examples-server
+├── docs
+│   ├── adr
+│   ├── assets
+│   ├── claude-integration
+│   ├── debug
+│   ├── reference
+│   ├── reviews
+│   ├── sessions
+│   ├── test-formatting.md
+│   ├── testing-guide.md
+│   └── testing-strategy.md
+├── internal
+│   ├── auth
+│   │   ├── csrf_token_test.go
+│   │   ├── oauth_adapter_test.go
+│   │   └── oauth_callback_test.go
+│   ├── core
+│   ├── debug
+│   ├── longrunning
+│   │   └── manager_test.go
+│   ├── middleware
+│   ├── protocol
+│   │   ├── specs
+│   │   │   ├── oauth_test_helpers.go
+│   │   │   └── oauth_test.go
+│   │   └── validation
+│   ├── rtm
+│   │   ├── credential_store_test.go
+│   │   ├── enhanced_handlers_test.go
+│   │   ├── oauth_adapter_test_dir
+│   │   ├── oauth_adapter_test.go
+│   │   └── setup_test.go
+│   ├── spektrix
+│   └── testutil
+│       ├── http_test_helpers.go
+│       └── test_assertions.go
+├── prompts
+├── scripts
+│   ├── cleanup-old-tests.sh
+│   ├── debug-tests.sh
+│   ├── deploy
+│   ├── setup-oauth-test.sh
+│   ├── test
+│   │   ├── debug-tools-integration-test.sh
+│   │   ├── mcp-inspector-integration-test.sh
+│   │   ├── mcp-protocol-smoke-test.sh
+│   │   ├── oauth-test-suite.sh
+│   │   ├── run-tests.sh
+│   │   ├── sse-transport-test.sh
+│   │   ├── test-mcp-integration.sh
+│   │   ├── test-oauth-callback.sh
+│   │   ├── test-oauth-flow.sh
+│   │   └── test-sse-transport.sh
+│   ├── test_debug_initial.sh
+│   ├── test-all-fixes.sh
+│   ├── test-all-systems.sh
+│   ├── test-build.sh
+│   ├── test-final-fixes.sh
+│   ├── test-integration-fix.sh
+│   ├── test-linter-fixes.sh
+│   ├── test-makefile-and-oauth.sh
+│   ├── test-mcp.sh
+│   ├── test-oauth-build.sh
+│   ├── test-verbose.sh
+│   └── utils
+│       └── parse-test-times.sh
+├── test-build-rtm.sh
+├── test-build.sh
+├── test-longrunning.sh
+├── test-rtm-build.sh
+├── test-rtm-enhanced.sh
+└── tests
+    ├── helpers
+    │   ├── test_debug_components.go
+    │   ├── test_fixtures.go
+    │   ├── test_phase2_validation.go
+    │   └── test_runtime_config.go
+    ├── integration
+    │   ├── debug_tools_test.go
+    │   ├── mcp_integration_test.go
+    │   ├── oauth_flow_test.go
+    │   ├── rtm_oauth_test.go
+    │   ├── rtm_server_test.go
+    │   └── server_test.go
+    └── scenarios
+        ├── claude_connector_test.go
+        ├── manual-test-examples.sh
+        ├── raw_sse_test.sh
+        └── scenario_test.go
+
+39 directories, 62 files
