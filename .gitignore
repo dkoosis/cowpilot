@@ -1,85 +1,181 @@
-# Test artifacts
-test-results.json
-.test-times.log
-.test-metrics.json
-# Temporary files
-*.tmp
-.DS_Store
-cowpilot
-debug-tools-test.go
-docs/archive/
+# ==========================
+# Go Project
+# ==========================
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+bin/
+dist/
 
 # Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool
 *.out
+*.cover
 coverage.html
+coverage.txt
 
-# Go workspace file
+# Go workspace files
 go.work
+go.work.sum
 
 # Dependency directories
 vendor/
 
-# Build output
-bin/
-dist/
+# Go build cache
+*.a
+
+# ==========================
+# Project Specific
+# ==========================
+
+# MCP/Cowpilot binaries
+cowpilot
+mcp-adapters
+rtm-server
+spektrix-server
+mcp-debug-proxy
+cmd/oauth_spec_test/oauth-spec-test
+
+# Database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+debug_conversations.db
+tokens.db
+
+# Server logs
+server.log
+*.log
+
+# ==========================
+# Testing
+# ==========================
+
+# Test artifacts
+test-results.json
+test-results.xml
+.test-times.log
+.test-metrics.json
+test-results/
+*.test.json
+
+# Debug files
+debug-tools-test.go
+
+# ==========================
+# Development Tools
+# ==========================
+
+# Air - Live reload
+.air.toml
+tmp/
 
 # IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+*.swn
 *~
+*.sublime-*
 
-# OS specific files
-.DS_Store
-Thumbs.db
+# ctags
+tags
+tags.*
+TAGS
+
+# ==========================
+# Environment & Config
+# ==========================
 
 # Environment variables
 .env
-.env.local
+.env.*
+!.env.example
 
-# Fly.io
+# Local config
+*.local
+.local/
+
+# Fly.io local config
 fly.toml.local
+fly-*.toml.local
 
-# Temporary files
-*.tmp
-*.temp
-tmp/
+# ==========================
+# OS Files
+# ==========================
 
-# Log files
-*.log
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
 
-# Air - Live reload
-.air.toml
-tmp/
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
+# Linux
+.directory
+.Trash-*
+
+# ==========================
+# Documentation
+# ==========================
+
+# Auto-generated documentation
+docs/project_structure.md
+docs/archive/
+
+# ==========================
 # Node.js (for MCP Inspector)
+# ==========================
+
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
 
-# Test artifacts
-test-results/
-*.test.json
+# ==========================
+# Temporary Files
+# ==========================
 
-# Local development
-.local/
-*.local
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+temp/
 
-# Auto-generated documentation
-docs/project_structure.md
+# ==========================
+# Security
+# ==========================
 
-# ctags files
-tags
-tags.*
-*-tags
+# Private keys
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+
+# ==========================
+# Archives
+# ==========================
+
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.rar
+*.7z

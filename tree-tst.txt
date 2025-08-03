@@ -13,17 +13,9 @@
 ├── docs
 │   ├── adr
 │   ├── assets
-│   ├── contributing
-│   ├── design
-│   │   ├── claude-integration
-│   │   └── mcp-debugging
 │   ├── guides
-│   │   ├── oauth-testing-guide.md
 │   │   └── testing-guide.md
-│   ├── project
-│   ├── reference
-│   ├── reviews
-│   └── sessions
+│   └── reference
 ├── internal
 │   ├── auth
 │   │   ├── csrf_token_test.go
@@ -51,39 +43,13 @@
 │       └── test_assertions.go
 ├── prompts
 ├── scripts
-│   ├── cleanup-old-tests.sh
-│   ├── debug-tests.sh
 │   ├── deploy
-│   ├── setup-oauth-test.sh
 │   ├── test
-│   │   ├── debug-tools-integration-test.sh
-│   │   ├── mcp-inspector-integration-test.sh
-│   │   ├── mcp-protocol-smoke-test.sh
-│   │   ├── oauth-test-suite.sh
 │   │   ├── run-tests.sh
-│   │   ├── sse-transport-test.sh
-│   │   ├── test-mcp-integration.sh
-│   │   ├── test-oauth-callback.sh
-│   │   ├── test-oauth-flow.sh
-│   │   └── test-sse-transport.sh
-│   ├── test_debug_initial.sh
-│   ├── test-all-fixes.sh
-│   ├── test-all-systems.sh
+│   │   └── test-mcp-integration.sh
 │   ├── test-build.sh
-│   ├── test-final-fixes.sh
-│   ├── test-integration-fix.sh
-│   ├── test-linter-fixes.sh
-│   ├── test-makefile-and-oauth.sh
-│   ├── test-mcp.sh
-│   ├── test-oauth-build.sh
-│   ├── test-verbose.sh
 │   └── utils
 │       └── parse-test-times.sh
-├── test-build-rtm.sh
-├── test-build.sh
-├── test-longrunning.sh
-├── test-rtm-build.sh
-├── test-rtm-enhanced.sh
 └── tests
     ├── helpers
     │   ├── test_debug_components.go
@@ -103,4 +69,4 @@
         ├── raw_sse_test.sh
         └── scenario_test.go
 
-43 directories, 61 files
+36 directories, 34 files
