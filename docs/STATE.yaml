@@ -1,6 +1,7 @@
-# STATE.yaml v8.1-claude-optimized
+# STATE.yaml v8.3-claude-optimized
 # λ=limitation φ=file ∇=implement ∅=missing †=workaround ‡=critical ✓=working
 # MACHINE_CONTEXT_FOR_CLAUDE[accurate_current_state]
+# LOCATION: /docs/STATE.yaml (CHECK FIRST EVERY SESSION)
 
 ‡CURRENT_ARCHITECTURE[2025-07-29]:
   STATUS: ✓production_multi_server_system[PATHS_UPDATED]
@@ -179,11 +180,17 @@
         - ∇TestRTMOAuthSuccessfulFlow→happy_path_validation
     STATUS: ✓ux_improved_tests_added_ready_for_deployment
 
-  ◯NEXT_PRIORITIES:
-    - ∇spektrix_server_deployment
-    - ∇implement_task_cache_for_batch_operations
-    - ∇notification_transport_when_mcp_go_supports
-    - ∇health_check_enhancements
+  ●CRITICAL_ISSUES:
+    ‡RTM_RRULE_PARSING: json_unmarshal_error→change_RRule_to_json.RawMessage
+    ‡SECURE_CREDENTIALS: API_keys_in_env→use_keyring_library
+    ‡RTM_TASK_VOLUME: firehose_issue→implement_server_side_limiting
+  
+  ●NEXT_PRIORITIES:
+    - ∇deploy_rtm_with_batch_tools
+    - ∇spektrix_server_implementation
+    - ∇complete_MCP_debug_phase_2
+  
+  ‡BACKLOG: φ/docs/RTM_BACKLOG.yaml
     
 ✓COMPLETED_UX_IMPROVEMENTS[2025-08-02]:
   ✓RTM_OAUTH_STANDARD_FLOW[implemented]:
@@ -227,21 +234,42 @@
 
 ‡FILES_CRITICAL[claude_reference]:
   φcmd/core/main.go→✓comprehensive_working_infrastructure[EXTRACT_SOURCE]
-  φcmd/rtm/main.go→❌missing_infrastructure[UPDATE_TARGET]
+  φcmd/rtm/main.go→✓RTM_server_with_batch_tools[UPDATE_TARGET]
   φcmd/spektrix/main.go→❌missing_infrastructure[UPDATE_TARGET]
   φinternal/mcpserver/→∇NEW_SHARED_INFRASTRUCTURE_PACKAGE
   φcmd/oauth_spec_test/→[main.go,run-test.sh,README.md]→claude_ai_oauth_spec_compliance_test[FIXED_API_AND_LINTER]
-  φinternal/rtm/→[client.go,handlers.go,oauth_adapter.go,setup.go]
+  φinternal/rtm/→[client.go,handlers.go,oauth_adapter.go,setup.go,batch_handlers.go]
+  φinternal/longrunning/→[manager.go,task.go,progress.go,cancellation.go]→✓PRODUCTION_READY
   φinternal/debug/→[interceptor.go,storage.go,config.go]
   φinternal/testutil/→[testing_utilities][RENAMED_FROM_testing]
   φMakefile→comprehensive_build_test_deploy_system[FIXED_PATHS]
   φfly.toml→production_deployment_config
+  
+‡DOCS_STRUCTURE[claude_optimized_2025-08-03]:
+  CRITICAL_FILES[root_level]:
+    φ/docs/STATE.yaml→THIS_FILE[CHECK_FIRST]
+    φ/docs/AUTH_FLOWS.yaml→authentication_patterns[CHECK_SECOND]
+    φ/docs/TODO.md→active_development_tasks
+    φ/docs/LONGRUNNING_TASKS.md→task_implementation_guide
+    φ/docs/HISTORY.md→project_lessons_learned
+    φ/docs/RTM_ENHANCEMENTS.yaml→machine_readable_backlog
+  DIRECTORIES:
+    φ/docs/adr/→architecture_decision_records[immutable]
+    φ/docs/guides/→how_to_use[tutorials,deployment,troubleshooting]
+    φ/docs/reference/→technical_specs[protocols,schemas,APIs]
+    φ/docs/mcp/→MCP_protocol_documentation
+    φ/docs/assets/→images_and_media
+  DISTINCTION:
+    GUIDES: how_to_USE_the_system
+    REFERENCE: technical_SPECIFICATIONS
 
 ∞SESSION_PROTOCOL:
-  ✓CHECK_STATE_YAML_FIRST: machine_optimized_claude_context
+  ✓CHECK_STATE_YAML_FIRST: /docs/STATE.yaml→machine_optimized_claude_context
+  ✓CHECK_AUTH_FLOWS_SECOND: /docs/AUTH_FLOWS.yaml→authentication_patterns
   ✓RTFM_MANDATE: check_actual_code_not_assumptions  
   ✓QUALITY_FOCUS: complete_solutions_not_quick_fixes
   ✓NO_GUESSING: document_actual_findings_not_assumptions
+  ✓DOCS_CLEANED_2025-08-03: deleted_archives+consolidated+flattened
 
 ‡LONG_RUNNING_TASKS_SUPPORT[2025-08-03]:
   STATUS: ✓PRODUCTION_READY[formatting_fixed+tests_passing]

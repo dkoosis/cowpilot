@@ -1,0 +1,102 @@
+.
+├── build
+├── cmd
+│   ├── core
+│   ├── mcp_debug_proxy
+│   ├── oauth_spec_test
+│   │   └── README.md
+│   ├── rtm
+│   ├── spektrix
+│   └── test-examples-server
+├── docs
+│   ├── adr
+│   │   ├── 009-mcp-sdk-selection.md
+│   │   ├── 010-mcp-debug-system-architecture.md
+│   │   ├── 011-conditional-compilation-lightweight-debug.md
+│   │   ├── 012-runtime-debug-configuration.md
+│   │   ├── 013-mcp-transport-selection.md
+│   │   ├── 013-multi-server-architecture-shared-codebase.md
+│   │   ├── adr-template.md
+│   │   └── README.md
+│   ├── assets
+│   ├── contributing
+│   │   ├── commit-message-format.md
+│   │   ├── git-workflow.md
+│   │   └── README.md
+│   ├── design
+│   │   ├── claude-integration
+│   │   │   ├── deployment.md
+│   │   │   ├── oauth-adapter-plan.md
+│   │   │   ├── oauth-deployment.md
+│   │   │   ├── oauth-implementation-plan.md
+│   │   │   ├── oauth-june-2025-compliance.md
+│   │   │   ├── oauth-research.md
+│   │   │   ├── README.md
+│   │   │   └── troubleshooting.md
+│   │   ├── mcp-debugging
+│   │   │   ├── mcp-conformance-plan.md
+│   │   │   └── phase1-implementation-complete.md
+│   │   └── oauth-implementation-log.md
+│   ├── guides
+│   │   ├── llm-integration-guide.md
+│   │   ├── oauth-testing-guide.md
+│   │   ├── testing-guide.md
+│   │   └── user-guide.md
+│   ├── LONGRUNNING_TASKS.md
+│   ├── mcp_go_main_tags.txt
+│   ├── project
+│   │   ├── history.md
+│   │   ├── rtm-enhancements-backlog.yaml
+│   │   ├── state.yaml
+│   │   └── todo.md
+│   ├── project_tags.txt
+│   ├── README.md
+│   ├── reference
+│   │   ├── auth-flows.yaml
+│   │   ├── oauth-protocol-requirements.md
+│   │   ├── protocol-standards.md
+│   │   └── rtm-authentication-flow.md
+│   ├── reviews
+│   │   ├── code-smell-2025-07-25.md
+│   │   ├── comments-docs-2025-07-25.md
+│   │   ├── semantic-naming-2025-07-25.md
+│   │   └── semantic-naming-2025-07-26.md
+│   └── sessions
+├── internal
+│   ├── auth
+│   ├── core
+│   ├── debug
+│   ├── longrunning
+│   ├── middleware
+│   ├── protocol
+│   │   ├── specs
+│   │   └── validation
+│   ├── rtm
+│   │   └── oauth_adapter_test_dir
+│   ├── spektrix
+│   └── testutil
+├── prompts
+│   ├── 01_semantic_naming_review.md
+│   ├── 02_code_smell_analysis.md
+│   ├── README.md
+│   └── REVIEW-GUIDE.md
+├── README.md
+├── scripts
+│   ├── deploy
+│   │   └── README.md
+│   ├── test
+│   │   └── README.md
+│   └── utils
+├── tests
+│   ├── helpers
+│   ├── integration
+│   ├── README.md
+│   └── scenarios
+│       ├── FILE_INVENTORY.md
+│       ├── README.md
+│       └── TESTING_GUIDE.md
+├── tree-md.txt
+├── tree-sh.txt
+└── tree-tst.txt
+
+43 directories, 57 files

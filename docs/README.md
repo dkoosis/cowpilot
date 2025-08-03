@@ -1,43 +1,73 @@
-# mcp adapters Documentation
+# Cowpilot Documentation
 
-## 📍 Document Map
+## Session Protocol (CRITICAL)
 
-### Current State & Planning
-- **STATE.yaml** - Machine-readable session context
-- **roadmap.md** - Development phases
-- **todo.md** - Current task list
+**Start Every Session:**
+1. **FIRST: Check `/docs/STATE.yaml`** for machine-optimized context
+2. **SECOND: Check `/docs/AUTH_FLOWS.yaml`** for authentication patterns
+3. Always maintain STATE.yaml optimized for Claude performance
 
-### Development Guides
-- **testing-guide.md** - How to test this project
-- **protocol-standards.md** - MCP protocol testing standards
-- **user-guide.md** - User documentation
-- **contributing.md** - Contribution guidelines
+## Directory Structure
 
-### Historical Context
-- **project-history.md** - Complete journey, lessons learned, dead ends
-- **known-issues.md** - Version problems and workarounds
+### Critical Files (Root Level)
+- `STATE.yaml` - Machine-optimized project state (CHECK FIRST)
+- `AUTH_FLOWS.yaml` - Authentication flow patterns and debug findings
+- `LONGRUNNING_TASKS.md` - Long-running task implementation documentation
 
-### Reference Materials
-- **reference/** - Protocol specifications
-  - `schema.ts` - MCP v2025-03-26 TypeScript definitions
-  - `schema.json` - JSON schema
-- **adr/** - Architecture Decision Records
-  - `009_mcp_sdk_selection.md` - Why mark3labs/mcp-go
+### Core Documentation
 
-### Session Management
-- **sessions/** - Date-specific handoffs
-  - `2025-01-20-handoff.md` - Recent session summary
-  - `quick-start-next.md` - Quick reference for next session
+#### `/adr/` - Architecture Decision Records
+Immutable records of significant architectural decisions.
 
-### Other
-- **llm.md** - LLM interaction guidelines
-- **tree.txt** - Directory structure snapshot
-- **assets/** - Images and diagrams
+#### `/oauth/` - OAuth & Authentication
+All OAuth-related documentation consolidated:
+- Implementation plans and logs
+- Protocol requirements
+- RTM authentication flow
+- Testing guides
+- Deployment documentation
 
-## 🚀 Quick Start
+#### `/mcp/` - MCP Protocol
+MCP-specific documentation:
+- Conformance plans
+- Implementation status
+- Protocol debugging
 
-**"What are we working on?"** → STATE.yaml  
-**"How do I test?"** → testing-guide.md  
-**"What went wrong before?"** → project-history.md  
-**"What's next?"** → roadmap.md  
-**"Known problems?"** → known-issues.md
+#### `/reference/` - Technical Reference
+- `schema.json` - MCP protocol schema
+- `schema.ts` - TypeScript definitions
+- `protocol-standards.md` - Protocol standards
+
+#### `/guides/` - User & Developer Guides
+- User guide
+- Testing guide
+- LLM integration guide
+- Claude deployment & troubleshooting
+
+#### `/backlog/` - Project Planning
+- `history.md` - Project history
+- `todo.md` - Current TODO items
+- `rtm-enhancements-backlog.yaml` - RTM feature backlog
+
+#### `/contributing/` - Contribution Guidelines
+- Git workflow
+- Commit message format
+- Contributing guide
+
+#### `/archive/` - Historical Documents
+Dated reviews, old documentation, and completed work.
+
+#### `/assets/` - Images & Media
+Logos, diagrams, and visual assets.
+
+## Key Principles
+
+1. **No Quick Fixes** - Quick fixes == technical debt
+2. **RTFM** - Always check actual code or documentation
+3. **Machine First** - STATE.yaml and AUTH_FLOWS.yaml are optimized for Claude, not humans
+4. **Transparency** - Voice concerns about risks or better alternatives
+5. **Quality Focus** - Provide unfiltered technical counsel
+
+## Current Focus
+
+RTM OAuth flow - Ensuring users complete authentication before callback to prevent race conditions.

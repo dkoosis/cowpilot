@@ -14,11 +14,8 @@
 ├── docs
 │   ├── adr
 │   ├── assets
-│   ├── claude-integration
-│   ├── debug
-│   ├── reference
-│   ├── reviews
-│   └── sessions
+│   ├── guides
+│   └── reference
 ├── internal
 │   ├── auth
 │   ├── core
@@ -37,6 +34,10 @@
 ├── quick_build.sh
 ├── run-gofmt.sh
 ├── scripts
+│   ├── absolute-minimal.sh
+│   ├── aggressive-cleanup.sh
+│   ├── clean-docs.sh
+│   ├── clean-empty-dirs.sh
 │   ├── cleanup-old-tests.sh
 │   ├── debug-tests.sh
 │   ├── deploy
@@ -50,7 +51,12 @@
 │   ├── docs_cleanup.sh
 │   ├── docs_reorganize_final.sh
 │   ├── docs_reorganize.sh
+│   ├── final-cleanup-docs.sh
+│   ├── final-cleanup.sh
 │   ├── init_module.sh
+│   ├── minimal-docs.sh
+│   ├── radical-cleanup.sh
+│   ├── run-cleanup.sh
 │   ├── session_summary.sh
 │   ├── setup-oauth-test.sh
 │   ├── test
@@ -79,6 +85,7 @@
 │   ├── test-mcp.sh
 │   ├── test-oauth-build.sh
 │   ├── test-verbose.sh
+│   ├── ultra-minimal.sh
 │   ├── update_imports.sh
 │   ├── utils
 │   │   ├── parse-test-times.sh
@@ -102,4 +109,4 @@
 │       └── verify-inspector.sh
 └── update-deps.sh
 
-39 directories, 64 files
+36 directories, 74 files

@@ -13,14 +13,17 @@
 ├── docs
 │   ├── adr
 │   ├── assets
-│   ├── claude-integration
-│   ├── debug
+│   ├── contributing
+│   ├── design
+│   │   ├── claude-integration
+│   │   └── mcp-debugging
+│   ├── guides
+│   │   ├── oauth-testing-guide.md
+│   │   └── testing-guide.md
+│   ├── project
 │   ├── reference
 │   ├── reviews
-│   ├── sessions
-│   ├── test-formatting.md
-│   ├── testing-guide.md
-│   └── testing-strategy.md
+│   └── sessions
 ├── internal
 │   ├── auth
 │   │   ├── csrf_token_test.go
@@ -100,4 +103,4 @@
         ├── raw_sse_test.sh
         └── scenario_test.go
 
-39 directories, 62 files
+43 directories, 61 files
