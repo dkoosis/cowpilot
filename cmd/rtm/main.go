@@ -60,8 +60,8 @@ func main() {
 	// Register cancellation handler
 	cancellationHandler := longrunning.NewCancellationHandler(taskManager)
 	s.AddNotificationHandler("notifications/cancelled",
-		func(notification mcp.Notification) {
-			if err := cancellationHandler.Handle(notification); err != nil {
+		func(ctx context.Context, notification mcp.JSONRPCNotification) {
+			if err := cancellationHandler.Handle(notification.Notification); err != nil {
 				log.Printf("Error handling cancellation: %v", err)
 			}
 		})

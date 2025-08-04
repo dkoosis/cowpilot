@@ -22,87 +22,62 @@ func NewCancellationHandler(manager *Manager) *CancellationHandler {
 
 // Handle processes a cancellation notification
 func (h *CancellationHandler) Handle(notification mcp.Notification) error {
-	// Parse cancellation params
-	paramsMap, ok := notification.Params.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid cancellation params type: %T", notification.Params)
+	// FIX: Access the AdditionalFields map for cancellation-specific parameters.
+	additionalFields := notification.Params.AdditionalFields
+	if additionalFields == nil {
+		return fmt.Errorf("invalid cancellation notification: AdditionalFields is nil")
 	}
 
-	// Extract request ID and reason
-	requestID, ok := paramsMap["requestId"].(string)
-	if !ok {
-		return fmt.Errorf("missing or invalid requestId in cancellation params")
+	rawRequestID, ok1 := additionalFields["requestId"]
+	requestID, ok2 := rawRequestID.(string)
+
+	if !ok1 || !ok2 {
+		return fmt.Errorf("invalid cancellation notification: requestId is missing or not a string")
 	}
 
-	reason, _ := paramsMap["reason"].(string)
+	var reason string
+	if rawReason, ok := additionalFields["reason"]; ok {
+		reason, _ = rawReason.(string) // It's okay if reason is missing.
+	}
 	if reason == "" {
 		reason = "Cancelled by client"
 	}
 
 	log.Printf("Received cancellation for request %s: %s", requestID, reason)
 
-	// Find task by request ID
-	// Note: In a real implementation, we need to map request IDs to progress tokens
-	// For now, we'll treat the request ID as the progress token
 	progressToken := mcp.ProgressToken(requestID)
-
 	task := h.manager.GetTask(progressToken)
 	if task == nil {
 		log.Printf("No task found for cancellation request: %s", requestID)
-		return nil // Not an error - task might have already completed
+		return nil
 	}
 
-	// Cancel the task
 	task.Cancel(reason)
-
 	return nil
 }
 
 // ExtractProgressToken extracts the progress token from request metadata
-func ExtractProgressToken(meta interface{}) mcp.ProgressToken {
+func ExtractProgressToken(meta *mcp.Meta) mcp.ProgressToken {
 	if meta == nil {
 		return nil
 	}
-
-	// Handle different meta types
-	switch m := meta.(type) {
-	case map[string]interface{}:
-		if token, exists := m["progressToken"]; exists {
-			return token
-		}
-	case *map[string]interface{}:
-		if m != nil {
-			if token, exists := (*m)["progressToken"]; exists {
-				return token
-			}
-		}
-	}
-
-	return nil
+	return meta.ProgressToken
 }
 
 // WithProgress wraps a context with progress tracking if a token is provided
 func WithProgress(ctx context.Context, req mcp.CallToolRequest, manager *Manager, sessionID string) (context.Context, *Task, bool) {
-	// Extract progress token from meta
 	var progressToken mcp.ProgressToken
 
-	// Check if Meta exists and has progressToken
+	// FIX: The Meta field is now a pointer to a struct. Check for nil before accessing.
 	if req.Params.Meta != nil {
-		if metaMap, ok := req.Params.Meta.(map[string]interface{}); ok {
-			if token, exists := metaMap["progressToken"]; exists {
-				progressToken = token
-			}
-		}
+		progressToken = req.Params.Meta.ProgressToken
 	}
 
-	// No progress token - run synchronously
 	if progressToken == nil {
 		return ctx, nil, false
 	}
 
-	// Create tracked task
 	task, taskCtx := manager.StartTask(ctx, progressToken, sessionID)
-
 	return taskCtx, task, true
 }
 
@@ -113,23 +88,17 @@ func RunWithProgress(ctx context.Context, req mcp.CallToolRequest, manager *Mana
 	taskCtx, task, hasProgress := WithProgress(ctx, req, manager, sessionID)
 
 	if !hasProgress {
-		// No progress tracking - run directly
 		return fn(ctx, nil)
 	}
 
-	// Run with progress tracking
 	defer task.Complete()
 
-	// Execute function
 	result, err := fn(taskCtx, task)
-
-	// Handle errors
 	if err != nil {
 		task.CompleteWithError(err)
 		return nil, err
 	}
-
-	return result, nil
+	return result, err
 }
 
 // CheckCancellation checks if the context has been cancelled and returns appropriate error

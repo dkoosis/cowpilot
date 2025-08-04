@@ -4,9 +4,9 @@
 # Updated: 2025-08-03
 
 SYSTEM_STATUS:
+  BUILD: ✓clean[all_tests_passing]
   PRODUCTION: ✓rtm.fly.dev[port_8081,working_in_claude_ai]
-  BUILD: ✓passing[make_build-rtm]
-  TESTS: ✓passing[393_lines_coverage]
+  TESTS: ✓passing[fixed_cookie_security_issues]
   DEPLOYMENT: ✓fly.io[persistent_sqlite,oauth_working]
 
 ACTIVE_SERVERS:
@@ -32,23 +32,25 @@ CRITICAL_ISSUES:
     solution: change_RRule_field_to_json.RawMessage
     file: internal/rtm/client.go
     priority: P0_BLOCKING
-    
-  SECURE_CREDENTIALS:
-    problem: API_keys_stored_in_environment_variables
-    solution: implement_keyring_library_for_secure_storage
-    priority: P1_SECURITY
+    note: actual_P0_priority_needs_immediate_fix
     
   RTM_TASK_VOLUME:
     problem: too_many_tasks_returned_causes_UI_freeze
     solution: server_side_pagination_and_filtering
     priority: P1_UX
+    
+  SECURE_CREDENTIALS:
+    problem: API_keys_stored_in_environment_variables
+    solution: implement_keyring_library_for_secure_storage
+    priority: P2_SECURITY
+    note: deprioritized_as_ENV_vars_work_for_now
 
 NEXT_ACTIONS:
-  1_DEPLOY: make deploy-rtm[with_batch_tools]
-  2_FIX: RTM_RRULE_parsing_bug
-  3_IMPLEMENT: task_results_cache
-  4_BUILD: spektrix_server
-  5_EXTRACT: shared_infrastructure_package
+  1_FIX: RTM_RRULE_parsing_bug[P0_BLOCKING]
+  2_IMPLEMENT: server_side_pagination[P1_UX]
+  3_DEPLOY: make deploy-rtm[with_fixes]
+  4_IMPLEMENT: task_results_cache
+  5_BUILD: spektrix_server
 
 ARCHITECTURE_DECISIONS:
   MCP_OAUTH_PATTERN:

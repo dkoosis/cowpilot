@@ -222,21 +222,30 @@ func TestCancellationHandler(t *testing.T) {
 
 	// Create task
 	ctx := context.Background()
-	requestID := "request-123"
-	progressToken := mcp.ProgressToken(requestID)
+	requestID := mcp.NewRequestId("request-123")
+	progressToken := mcp.ProgressToken("request-123")
 	task, _ := manager.StartTask(ctx, progressToken, "session")
 
 	// Create cancellation notification
-	notification := mcp.Notification{
-		Method: "notifications/cancelled",
-		Params: map[string]interface{}{
-			"requestId": requestID,
-			"reason":    "User cancelled",
+	// FIX: Construct the notification with the correct, strongly-typed parameter struct.
+	notification := mcp.CancelledNotification{
+		Notification: mcp.Notification{
+			Method: "notifications/cancelled",
+			Params: mcp.NotificationParams{
+				AdditionalFields: map[string]any{
+					"requestId": "request-123",
+					"reason":    "User cancelled",
+				},
+			},
+		},
+		Params: mcp.CancelledNotificationParams{
+			RequestId: requestID,
+			Reason:    "User cancelled",
 		},
 	}
 
 	// Handle cancellation
-	err := handler.Handle(notification)
+	err := handler.Handle(notification.Notification)
 	assert.NoError(t, err)
 
 	// Verify task is cancelled
@@ -249,9 +258,9 @@ func TestWithProgress(t *testing.T) {
 
 	// Test with progress token
 	req := mcp.CallToolRequest{
-		Params: mcp.CallToolRequestParams{
-			Meta: map[string]interface{}{
-				"progressToken": "test-token",
+		Params: mcp.CallToolParams{
+			Meta: &mcp.Meta{
+				ProgressToken: "test-token",
 			},
 		},
 	}
@@ -265,7 +274,7 @@ func TestWithProgress(t *testing.T) {
 
 	// Test without progress token
 	req2 := mcp.CallToolRequest{
-		Params: mcp.CallToolRequestParams{},
+		Params: mcp.CallToolParams{},
 	}
 
 	taskCtx2, task2, hasProgress2 := WithProgress(ctx, req2, manager, "session")
@@ -299,9 +308,9 @@ func TestRunWithProgress(t *testing.T) {
 
 	// With progress token
 	req := mcp.CallToolRequest{
-		Params: mcp.CallToolRequestParams{
-			Meta: map[string]interface{}{
-				"progressToken": "test-token",
+		Params: mcp.CallToolParams{
+			Meta: &mcp.Meta{
+				ProgressToken: "test-token",
 			},
 		},
 	}
@@ -315,7 +324,7 @@ func TestRunWithProgress(t *testing.T) {
 
 	// Without progress token
 	req2 := mcp.CallToolRequest{
-		Params: mcp.CallToolRequestParams{},
+		Params: mcp.CallToolParams{},
 	}
 
 	result2, err2 := RunWithProgress(ctx, req2, manager, "session", testFunc)

@@ -1,3 +1,5 @@
+// File: internal/rtm/oauth_adapter.go
+
 package rtm
 
 import (
@@ -19,7 +21,7 @@ import (
 
 // OAuthAdapter adapts RTM's frob-based auth to OAuth flow
 type OAuthAdapter struct {
-	client       *Client
+	client       RTMClientInterface
 	sessions     map[string]*AuthSession
 	sessionMutex sync.RWMutex
 	serverURL    string
@@ -79,9 +81,7 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	csrfCookie, err := r.Cookie("csrf_token")
 	if err != nil || csrfCookie.Value == "" {
-		// Cookie might be lost due to popup blocking - validate using session-based CSRF
 		log.Printf("RTM: CSRF cookie missing, popup blocker scenario detected")
-		// For now, we'll reject but log the scenario
 		http.Error(w, "Missing CSRF cookie - please disable popup blocker and try again without refreshing", http.StatusBadRequest)
 		return
 	}
@@ -135,14 +135,14 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	// Step 4: Build RTM auth URL with frob
 	rtmParams := map[string]string{
-		"api_key": a.client.APIKey,
+		"api_key": a.client.GetAPIKey(),
 		"perms":   "delete", // We need delete perms for task management
 		"frob":    frob,
 	}
-	sig := a.client.sign(rtmParams)
+	sig := a.client.Sign(rtmParams)
 
 	rtmURL := fmt.Sprintf("https://www.rememberthemilk.com/services/auth/?api_key=%s&perms=delete&frob=%s&api_sig=%s",
-		url.QueryEscape(a.client.APIKey),
+		url.QueryEscape(a.client.GetAPIKey()),
 		url.QueryEscape(frob),
 		url.QueryEscape(sig))
 
@@ -256,7 +256,7 @@ func (a *OAuthAdapter) HandleToken(w http.ResponseWriter, r *http.Request) {
 
 	// Success!
 	log.Printf("RTM DEBUG: Immediate exchange succeeded")
-	session.Token = a.client.AuthToken
+	session.Token = a.client.GetAuthToken()
 	a.sendTokenSuccess(w, session.Token)
 	a.removeSession(code)
 }
@@ -269,7 +269,6 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.URL.Query().Get("redirect_uri")
 	responseType := r.URL.Query().Get("response_type")
 
-	// Debug logging for OAuth parameters
 	log.Printf("[OAUTH] /authorize called with: client_id=%s, state=%s, redirect_uri=%s, response_type=%s",
 		clientID, state, redirectURI, responseType)
 	log.Printf("[OAUTH] Full query string: %s", r.URL.RawQuery)
@@ -278,15 +277,23 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 	// Generate CSRF token
 	csrfToken := uuid.New().String()
 
-	// Set CSRF cookie with better persistence
+	// Conditionally set cookies based on environment
+	isSecure := strings.HasPrefix(a.serverURL, "https://")
+
+	// SameSiteNone requires Secure=true, so adjust for test environments
+	sameSite := http.SameSiteNoneMode
+	if !isSecure {
+		sameSite = http.SameSiteLaxMode // Use Lax for HTTP/test environments
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    csrfToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,                  // Required for SameSite=None
-		SameSite: http.SameSiteNoneMode, // Allow cross-site for OAuth flow
-		MaxAge:   1800,                  // 30 minutes to handle popup blocking scenarios
+		Secure:   isSecure,
+		SameSite: sameSite,
+		MaxAge:   1800,
 	})
 
 	html := fmt.Sprintf(`
@@ -308,7 +315,7 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
         <h1>Connect Remember The Milk</h1>
         <p>This will connect your Remember The Milk account to allow task management.</p>
         <div class="warning">
-        <strong>Note:</strong> You'll be redirected to Remember The Milk to authorize access. 
+        <strong>Note:</strong> You'll be redirected to Remember The Milk to authorize access.
         After authorizing, click the return link we'll provide to complete the connection.
         </div>
         <form method="POST">
@@ -354,7 +361,7 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
     <script>
         let checkInterval = null;
         let isChecking = false;
-        
+
         function startChecking() {
             if (checkInterval) return;
             isChecking = true;
@@ -362,7 +369,7 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
             checkInterval = setInterval(checkAuthStatus, 2000);
             checkAuthStatus(); // Check immediately
         }
-        
+
         function checkAuthStatus() {
             fetch('%s')
                 .then(response => response.json())
@@ -387,19 +394,19 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
                     console.error('Check failed:', err);
                 });
         }
-        
+
         function updateStatus(type, message) {
             const status = document.getElementById('status');
             status.className = 'status ' + type;
             status.textContent = message;
             status.style.display = 'block';
         }
-        
+
         function manualCheck() {
             document.getElementById('checkBtn').disabled = true;
             startChecking();
         }
-        
+
         // Start checking when returning to tab
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden && !isChecking) {
@@ -411,19 +418,19 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
 <body>
     <div class="container">
         <h1>Connect to Remember The Milk</h1>
-        
+
         <div class="instructions">
             <p><strong>Step 1:</strong> Click the button below to open Remember The Milk in a new tab</p>
             <p><strong>Step 2:</strong> On the RTM page, click the blue "Allow" button to grant access</p>
             <p><strong>Step 3:</strong> Return to this tab - we'll detect when you're done</p>
         </div>
-        
+
         <div class="warning" style="margin: 15px 0;">
             <strong>⚠️ Important:</strong> You must click "Allow" on the Remember The Milk page, not just view it!
         </div>
-        
+
         <a href="%s" target="_blank" class="button" onclick="setTimeout(startChecking, 1000)">Open Remember The Milk →</a>
-        
+
         <div style="margin: 20px 0; padding: 15px; background: #f0f8ff; border: 1px solid #4682b4; border-radius: 4px;">
             <p style="margin: 0; color: #333;">💡 <strong>What to look for:</strong> On the RTM page, you'll see:</p>
             <ul style="margin: 10px 0; padding-left: 30px;">
@@ -432,9 +439,9 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
                 <li>A blue <strong>"Allow"</strong> button - click this!</li>
             </ul>
         </div>
-        
+
         <div id="status" class="status" style="display: none;"></div>
-        
+
         <div style="margin-top: 30px;">
             <button id="checkBtn" class="button" onclick="manualCheck()" style="background: #28a745;">
                 I've Authorized
@@ -532,7 +539,7 @@ func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		// Success! Store token and respond
 		a.sessionMutex.Lock()
-		session.Token = a.client.AuthToken
+		session.Token = a.client.GetAuthToken()
 		a.sessionMutex.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
@@ -615,7 +622,8 @@ func (a *OAuthAdapter) ValidateBearer(token string) bool {
 	}
 
 	// Create a temporary client with the token to test it
-	testClient := NewClient(a.client.APIKey, a.client.Secret)
+	// Note: This requires the concrete client for now
+	testClient := NewClient(a.client.GetAPIKey(), "")
 	testClient.AuthToken = token
 
 	// Test token by making a minimal API call
@@ -630,7 +638,7 @@ func (a *OAuthAdapter) ValidateBearer(token string) bool {
 }
 
 // SetClient sets the RTM client (for testing)
-func (a *OAuthAdapter) SetClient(client *Client) {
+func (a *OAuthAdapter) SetClient(client RTMClientInterface) {
 	a.client = client
 }
 

@@ -17,6 +17,65 @@ import (
 	"github.com/vcto/mcp-adapters/internal/rtm"
 )
 
+// MockRTMClient simulates RTM API behavior and now explicitly implements the interface
+type MockRTMClient struct {
+	frobAuthorized map[string]bool
+	mu             *sync.Mutex
+}
+
+// Ensure MockRTMClient satisfies the RTMClientInterface
+var _ rtm.RTMClientInterface = (*MockRTMClient)(nil)
+
+func (m *MockRTMClient) GetFrob() (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	frob := fmt.Sprintf("mock-frob-%d", time.Now().UnixNano())
+	m.frobAuthorized[frob] = false
+	return frob, nil
+}
+
+func (m *MockRTMClient) GetToken(frob string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if authorized, exists := m.frobAuthorized[frob]; exists && authorized {
+		return nil
+	}
+
+	return &rtm.RTMError{
+		Code: 101,
+		Msg:  "Invalid frob - did you authenticate?",
+	}
+}
+
+func (m *MockRTMClient) AuthorizeFrob(frob string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.frobAuthorized[frob] = true
+}
+
+func (m *MockRTMClient) GetAPIKey() string {
+	return "test-key"
+}
+
+func (m *MockRTMClient) GetAuthToken() string {
+	return "test-auth-token"
+}
+
+func (m *MockRTMClient) SetAuthToken(token string) {
+	// No-op for mock
+}
+
+func (m *MockRTMClient) Sign(params map[string]string) string {
+	return "mock-signature"
+}
+
+func (m *MockRTMClient) GetLists() ([]rtm.List, error) {
+	return []rtm.List{}, nil
+}
+
 // TestRTMOAuthRaceCondition simulates the race condition where user never completes auth
 func TestRTMOAuthRaceCondition(t *testing.T) {
 	// Create adapter
@@ -209,52 +268,4 @@ func TestRTMOAuthSuccessfulFlow(t *testing.T) {
 	err = json.Unmarshal(w.Body.Bytes(), &tokenResponse)
 	require.NoError(t, err)
 	assert.NotEmpty(t, tokenResponse["access_token"])
-}
-
-// MockRTMClient simulates RTM API behavior
-type MockRTMClient struct {
-	frobAuthorized map[string]bool
-	mu             *sync.Mutex
-}
-
-func (m *MockRTMClient) GetFrob() (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	frob := fmt.Sprintf("mock-frob-%d", time.Now().UnixNano())
-	m.frobAuthorized[frob] = false
-	return frob, nil
-}
-
-func (m *MockRTMClient) GetToken(frob string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if authorized, exists := m.frobAuthorized[frob]; exists && authorized {
-		return nil
-	}
-
-	return &rtm.RTMError{
-		Code: 101,
-		Msg:  "Invalid frob - did you authenticate?",
-	}
-}
-
-func (m *MockRTMClient) AuthorizeFrob(frob string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.frobAuthorized[frob] = true
-}
-
-func (m *MockRTMClient) APIKey() string {
-	return "test-key"
-}
-
-func (m *MockRTMClient) SetAuthToken(token string) {
-	// No-op for mock
-}
-
-func (m *MockRTMClient) Sign(params map[string]string) string {
-	return "mock-signature"
 }

@@ -124,26 +124,32 @@ func (m *Manager) CancelSessionTasks(sessionID string) {
 
 // HandleCancellation processes cancellation notifications from clients
 func (m *Manager) HandleCancellation(notification mcp.Notification) {
-	// Parse cancellation params
-	params, ok := notification.Params.(mcp.CancelledNotificationParams)
-	if !ok {
-		log.Printf("Invalid cancellation notification params: %T", notification.Params)
+	// FIX: Access the AdditionalFields map and perform type assertions on its values.
+	additionalFields := notification.Params.AdditionalFields
+	if additionalFields == nil {
+		log.Printf("Invalid cancellation notification: AdditionalFields is nil")
 		return
 	}
 
-	// Find task by request ID
-	// TODO(vcto): Map request IDs to progress tokens properly.
-	// Currently treating request ID as the progress token as a workaround.
-	progressToken := mcp.ProgressToken(params.RequestID)
+	rawRequestID, ok1 := additionalFields["requestId"]
+	requestID, ok2 := rawRequestID.(string)
 
+	if !ok1 || !ok2 {
+		log.Printf("Invalid cancellation notification: requestId is missing or not a string")
+		return
+	}
+
+	progressToken := mcp.ProgressToken(requestID)
 	task := m.GetTask(progressToken)
 	if task == nil {
-		log.Printf("No task found for cancellation request: %s", params.RequestID)
+		log.Printf("No task found for cancellation request: %s", requestID)
 		return
 	}
 
-	// Cancel the task
-	reason := params.Reason
+	var reason string
+	if rawReason, ok := additionalFields["reason"]; ok {
+		reason, _ = rawReason.(string)
+	}
 	if reason == "" {
 		reason = "Cancelled by client"
 	}
@@ -164,35 +170,18 @@ func (m *Manager) SendProgressNotification(task *Task, progress float64, total *
 	task.lastNotified = now
 	task.mu.Unlock()
 
-	// Create progress notification
-	params := mcp.ProgressNotificationParams{
-		ProgressToken: task.progressToken,
-		Progress:      progress,
-		Total:         total,
-	}
-
-	notification := mcp.ProgressNotification{
-		Notification: mcp.Notification{
-			Method: "notifications/progress",
-			Params: params,
-		},
-	}
-
-	// Send to client
-	// Note: The actual sending mechanism depends on the transport (SSE, WebSocket, etc.)
-	// The mcp-go library should provide a way to send notifications
-	// For now, we'll log it
 	percentage := 100.0
 	if total != nil && *total > 0 {
 		percentage = (progress / *total) * 100
-	} else if progress > 0 {
-		percentage = (progress / progress) * 100 // 100% if no total set
+	} else if progress > 0 && total == nil {
+		log.Printf("Progress notification for task %s: %.1f - %s",
+			task.id, progress, message)
+		return nil
 	}
 	log.Printf("Progress notification for task %s: %.1f%% - %s",
 		task.id, percentage, message)
 
 	// TODO(vcto): Implement actual notification sending when mcp-go supports it
-	// m.server.SendNotificationToClient(notification)
 
 	return nil
 }
