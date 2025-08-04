@@ -43,11 +43,14 @@ GOTESTSUM=$(shell which gotestsum 2>/dev/null || echo "")
 # Clean, format, lint, build all servers, and run COMPREHENSIVE tests
 all: clean fmt vet lint build-all test-all deploy-verification
 
-# Run LOCAL tests only (unit + local integration)
-test: unit-test integration-test-local
+# Run fast tests (unit only)
+test-fast: unit-test
 
-# Run COMPREHENSIVE tests (local + deployed verification)
-test-all: unit-test integration-test-local integration-test cleanup-core-tmp
+# Run standard tests (unit + integration with TestMain)
+test: unit-test integration-test
+
+# Run ALL tests (unit + integration + scenario/protocol)
+test-all: unit-test integration-test scenario-test
 
 # Verify deployed servers are working
 deploy-verification:
@@ -128,7 +131,7 @@ run-debug-proxy: build-debug
 		--port 8080 \
 		--target-port 8081
 
-# Run unit tests
+# Run unit tests (fast, no build tags)
 unit-test:
 	@echo "Running unit tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
@@ -137,54 +140,25 @@ unit-test:
 		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	fi
 
-# Run integration tests (with auto-deploy option)
+# Run integration tests using TestMain (no shell scripts)
 integration-test:
-	@echo "Running integration tests against deployed instance..."
-	@echo "Testing connectivity first..."
-	@if ! curl -f -s --max-time 10 https://core-tmp.fly.dev/health > /dev/null 2>&1; then \
-		echo "⚠️  Server not responding at https://core-tmp.fly.dev"; \
-		echo ""; \
-		echo "Options:"; \
-		echo "  1. Auto-deploy: make deploy-core-tmp (recommended)"; \
-		echo "  2. Check status: fly status -a core-tmp && fly logs -a core-tmp"; \
-		echo "  3. Skip deployed tests: make unit-test integration-test-local"; \
-		echo ""; \
-		read -p "Deploy test server now? [y/N] " -n 1 -r; \
-		echo; \
-		if [ "$$REPLY" = "y" ] || [ "$$REPLY" = "Y" ]; then \
-			echo "🚀 Auto-deploying test server..."; \
-			$(MAKE) deploy-core-tmp; \
-			echo "⏳ Waiting for deployment to be ready..."; \
-			sleep 10; \
-		else \
-			echo "❌ Skipping deployed integration tests"; \
-			exit 1; \
-		fi; \
-	fi
-	@echo "✅ Server responding, running integration tests..."
-	@export MCP_SERVER_URL="https://core-tmp.fly.dev/mcp" && \
-	if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -race -timeout 30s ./tests/integration/...; \
-	else \
-		$(GOTEST) -v -race -timeout 30s ./tests/integration/...; \
-	fi
-
-# Run integration tests locally (development only)
-integration-test-local:
-	@echo "Running integration tests against local server..."
-	@LOCAL_TEST=true ./scripts/test/test-mcp-integration.sh
-
-# Run scenario tests (for CI/staging)
-scenario-test:
-	@echo "Running scenario tests..."
-	@if [ -z "$(MCP_SERVER_URL)" ]; then \
-		echo "MCP_SERVER_URL not set. Using yduction server..."; \
-		export MCP_SERVER_URL="https://mcp-adapters.fly.dev/"; \
-	fi
+	@echo "Running integration tests with Go TestMain..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format dots-v2 -- -v $(SCENARIO_TEST_DIR)/...; \
+		$(GOTESTSUM) --format testdox -- -race -tags=integration -timeout 60s ./tests/integration/...; \
 	else \
-		$(GOTEST) -v $(SCENARIO_TEST_DIR)/...; \
+		$(GOTEST) -v -race -tags=integration -timeout 60s ./tests/integration/...; \
+	fi
+
+# Run integration tests locally (same as integration-test now)
+integration-test-local: integration-test
+
+# Run scenario tests (protocol conformance)
+scenario-test:
+	@echo "Running protocol conformance tests..."
+	@if [ -n "$(GOTESTSUM)" ]; then \
+		$(GOTESTSUM) --format testdox -- -v -tags=scenario -timeout 30s $(SCENARIO_TEST_DIR)/...; \
+	else \
+		$(GOTEST) -v -tags=scenario -timeout 30s $(SCENARIO_TEST_DIR)/...; \
 	fi
 
 # Run scenario tests against local server

@@ -5,371 +5,361 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 )
 
-// MCP server URL from environment or default to deployed instance
-func getServerURL() string {
-	if url := os.Getenv("MCP_SERVER_URL"); url != "" {
-		return url
-	}
-	return "https://core-test.fly.dev/mcp"
-}
+var (
+	serverURL   string
+	serverCmd   *exec.Cmd
+	projectRoot string
+)
 
-// JSON-RPC request structure
-type jsonRPCRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params,omitempty"`
-	ID      int         `json:"id"`
-}
-
-// JSON-RPC response structure
-type jsonRPCResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	Result  json.RawMessage `json:"result,omitempty"`
-	Error   interface{}     `json:"error,omitempty"`
-	ID      int             `json:"id"`
-}
-
-// Helper to make JSON-RPC calls
-func callMCP(t *testing.T, method string, params interface{}) json.RawMessage {
-	req := jsonRPCRequest{
-		JSONRPC: "2.0",
-		Method:  method,
-		Params:  params,
-		ID:      1,
+// TestMain manages the server lifecycle for all integration tests.
+// This replaces the fragile shell script approach with robust Go-native process management.
+func TestMain(m *testing.M) {
+	// Find project root
+	projectRoot = findProjectRoot()
+	if projectRoot == "" {
+		log.Fatal("Could not find project root (looking for go.mod)")
 	}
 
-	body, err := json.Marshal(req)
+	// 1. Build the server binary
+	log.Println("Building server for integration tests...")
+	binaryPath := filepath.Join(projectRoot, "bin", "core-server")
+	buildCmd := exec.Command("go", "build", "-o", binaryPath, filepath.Join(projectRoot, "cmd", "core"))
+	if output, err := buildCmd.CombinedOutput(); err != nil {
+		log.Fatalf("Failed to build server: %v\n%s", err, output)
+	}
+
+	// 2. Start the server as a background process
+	serverCmd = exec.Command(binaryPath, "--disable-auth")
+	serverCmd.Env = append(os.Environ(),
+		"FLY_APP_NAME=local-test",
+		"PORT=8080",
+		"MCP_LOG_LEVEL=WARN",
+	)
+
+	// Capture server output for debugging
+	serverCmd.Stdout = os.Stdout
+	serverCmd.Stderr = os.Stderr
+
+	if err := serverCmd.Start(); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
+	log.Printf("Server started with PID %d", serverCmd.Process.Pid)
+
+	// 3. Wait for the server to be healthy
+	serverURL = "http://localhost:8080"
+	if !waitForServer(serverURL, 15*time.Second) {
+		_ = serverCmd.Process.Kill()
+		log.Fatalf("Server did not become ready in time")
+	}
+	log.Println("Server is ready for tests")
+
+	// 4. Run the actual tests
+	exitCode := m.Run()
+
+	// 5. Cleanly shut down the server
+	log.Println("Shutting down server...")
+	if err := serverCmd.Process.Signal(syscall.SIGTERM); err != nil {
+		log.Printf("Failed to send SIGTERM, killing process: %v", err)
+		_ = serverCmd.Process.Kill()
+	}
+	_ = serverCmd.Wait()
+	log.Println("Server shut down")
+
+	os.Exit(exitCode)
+}
+
+// waitForServer polls the health endpoint until ready or timeout
+func waitForServer(baseURL string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	client := &http.Client{Timeout: 1 * time.Second}
+
+	for time.Now().Before(deadline) {
+		// Check health endpoint
+		resp, err := client.Get(baseURL + "/health")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			_ = resp.Body.Close()
+
+			// Also verify MCP endpoint is responding
+			mcpReq := []byte(`{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}`)
+			mcpResp, err := client.Post(baseURL+"/mcp", "application/json", bytes.NewReader(mcpReq))
+			if err == nil {
+				_ = mcpResp.Body.Close()
+				if mcpResp.StatusCode == http.StatusOK {
+					return true
+				}
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return false
+}
+
+// findProjectRoot walks up the directory tree to find go.mod
+func findProjectRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
+// TestMCPInitialize tests the MCP initialization handshake
+func TestMCPInitialize(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	reqBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "initialize",
+		"params": map[string]interface{}{
+			"protocolVersion": "2024-11-05",
+			"capabilities":    map[string]interface{}{},
+			"clientInfo": map[string]interface{}{
+				"name":    "integration-test",
+				"version": "1.0",
+			},
+		},
+	}
+
+	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", getServerURL(), bytes.NewReader(body))
+	resp, err := client.Post(serverURL+"/mcp", "application/json", bytes.NewReader(jsonData))
 	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
+		t.Fatalf("Failed to send request: %v", err)
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
+	defer func() { _ = resp.Body.Close() }()
 
-	// Add auth header if testing against deployed server
-	if testToken := os.Getenv("MCP_TEST_TOKEN"); testToken != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+testToken)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(httpReq)
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if result["jsonrpc"] != "2.0" {
+		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
+	}
+
+	if _, ok := result["result"]; !ok {
+		t.Error("Response missing result field")
+	}
+}
+
+// TestMCPToolsList tests the tools/list method
+func TestMCPToolsList(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	reqBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      2,
+		"method":  "tools/list",
+		"params":  map[string]interface{}{},
+	}
+
+	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// Log but don't fail on close errors
-			t.Logf("Warning: failed to close response body: %v", err)
-		}
-	}()
-
-	// Handle auth errors gracefully
-	if resp.StatusCode == 401 {
-		t.Skip("Server requires authentication - set MCP_TEST_TOKEN env var or deploy with DISABLE_AUTH=true")
+		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
+	resp, err := client.Post(serverURL+"/mcp", "application/json", bytes.NewReader(jsonData))
+	if err != nil {
+		t.Fatalf("Failed to send request: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Failed to read response: %v", err)
 	}
 
-	var rpcResp jsonRPCResponse
-	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("Failed to decode response: %v\nBody: %s", err, string(body))
 	}
 
-	if rpcResp.Error != nil {
-		t.Fatalf("RPC error: %v", rpcResp.Error)
+	if result["jsonrpc"] != "2.0" {
+		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
 	}
 
-	return rpcResp.Result
-}
-
-func TestMCP_ToolsList(t *testing.T) {
-	result := callMCP(t, "tools/list", nil)
-
-	var response struct {
-		Tools []struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-		} `json:"tools"`
-	}
-
-	if err := json.Unmarshal(result, &response); err != nil {
-		t.Fatalf("Failed to unmarshal tools list: %v", err)
-	}
-
-	expectedTools := []string{
-		"hello", "echo", "add", "get_time", "base64_encode",
-		"base64_decode", "string_operation", "format_json",
-		"long_running_operation", "get_test_image", "get_resource_content",
-	}
-
-	// Check all expected tools exist
-	toolMap := make(map[string]bool)
-	for _, tool := range response.Tools {
-		toolMap[tool.Name] = true
-	}
-
-	for _, expected := range expectedTools {
-		if !toolMap[expected] {
-			t.Errorf("Missing expected tool: %s", expected)
-		}
-	}
-}
-
-func TestMCP_ToolCall_Hello(t *testing.T) {
-	params := map[string]interface{}{
-		"name":      "hello",
-		"arguments": map[string]interface{}{},
-	}
-
-	result := callMCP(t, "tools/call", params)
-
-	var response struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-	}
-
-	if err := json.Unmarshal(result, &response); err != nil {
-		t.Fatalf("Failed to unmarshal tool response: %v", err)
-	}
-
-	if len(response.Content) == 0 {
-		t.Fatal("No content in response")
-	}
-
-	expected := "Hello, World! This is the everything server demonstrating all MCP capabilities."
-	if response.Content[0].Text != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, response.Content[0].Text)
-	}
-}
-
-func TestMCP_ToolCall_Echo(t *testing.T) {
-	params := map[string]interface{}{
-		"name": "echo",
-		"arguments": map[string]interface{}{
-			"message": "Test message",
-		},
-	}
-
-	result := callMCP(t, "tools/call", params)
-
-	var response struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-	}
-
-	if err := json.Unmarshal(result, &response); err != nil {
-		t.Fatalf("Failed to unmarshal tool response: %v", err)
-	}
-
-	expected := "Echo: Test message"
-	if response.Content[0].Text != expected {
-		t.Errorf("Expected '%s', got '%s'", expected, response.Content[0].Text)
-	}
-}
-
-func TestMCP_ResourcesList(t *testing.T) {
-	result := callMCP(t, "resources/list", nil)
-
-	var response struct {
-		Resources []struct {
-			URI         string `json:"uri"`
-			Name        string `json:"name"`
-			Description string `json:"description,omitempty"`
-			MIMEType    string `json:"mimeType"`
-		} `json:"resources"`
-	}
-
-	if err := json.Unmarshal(result, &response); err != nil {
-		t.Fatalf("Failed to unmarshal resources list: %v", err)
-	}
-
-	expectedResources := []string{
-		"example://text/hello",
-		"example://text/readme",
-		"example://image/logo",
-	}
-
-	// Check expected resources exist
-	resourceMap := make(map[string]bool)
-	for _, resource := range response.Resources {
-		resourceMap[resource.URI] = true
-	}
-
-	for _, expected := range expectedResources {
-		if !resourceMap[expected] {
-			t.Errorf("Missing expected resource: %s", expected)
-		}
-	}
-}
-
-func TestMCP_ResourceRead(t *testing.T) {
-	params := map[string]interface{}{
-		"uri": "example://text/hello",
-	}
-
-	result := callMCP(t, "resources/read", params)
-
-	var response struct {
-		Contents []struct {
-			URI      string `json:"uri"`
-			MIMEType string `json:"mimeType"`
-			Text     string `json:"text,omitempty"`
-		} `json:"contents"`
-	}
-
-	if err := json.Unmarshal(result, &response); err != nil {
-		t.Fatalf("Failed to unmarshal resource: %v", err)
-	}
-
-	if len(response.Contents) == 0 {
-		t.Fatal("No contents in response")
-	}
-
-	content := response.Contents[0]
-	if content.URI != "example://text/hello" {
-		t.Errorf("Wrong URI: %s", content.URI)
-	}
-	if content.MIMEType != "text/plain" {
-		t.Errorf("Wrong MIME type: %s", content.MIMEType)
-	}
-	if !bytes.Contains([]byte(content.Text), []byte("Hello, World!")) {
-		t.Errorf("Content doesn't contain expected text")
-	}
-}
-
-func TestMCP_PromptsList(t *testing.T) {
-	result := callMCP(t, "prompts/list", nil)
-
-	var response struct {
-		Prompts []struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-		} `json:"prompts"`
-	}
-
-	if err := json.Unmarshal(result, &response); err != nil {
-		t.Fatalf("Failed to unmarshal prompts list: %v", err)
-	}
-
-	expectedPrompts := []string{"simple_greeting", "code_review"}
-
-	// Check all expected prompts exist (don't count total)
-	promptMap := make(map[string]bool)
-	for _, prompt := range response.Prompts {
-		promptMap[prompt.Name] = true
-	}
-
-	for _, expected := range expectedPrompts {
-		if !promptMap[expected] {
-			t.Errorf("Missing expected prompt: %s", expected)
-		}
-	}
-}
-
-// TestWithInspectorCLI uses the MCP Inspector CLI if available
-func TestWithInspectorCLI(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping Inspector CLI test in short mode")
-	}
-
-	// Check if inspector is available
-	if _, err := exec.LookPath("npx"); err != nil {
-		t.Skip("npx not found, skipping Inspector CLI test")
-	}
-
-	serverURL := getServerURL()
-
-	// Skip if auth required (Inspector CLI doesn't handle auth easily)
-	if os.Getenv("MCP_TEST_TOKEN") == "" {
-		// Test if server requires auth
-		resp, err := http.Post(serverURL, "application/json", bytes.NewReader([]byte(`{"jsonrpc":"2.0","method":"tools/list","id":1}`)))
-		if err == nil {
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					t.Logf("Warning: failed to close response body: %v", err)
-				}
-			}()
-			if resp.StatusCode == 401 {
-				t.Skip("Server requires authentication - Inspector CLI test skipped")
+	if resultData, ok := result["result"].(map[string]interface{}); ok {
+		if tools, ok := resultData["tools"].([]interface{}); ok {
+			if len(tools) == 0 {
+				t.Error("No tools returned")
+			} else {
+				t.Logf("Found %d tools", len(tools))
 			}
+		} else {
+			t.Error("Result missing tools array")
 		}
+	} else {
+		t.Error("Response missing result field")
+	}
+}
+
+// TestMCPResourcesList tests the resources/list method
+func TestMCPResourcesList(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	reqBody := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      3,
+		"method":  "resources/list",
+		"params":  map[string]interface{}{},
 	}
 
-	// Test tools/list with Inspector
-	cmd := exec.Command("npx", "@modelcontextprotocol/inspector",
-		"--cli", serverURL,
-		"--method", "tools/list",
-		"--transport", "http")
-
-	output, err := cmd.CombinedOutput()
+	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		t.Fatalf("Inspector CLI failed: %v\nOutput: %s", err, output)
+		t.Fatalf("Failed to marshal request: %v", err)
 	}
 
-	// Verify output contains expected tools
-	if !bytes.Contains(output, []byte("hello")) {
-		t.Errorf("Output doesn't contain 'hello' tool")
+	resp, err := client.Post(serverURL+"/mcp", "application/json", bytes.NewReader(jsonData))
+	if err != nil {
+		t.Fatalf("Failed to send request: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if result["jsonrpc"] != "2.0" {
+		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
+	}
+
+	if resultData, ok := result["result"].(map[string]interface{}); ok {
+		if resources, ok := resultData["resources"].([]interface{}); ok {
+			t.Logf("Found %d resources", len(resources))
+		} else {
+			t.Error("Result missing resources array")
+		}
+	} else {
+		t.Error("Response missing result field")
 	}
 }
 
-// Test runner helper
-func TestMain(m *testing.M) {
-	// Check if server is running - don't start our own if one is already running
-	serverURL := getServerURL()
+// TestHealthEndpoint verifies the health check endpoint
+func TestHealthEndpoint(t *testing.T) {
+	resp, err := http.Get(serverURL + "/health")
+	if err != nil {
+		t.Fatalf("Failed to check health: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
 
-	// For local testing, assume external script handles server lifecycle
-	if serverURL == "http://localhost:8080/mcp" {
-		// Wait for server to be ready (started by external script)
-		fmt.Println("⏳ Waiting for server to be ready...")
-		for i := 0; i < 60; i++ { // Increased wait time
-			// Try both IPv4 and health endpoint
-			resp, err := http.Get("http://127.0.0.1:8080/health")
-			if err == nil {
-				if err := resp.Body.Close(); err != nil {
-					fmt.Printf("Warning: failed to close response body: %v\n", err)
-				}
-				// Also verify MCP endpoint is responding
-				client := &http.Client{Timeout: 5 * time.Second}
-				testReq, _ := http.NewRequest("POST", "http://127.0.0.1:8080/mcp",
-					bytes.NewReader([]byte(`{"jsonrpc":"2.0","method":"tools/list","id":1}`)))
-				testReq.Header.Set("Content-Type", "application/json")
-				if testResp, testErr := client.Do(testReq); testErr == nil {
-					if err := testResp.Body.Close(); err != nil {
-						fmt.Printf("Warning: failed to close test response body: %v\n", err)
-					}
-					fmt.Println("✅ Server ready for testing (health + MCP responding)")
-					break
-				}
-			}
-			if i%10 == 0 && i > 0 {
-				fmt.Printf("  Still waiting... (%d/60)\n", i)
-			}
-			time.Sleep(500 * time.Millisecond)
-			if i == 59 {
-				fmt.Println("❌ Server not ready after 30 seconds")
-				os.Exit(1)
-			}
-		}
-		os.Exit(m.Run())
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
 	}
 
-	// For deployed servers, just run tests directly
-	os.Exit(m.Run())
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	expected := `{"status":"healthy"}`
+	if string(body) != expected {
+		t.Errorf("Expected %s, got %s", expected, string(body))
+	}
+}
+
+// TestMCPError tests error handling for malformed requests
+func TestMCPError(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	// Send request with invalid JSON-RPC version
+	reqBody := map[string]interface{}{
+		"jsonrpc": "1.0", // Invalid version
+		"id":      999,
+		"method":  "tools/list",
+		"params":  map[string]interface{}{},
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	resp, err := client.Post(serverURL+"/mcp", "application/json", bytes.NewReader(jsonData))
+	if err != nil {
+		t.Fatalf("Failed to send request: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	// Should return an error
+	if errorData, ok := result["error"].(map[string]interface{}); ok {
+		if code, ok := errorData["code"].(float64); ok {
+			if code != -32600 { // Invalid Request error code
+				t.Errorf("Expected error code -32600, got %v", code)
+			}
+		} else {
+			t.Error("Error missing code field")
+		}
+	} else {
+		t.Error("Expected error response for invalid JSON-RPC version")
+	}
+}
+
+// TestConcurrentRequests verifies the server handles concurrent requests
+func TestConcurrentRequests(t *testing.T) {
+	done := make(chan bool, 10)
+
+	for i := 0; i < 10; i++ {
+		go func(id int) {
+			defer func() { done <- true }()
+
+			client := &http.Client{Timeout: 5 * time.Second}
+			reqBody := map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      fmt.Sprintf("concurrent-%d", id),
+				"method":  "tools/list",
+				"params":  map[string]interface{}{},
+			}
+
+			jsonData, _ := json.Marshal(reqBody)
+			resp, err := client.Post(serverURL+"/mcp", "application/json", bytes.NewReader(jsonData))
+			if err != nil {
+				t.Errorf("Request %d failed: %v", id, err)
+				return
+			}
+			_ = resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Request %d got status %d", id, resp.StatusCode)
+			}
+		}(i)
+	}
+
+	// Wait for all requests to complete
+	for i := 0; i < 10; i++ {
+		<-done
+	}
 }

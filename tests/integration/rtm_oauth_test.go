@@ -110,6 +110,12 @@ func TestRTMOAuthRaceCondition(t *testing.T) {
 	if codeEnd == -1 {
 		codeEnd = strings.Index(body[codeStart:], "\"")
 	}
+	if codeEnd == -1 {
+		codeEnd = strings.Index(body[codeStart:], "'")
+	}
+	if codeEnd == -1 {
+		codeEnd = len(body[codeStart:])
+	}
 	code := body[codeStart+5 : codeStart+codeEnd]
 
 	// Step 2: Simulate concurrent polling and user actions
@@ -230,6 +236,12 @@ func TestRTMOAuthSuccessfulFlow(t *testing.T) {
 	codeEnd := strings.Index(body[codeStart:], "&")
 	if codeEnd == -1 {
 		codeEnd = strings.Index(body[codeStart:], "\"")
+	}
+	if codeEnd == -1 {
+		codeEnd = strings.Index(body[codeStart:], "'")
+	}
+	if codeEnd == -1 {
+		codeEnd = len(body[codeStart:])
 	}
 	code := body[codeStart+5 : codeStart+codeEnd]
 

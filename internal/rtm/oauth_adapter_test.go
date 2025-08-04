@@ -97,7 +97,7 @@ func TestFullOAuthFlow(t *testing.T) {
 	// Generate valid PKCE challenge/verifier pair
 	codeVerifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 	codeChallenge := "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM" // SHA256(codeVerifier) base64url encoded
-	
+
 	form := url.Values{}
 	form.Set("client_id", "test")
 	form.Set("state", "xyz")

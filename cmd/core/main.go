@@ -1142,10 +1142,10 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Simple health check response
-	w.Header().Set("Content-Type", "text/plain")
+	// Simple health check response - return JSON for consistency
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("OK"))
+	_, _ = w.Write([]byte(`{"status":"healthy"}`))
 }
 
 func handleLogo(w http.ResponseWriter, r *http.Request) {
