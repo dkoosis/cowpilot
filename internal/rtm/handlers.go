@@ -12,12 +12,16 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// Handler manages RTM integration
+// Handler manages RTM integration for the MCP server.
+// It wraps an RTM client and provides tool handlers for MCP operations.
 type Handler struct {
+	// client is the underlying RTM API client
 	client *Client
 }
 
-// NewHandler creates RTM handler with credentials from env
+// NewHandler creates an RTM handler with credentials from environment variables.
+// Requires RTM_API_KEY and RTM_API_SECRET environment variables to be set.
+// Returns nil if credentials are missing, allowing graceful degradation.
 func NewHandler() *Handler {
 	apiKey := os.Getenv("RTM_API_KEY")
 	secret := os.Getenv("RTM_API_SECRET")
@@ -31,17 +35,22 @@ func NewHandler() *Handler {
 	}
 }
 
-// SetAuthToken sets the RTM auth token
+// SetAuthToken sets the RTM auth token on the underlying client.
+// This is typically called after successful OAuth authentication.
 func (h *Handler) SetAuthToken(token string) {
 	h.client.AuthToken = token
 }
 
-// GetClient returns the RTM client for direct access
+// GetClient returns the underlying RTM client for direct API access.
+// Useful for accessing RTM functionality not exposed through handler methods.
 func (h *Handler) GetClient() *Client {
 	return h.client
 }
 
-// SetupTools registers RTM-related tools
+// SetupTools registers RTM-related tools with the MCP server.
+// This includes tools for authentication, task management, list operations,
+// and search functionality. If RTM_AUTH_TOKEN is set in the environment,
+// it will be used for immediate authentication.
 func (h *Handler) SetupTools(s *server.MCPServer) {
 	// Check auth token from env (for testing)
 	if token := os.Getenv("RTM_AUTH_TOKEN"); token != "" {

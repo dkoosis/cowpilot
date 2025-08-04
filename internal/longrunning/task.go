@@ -8,7 +8,9 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-// Task represents a long-running operation with progress tracking
+// Task represents a long-running operation with progress tracking.
+// It provides thread-safe methods for updating progress, handling cancellation,
+// and reporting completion or errors.
 type Task struct {
 	// Identity
 	id            string
@@ -39,7 +41,8 @@ type Task struct {
 	mu sync.RWMutex
 }
 
-// ID returns the task's unique identifier
+// ID returns the task's unique identifier.
+// This is typically derived from the progress token.
 func (t *Task) ID() string {
 	return t.id
 }
@@ -61,7 +64,9 @@ func (t *Task) SetTotal(total float64) {
 	t.mu.Unlock()
 }
 
-// UpdateProgress updates the current progress and optional message
+// UpdateProgress updates the current progress value and optional status message.
+// This triggers a progress notification to the client (subject to rate limiting).
+// Returns an error if the notification fails to send.
 func (t *Task) UpdateProgress(progress float64, message string) error {
 	t.mu.Lock()
 	t.progress = progress
@@ -90,7 +95,8 @@ func (t *Task) IncrementProgress(message string) error {
 	return t.UpdateProgress(progress, message)
 }
 
-// Complete marks the task as completed
+// Complete marks the task as completed successfully.
+// This sends a final progress notification and removes the task from the manager.
 func (t *Task) Complete() {
 	t.mu.Lock()
 	if t.endTime == nil {
@@ -120,7 +126,8 @@ func (t *Task) Complete() {
 	t.manager.RemoveTask(t)
 }
 
-// CompleteWithError marks the task as failed
+// CompleteWithError marks the task as failed with the given error.
+// This sends an error notification and removes the task from the manager.
 func (t *Task) CompleteWithError(err error) {
 	t.mu.Lock()
 	t.error = err
@@ -141,7 +148,9 @@ func (t *Task) CompleteWithError(err error) {
 	t.manager.RemoveTask(t)
 }
 
-// Cancel cancels the task with a reason
+// Cancel cancels the task with the specified reason.
+// This cancels the task's context, sends a cancellation notification,
+// and removes the task from the manager. Subsequent calls are no-ops.
 func (t *Task) Cancel(reason string) {
 	t.mu.Lock()
 	if t.cancelled {

@@ -1,3 +1,6 @@
+// Package main implements the RTM (Remember The Milk) MCP server.
+// This server provides tools, resources, and batch operations for task management
+// through the Remember The Milk API, with OAuth authentication and progress tracking support.
 package main
 
 import (
@@ -134,7 +137,7 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 	// Setup infrastructure using shared core
 	result := core.SetupInfrastructure(mcpServer, config)
 
-	// TODO: Add session cleanup hook for task manager
+	// TODO(vcto): Add session cleanup hook for task manager
 	// When a session ends, cancel all its tasks:
 	// taskManager.CancelSessionTasks(sessionID)
 

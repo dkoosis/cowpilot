@@ -1,3 +1,5 @@
+// Package core provides shared infrastructure for MCP servers including middleware,
+// authentication setup, server configuration, and graceful shutdown handling.
 package core
 
 import (
@@ -38,7 +40,9 @@ type MCPServerResult struct {
 	ShutdownFunc func() error
 }
 
-// SetupInfrastructure creates a complete MCP server with all infrastructure
+// SetupInfrastructure creates a complete MCP server with all infrastructure components.
+// It configures middleware, authentication, OAuth endpoints, and standard health/logo endpoints.
+// Returns an MCPServerResult containing the configured HTTP server and shutdown function.
 func SetupInfrastructure(mcpServer *server.MCPServer, config InfrastructureConfig) *MCPServerResult {
 	// Create StreamableHTTP transport
 	streamableServer := server.NewStreamableHTTPServer(
@@ -91,7 +95,9 @@ func SetupInfrastructure(mcpServer *server.MCPServer, config InfrastructureConfi
 	}
 }
 
-// StartServer starts the server and handles graceful shutdown
+// StartServer starts the HTTP server and handles graceful shutdown on interrupt signals.
+// It logs server startup information, waits for SIGINT/SIGTERM, then performs graceful
+// shutdown with a 5-second timeout. This function blocks until the server stops.
 func StartServer(result *MCPServerResult, config InfrastructureConfig) {
 	log.Printf("Starting MCP server with StreamableHTTP transport on port %s", config.Port)
 	log.Printf("Protocol: StreamableHTTP (VERIFIED: Works with MCP Inspector CLI)")

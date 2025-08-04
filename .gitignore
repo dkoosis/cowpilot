@@ -179,3 +179,11 @@ temp/
 *.zip
 *.rar
 *.7z
+
+# ==========================
+# Duplicates and Removed Files
+# ==========================
+
+*.duplicate
+*.removed
+*.disabled

@@ -1,3 +1,6 @@
+// Package main implements the cowpilot "everything" server demonstrating all MCP capabilities.
+// This server includes tools, resources, prompts, and integrations with various services
+// including Remember The Milk, serving as a comprehensive example and testing platform.
 package main
 
 import (

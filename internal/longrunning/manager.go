@@ -11,7 +11,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// Manager handles all long-running tasks in the MCP server
+// Manager handles all long-running tasks in the MCP server.
+// It provides task lifecycle management, progress tracking, and session-based cleanup.
 type Manager struct {
 	server       *server.MCPServer
 	tasks        map[string]*Task           // Progress token -> Task
@@ -22,7 +23,8 @@ type Manager struct {
 	minNotificationInterval time.Duration
 }
 
-// NewManager creates a new task manager
+// NewManager creates a new task manager for handling long-running operations.
+// The mcpServer parameter is stored for future notification sending when supported.
 func NewManager(mcpServer *server.MCPServer) *Manager {
 	return &Manager{
 		server:                  mcpServer,
@@ -32,7 +34,9 @@ func NewManager(mcpServer *server.MCPServer) *Manager {
 	}
 }
 
-// StartTask creates and registers a new tracked task
+// StartTask creates and registers a new tracked task with progress tracking.
+// Returns the created task and a cancellable context for the operation.
+// The task is automatically registered with the manager and tracked by session.
 func (m *Manager) StartTask(ctx context.Context, progressToken mcp.ProgressToken, sessionID string) (*Task, context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -65,7 +69,8 @@ func (m *Manager) StartTask(ctx context.Context, progressToken mcp.ProgressToken
 	return task, taskCtx
 }
 
-// GetTask retrieves a task by progress token
+// GetTask retrieves a task by its progress token.
+// Returns nil if no task exists with the given token.
 func (m *Manager) GetTask(progressToken mcp.ProgressToken) *Task {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -74,7 +79,8 @@ func (m *Manager) GetTask(progressToken mcp.ProgressToken) *Task {
 	return m.tasks[id]
 }
 
-// RemoveTask unregisters a task
+// RemoveTask unregisters a task from the manager.
+// This also removes the task from session tracking and cleans up empty sessions.
 func (m *Manager) RemoveTask(task *Task) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -92,7 +98,8 @@ func (m *Manager) RemoveTask(task *Task) {
 	log.Printf("Removed task %s", task.id)
 }
 
-// CancelSessionTasks cancels all tasks for a session
+// CancelSessionTasks cancels all tasks associated with a given session ID.
+// This is typically called when a client disconnects or a session ends.
 func (m *Manager) CancelSessionTasks(sessionID string) {
 	m.mu.RLock()
 	taskIDs := make([]string, 0)
@@ -125,8 +132,8 @@ func (m *Manager) HandleCancellation(notification mcp.Notification) {
 	}
 
 	// Find task by request ID
-	// Note: In a real implementation, we'd need to map request IDs to progress tokens
-	// For now, we'll treat the request ID as the progress token
+	// TODO(vcto): Map request IDs to progress tokens properly.
+	// Currently treating request ID as the progress token as a workaround.
 	progressToken := mcp.ProgressToken(params.RequestID)
 
 	task := m.GetTask(progressToken)
@@ -143,7 +150,9 @@ func (m *Manager) HandleCancellation(notification mcp.Notification) {
 	task.Cancel(reason)
 }
 
-// SendProgressNotification sends a progress update to the client
+// SendProgressNotification sends a progress update notification to the client.
+// Implements rate limiting to avoid overwhelming clients with updates.
+// Returns nil if the notification was sent or skipped due to rate limiting.
 func (m *Manager) SendProgressNotification(task *Task, progress float64, total *float64, message string) error {
 	// Check rate limiting
 	now := time.Now()
@@ -182,7 +191,7 @@ func (m *Manager) SendProgressNotification(task *Task, progress float64, total *
 	log.Printf("Progress notification for task %s: %.1f%% - %s",
 		task.id, percentage, message)
 
-	// TODO: Implement actual notification sending when mcp-go supports it
+	// TODO(vcto): Implement actual notification sending when mcp-go supports it
 	// m.server.SendNotificationToClient(notification)
 
 	return nil

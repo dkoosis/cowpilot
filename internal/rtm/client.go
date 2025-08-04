@@ -1,3 +1,5 @@
+// Package rtm provides a client and handlers for integrating with Remember The Milk API.
+// It includes OAuth authentication adapters, task management operations, and batch processing capabilities.
 package rtm
 
 import (
@@ -24,14 +26,22 @@ func (e *RTMError) Error() string {
 
 // Client handles RTM API communication
 type Client struct {
-	APIKey    string
-	Secret    string
+	// APIKey is the RTM API key for the application
+	APIKey string
+	// Secret is the shared secret for signing API requests
+	Secret string
+	// AuthToken is the user's authentication token (obtained via OAuth)
 	AuthToken string
-	BaseURL   string
-	client    *http.Client
+	// BaseURL is the RTM API endpoint (default: https://api.rememberthemilk.com/services/rest/)
+	BaseURL string
+	// client is the HTTP client used for API requests
+	client *http.Client
 }
 
-// NewClient creates RTM client
+// NewClient creates a new RTM API client with the specified API key and secret.
+// The client uses these credentials to sign API requests but requires an auth token
+// (obtained via OAuth flow) before making authenticated API calls.
+// Returns a configured client with a 10-second HTTP timeout.
 func NewClient(apiKey, secret string) *Client {
 	return &Client{
 		APIKey:  apiKey,
@@ -43,7 +53,9 @@ func NewClient(apiKey, secret string) *Client {
 	}
 }
 
-// AuthURL generates RTM authentication URL
+// AuthURL generates the RTM authentication URL for the OAuth flow.
+// The perms parameter specifies the permission level: "read", "write", or "delete".
+// Returns a URL that users should visit to authorize the application.
 func (c *Client) AuthURL(perms string) string {
 	params := map[string]string{
 		"api_key": c.APIKey,
@@ -62,7 +74,10 @@ func (c *Client) AuthURL(perms string) string {
 	return u.String()
 }
 
-// GetFrob gets authentication frob
+// GetFrob gets an authentication frob from RTM.
+// A frob is a temporary token used in RTM's authentication flow that must be
+// authorized by the user before it can be exchanged for an auth token.
+// Returns the frob string or an error if the API call fails.
 func (c *Client) GetFrob() (string, error) {
 	resp, err := c.Call("rtm.auth.getFrob", nil)
 	if err != nil {
@@ -87,7 +102,9 @@ func (c *Client) GetFrob() (string, error) {
 	return result.Rsp.Frob, nil
 }
 
-// GetToken exchanges frob for auth token
+// GetToken exchanges an authorized frob for a permanent auth token.
+// This method updates the client's AuthToken field upon success.
+// Returns an error if the frob is invalid, expired, or not yet authorized.
 func (c *Client) GetToken(frob string) error {
 	params := map[string]string{"frob": frob}
 	resp, err := c.Call("rtm.auth.getToken", params)
@@ -121,7 +138,13 @@ func (c *Client) GetToken(frob string) error {
 	return nil
 }
 
-// Call makes authenticated API call
+// Call makes an authenticated API call to the RTM API.
+// Parameters:
+//   - method: The RTM API method name (e.g., "rtm.tasks.getList")
+//   - params: Optional parameters for the API call (can be nil)
+//
+// Returns the raw JSON response or an RTMError if the API returns an error.
+// Automatically signs the request and includes the auth token if set.
 func (c *Client) Call(method string, params map[string]string) ([]byte, error) {
 	if params == nil {
 		params = make(map[string]string)
@@ -212,30 +235,48 @@ func (c *Client) sign(params map[string]string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-// Task represents an RTM task
+// Task represents an RTM task with its properties and metadata
 type Task struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Due       string    `json:"due"`
-	Priority  string    `json:"priority"`
-	Completed string    `json:"completed"`
-	Deleted   string    `json:"deleted"`
-	Modified  time.Time `json:"modified"`
-	Added     time.Time `json:"added"`
-	ListID    string    `json:"list_id"`
-	SeriesID  string    `json:"series_id"`
-	URL       string    `json:"url"`
+	// ID is the unique task identifier
+	ID string `json:"id"`
+	// Name is the task title/description
+	Name string `json:"name"`
+	// Due is the due date/time in RTM format (empty if no due date)
+	Due string `json:"due"`
+	// Priority is the task priority ("1"=high, "2"=medium, "3"=low, "N"=none)
+	Priority string `json:"priority"`
+	// Completed is the completion timestamp (empty if not completed)
+	Completed string `json:"completed"`
+	// Deleted is the deletion timestamp (empty if not deleted)
+	Deleted string `json:"deleted"`
+	// Modified is when the task was last modified
+	Modified time.Time `json:"modified"`
+	// Added is when the task was created
+	Added time.Time `json:"added"`
+	// ListID is the ID of the list containing this task
+	ListID string `json:"list_id"`
+	// SeriesID is the task series ID (for recurring tasks)
+	SeriesID string `json:"series_id"`
+	// URL is the web URL for viewing this task
+	URL string `json:"url"`
 }
 
-// List represents an RTM list
+// List represents an RTM list (a container for tasks)
 type List struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Deleted  string `json:"deleted"`
-	Locked   string `json:"locked"`
+	// ID is the unique list identifier
+	ID string `json:"id"`
+	// Name is the list name
+	Name string `json:"name"`
+	// Deleted indicates if the list is deleted ("1" if deleted)
+	Deleted string `json:"deleted"`
+	// Locked indicates if the list is locked ("1" if locked)
+	Locked string `json:"locked"`
+	// Archived indicates if the list is archived ("1" if archived)
 	Archived string `json:"archived"`
+	// Position is the sort position of the list
 	Position string `json:"position"`
-	Smart    string `json:"smart"`
+	// Smart indicates if this is a smart list ("1" if smart)
+	Smart string `json:"smart"`
 }
 
 // GetLists retrieves all lists
