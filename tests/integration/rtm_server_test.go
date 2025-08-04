@@ -109,8 +109,9 @@ func TestRTMServer(t *testing.T) {
 
 	foundTools := make(map[string]bool)
 	for _, tool := range tools {
-		if t, ok := tool.(map[string]interface{}); ok {
-			if name, ok := t["name"].(string); ok {
+		// FIX: Renamed the inner variable from 't' to 'toolMap' to avoid shadowing the *testing.T variable.
+		if toolMap, ok := tool.(map[string]interface{}); ok {
+			if name, ok := toolMap["name"].(string); ok {
 				foundTools[name] = true
 				fmt.Printf("- %s\n", name)
 			}
