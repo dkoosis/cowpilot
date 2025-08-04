@@ -254,8 +254,6 @@ func (c *Client) sign(params map[string]string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-// ... (rest of the file remains the same: Task, List, GetLists, GetTasks, etc.)
-
 // Task represents an RTM task with its properties and metadata
 type Task struct {
 	ID        string    `json:"id"`
@@ -328,12 +326,13 @@ func (c *Client) GetTasks(filter, listID string) ([]Task, error) {
 				List []struct {
 					ID         string `json:"id"`
 					Taskseries []struct {
-						ID       string `json:"id"`
-						Created  string `json:"created"`
-						Modified string `json:"modified"`
-						Name     string `json:"name"`
-						Source   string `json:"source"`
-						URL      string `json:"url"`
+						ID       string          `json:"id"`
+						Created  string          `json:"created"`
+						Modified string          `json:"modified"`
+						Name     string          `json:"name"`
+						Source   string          `json:"source"`
+						URL      string          `json:"url"`
+						RRule    json.RawMessage `json:"rrule,omitempty"`
 						Task     []struct {
 							ID        string `json:"id"`
 							Due       string `json:"due"`

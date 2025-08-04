@@ -338,7 +338,7 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code, clientID, state, redirectURI string) {
+func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code, _, _, _ string) {
 	checkAuthURL := fmt.Sprintf("%s/rtm/check-auth?code=%s", a.serverURL, code)
 	callbackURL := fmt.Sprintf("%s/rtm/callback?code=%s", a.serverURL, code)
 

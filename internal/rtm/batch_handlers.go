@@ -1,3 +1,5 @@
+// File: internal/rtm/batch_handlers.go
+
 package rtm
 
 import (
@@ -385,7 +387,7 @@ func parsePositions(positionsStr string) ([]int, error) {
 }
 
 // getCachedTasksByPositions retrieves tasks from cache
-func (h *batchHandler) getCachedTasksByPositions(positions []int) ([]Task, error) {
+func (h *batchHandler) getCachedTasksByPositions(_ []int) ([]Task, error) {
 	// This would retrieve tasks from a cache populated by search_rtm_tasks_smart
 	// For now, return an error
 	return nil, fmt.Errorf("task cache not implemented - use search_rtm_tasks_smart first")

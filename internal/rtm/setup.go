@@ -58,7 +58,7 @@ func (h *SetupHandler) HandleSetup(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
-func (h *SetupHandler) showSetupForm(w http.ResponseWriter, r *http.Request) {
+func (h *SetupHandler) showSetupForm(w http.ResponseWriter, _ *http.Request) {
 	html := `
 <!DOCTYPE html>
 <html>
