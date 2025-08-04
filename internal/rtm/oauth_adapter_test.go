@@ -2,6 +2,7 @@ package rtm
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -92,25 +93,29 @@ func TestFullOAuthFlow(t *testing.T) {
 	}
 	require.NotEmpty(t, csrfToken, "CSRF token should be set")
 
-	// Step 2: POST /authorize with CSRF token
+	// Step 2: POST /authorize with CSRF token and valid PKCE
+	// Generate valid PKCE challenge/verifier pair
+	codeVerifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	codeChallenge := "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM" // SHA256(codeVerifier) base64url encoded
+	
 	form := url.Values{}
 	form.Set("client_id", "test")
 	form.Set("state", "xyz")
 	form.Set("redirect_uri", "http://localhost/callback")
 	form.Set("csrf_state", csrfToken)
-	form.Set("code_challenge", "test-challenge")
+	form.Set("code_challenge", codeChallenge)
 	form.Set("code_challenge_method", "S256")
 
-	req = httptest.NewRequest("POST", "/authorize", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(&http.Cookie{Name: "csrf_token", Value: csrfToken})
-	w = httptest.NewRecorder()
+	req2 := httptest.NewRequest("POST", "/authorize", strings.NewReader(form.Encode()))
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req2.Header.Set("Cookie", fmt.Sprintf("csrf_token=%s", csrfToken))
+	w2 := httptest.NewRecorder()
 
-	adapter.HandleAuthorize(w, req)
+	adapter.HandleAuthorize(w2, req2)
 
 	// Should show intermediate page
-	assert.Equal(t, http.StatusOK, w.Code)
-	body := w.Body.String()
+	assert.Equal(t, http.StatusOK, w2.Code)
+	body := w2.Body.String()
 	assert.Contains(t, body, "Connect to Remember The Milk")
 
 	// Extract code from intermediate page using a robust regex
@@ -127,23 +132,22 @@ func TestFullOAuthFlow(t *testing.T) {
 	session.Token = "test-token"
 	adapter.sessionMutex.Unlock()
 
-	// Step 4: Token exchange
+	// Step 4: Token exchange with valid PKCE verifier
 	tokenForm := url.Values{}
 	tokenForm.Set("grant_type", "authorization_code")
 	tokenForm.Set("code", code)
-	// Provide a dummy verifier as the challenge was set
-	tokenForm.Set("code_verifier", "test-verifier")
+	tokenForm.Set("code_verifier", codeVerifier) // Use the valid verifier
 
-	req = httptest.NewRequest("POST", "/token", strings.NewReader(tokenForm.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w = httptest.NewRecorder()
+	req3 := httptest.NewRequest("POST", "/token", strings.NewReader(tokenForm.Encode()))
+	req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w3 := httptest.NewRecorder()
 
-	adapter.HandleToken(w, req)
+	adapter.HandleToken(w3, req3)
 
 	// Should return token
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusOK, w3.Code)
 	var tokenResponse map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &tokenResponse)
+	err := json.Unmarshal(w3.Body.Bytes(), &tokenResponse)
 	require.NoError(t, err)
 	assert.Equal(t, "test-token", tokenResponse["access_token"])
 	assert.Equal(t, "Bearer", tokenResponse["token_type"])

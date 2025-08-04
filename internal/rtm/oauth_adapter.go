@@ -75,17 +75,19 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// Validate CSRF - check both cookie and form value
 	csrfState := r.FormValue("csrf_state")
 	if csrfState == "" {
+		log.Printf("RTM: Missing CSRF token in form")
 		http.Error(w, "Missing CSRF token in form", http.StatusBadRequest)
 		return
 	}
 
 	csrfCookie, err := r.Cookie("csrf_token")
 	if err != nil || csrfCookie.Value == "" {
-		log.Printf("RTM: CSRF cookie missing, popup blocker scenario detected")
+		log.Printf("RTM: CSRF cookie missing, error: %v", err)
 		http.Error(w, "Missing CSRF cookie - please disable popup blocker and try again without refreshing", http.StatusBadRequest)
 		return
 	}
 
+	log.Printf("RTM: CSRF validation - form: %s, cookie: %s", csrfState, csrfCookie.Value)
 	if csrfState != csrfCookie.Value {
 		http.Error(w, "Invalid CSRF token", http.StatusBadRequest)
 		return
