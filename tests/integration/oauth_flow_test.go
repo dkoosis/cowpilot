@@ -139,4 +139,5 @@ func TestOauthErrorScenarios(t *testing.T) {
 			t.Errorf("Code reuse should fail with 400 Bad Request, got %d", resp.StatusCode)
 		}
 	})
+
 }

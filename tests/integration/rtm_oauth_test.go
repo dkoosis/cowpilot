@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -102,21 +103,12 @@ func TestRTMOAuthRaceCondition(t *testing.T) {
 
 	adapter.HandleAuthorize(w, req)
 
-	// Extract code from response
+	// Extract code from response using a robust regex
 	body := w.Body.String()
-	codeStart := strings.Index(body, "code=")
-	require.NotEqual(t, -1, codeStart)
-	codeEnd := strings.Index(body[codeStart:], "&")
-	if codeEnd == -1 {
-		codeEnd = strings.Index(body[codeStart:], "\"")
-	}
-	if codeEnd == -1 {
-		codeEnd = strings.Index(body[codeStart:], "'")
-	}
-	if codeEnd == -1 {
-		codeEnd = len(body[codeStart:])
-	}
-	code := body[codeStart+5 : codeStart+codeEnd]
+	re := regexp.MustCompile(`check-auth\?code=([a-f0-9-]+)`)
+	matches := re.FindStringSubmatch(body)
+	require.Len(t, matches, 2, "should find the code in the intermediate page")
+	code := matches[1]
 
 	// Step 2: Simulate concurrent polling and user actions
 	var wg sync.WaitGroup
@@ -229,21 +221,12 @@ func TestRTMOAuthSuccessfulFlow(t *testing.T) {
 
 	adapter.HandleAuthorize(w, req)
 
-	// Extract code and frob
+	// Extract code from response using a robust regex
 	body := w.Body.String()
-	codeStart := strings.Index(body, "code=")
-	require.NotEqual(t, -1, codeStart)
-	codeEnd := strings.Index(body[codeStart:], "&")
-	if codeEnd == -1 {
-		codeEnd = strings.Index(body[codeStart:], "\"")
-	}
-	if codeEnd == -1 {
-		codeEnd = strings.Index(body[codeStart:], "'")
-	}
-	if codeEnd == -1 {
-		codeEnd = len(body[codeStart:])
-	}
-	code := body[codeStart+5 : codeStart+codeEnd]
+	re := regexp.MustCompile(`check-auth\?code=([a-f0-9-]+)`)
+	matches := re.FindStringSubmatch(body)
+	require.Len(t, matches, 2, "should find the code in the intermediate page")
+	code := matches[1]
 
 	// Get frob from session
 	session := adapter.GetSession(code)
