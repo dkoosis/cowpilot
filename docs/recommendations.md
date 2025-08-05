@@ -1,3 +1,63 @@
+prepare for eventual migration to official go mcp sdk under development:
+1. Decouple Your Server and Session Logic
+This is the most important step. The new SDK treats the Server as a long-lived object that manages multiple ServerSessions, which is a significant architectural difference.
+
+Now (mcp-go): Avoid relying heavily on features like AddSessionTool. Instead of putting logic directly into the server instance, try to think of your logic as belonging to a specific session. Manage any per-session state (like user authentication or caches) in your own data structures, keyed by the session ID that mcp-go provides.
+
+Later (Official SDK): This approach will map cleanly to the new model. You'll be able to create a new Server instance with its associated state inside the getServer factory function that the new HTTP Handlers use, effectively creating a "server per session."
+
+2. Prepare Your Tool Definitions
+The new SDK offers a powerful generic function, mcp.AddTool[In, Out], that infers the JSON schema directly from your Go structs. You can prepare for this now.
+
+Now (mcp-go): As you define your tools, create explicit Go structs for their arguments, even though you are building the schema manually.
+
+Go
+
+// In your current mcp-go code:
+
+// DEFINE THIS STRUCT NOW
+type AddParams struct {
+    X int `json:"x"`
+    Y int `json:"y"`
+}
+
+func addHandler(...) { ... }
+
+// You still have to build the schema manually for mcp-go
+server.AddTool(
+    mcp.Tool{...},
+    mcp.InputSchema{...}, // Manual schema
+    addHandler,
+)
+Later (Official SDK): When you migrate, you can delete the manual schema code and switch to the new, simpler generic function. Your pre-defined AddParams struct will be immediately usable.
+
+Go
+
+// Your future official SDK code:
+mcp.AddTool(server, &mcp.Tool{Name: "add"}, addHandler) // Schema is inferred from AddParams
+3. Wrap the SDK in Your Own Interfaces
+To minimize the impact of changing SDKs, create your own simple interfaces that wrap the mcp-go client or server. Have the rest of your application code call your interface, not the SDK's types directly.
+
+Now (mcp-go):
+
+Go
+
+type MyToolServer interface {
+    AddCalculatorTool(handler MyHandlerFunc)
+    Start(ctx context.Context) error
+}
+
+// Your implementation uses mcp-go
+type myMcpGoServer struct {
+    server *mcp.MCPServer
+}
+
+// ... implement the interface using mcp-go calls
+Later (Official SDK): You'll just need to create a new concrete type that implements your MyToolServer interface using the official SDK. The rest of your application code won't need to change.
+
+By following these patterns, you'll be containing the mcp-go-specific code to a small part of your application, making the eventual switch much less disruptive.
+
+
 The Needs That Drove Your Complex Test Harness
 Based on your Makefile and test scripts, I perceive four primary needs that a basic unit testing approach doesn't cover:
 

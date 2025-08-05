@@ -1,20 +1,20 @@
 # STATE.yaml v9.0-claude-optimized
 # Machine-optimized context for Claude - CHECK FIRST EVERY SESSION
 # Symbols: ✓=done ∇=todo ❌=broken λ=limitation †=workaround ‡=critical
-# Updated: 2025-08-03
+# Updated: 2025-08-05
 
 SYSTEM_STATUS:
-  BUILD: ✓clean[all_tests_passing]
+  BUILD: ✓enhanced[pagination+rate_limiter]
   PRODUCTION: ✓rtm.fly.dev[port_8081,working_in_claude_ai]
-  TESTS: ✓passing[fixed_cookie_security_issues]
-  DEPLOYMENT: ✓fly.io[persistent_sqlite,oauth_working]
+  TESTS: ∇needs_update[rate_limiter_tests_needed]
+  DEPLOYMENT: ∇pending[ready_to_deploy_enhancements]
 
 ACTIVE_SERVERS:
   rtm:
     path: cmd/rtm/main.go
-    status: ✓production_ready
+    status: ✓enhanced[pagination+rate_limiter]
     endpoint: https://rtm.fly.dev/mcp
-    features: [8_tools,7_resources,batch_operations,progress_tracking]
+    features: [8_tools,7_resources,batch_operations,progress_tracking,search_pagination,smart_rate_limiting]
     
   core:
     path: cmd/core/main.go  
@@ -27,17 +27,6 @@ ACTIVE_SERVERS:
     priority: P2
     
 CRITICAL_ISSUES:
-  RTM_RRULE_PARSING:
-    problem: json_unmarshal_error_on_recurring_tasks
-    solution: change_RRule_field_to_json.RawMessage
-    file: internal/rtm/client.go
-    priority: P0_BLOCKING
-    note: actual_P0_priority_needs_immediate_fix
-    
-  RTM_TASK_VOLUME:
-    problem: too_many_tasks_returned_causes_UI_freeze
-    solution: server_side_pagination_and_filtering
-    priority: P1_UX
     
   SECURE_CREDENTIALS:
     problem: API_keys_stored_in_environment_variables
@@ -46,11 +35,10 @@ CRITICAL_ISSUES:
     note: deprioritized_as_ENV_vars_work_for_now
 
 NEXT_ACTIONS:
-  1_FIX: RTM_RRULE_parsing_bug[P0_BLOCKING]
-  2_IMPLEMENT: server_side_pagination[P1_UX]
-  3_DEPLOY: make deploy-rtm[with_fixes]
-  4_IMPLEMENT: task_results_cache
-  5_BUILD: spektrix_server
+  1_TEST: rate_limiter_with_real_rtm_api
+  2_DEPLOY: make deploy-rtm[with_rate_limiter]
+  3_IMPLEMENT: rtm_bulk_add[highest_impact]
+  4_BUILD: spektrix_server
 
 ARCHITECTURE_DECISIONS:
   MCP_OAUTH_PATTERN:
@@ -99,7 +87,10 @@ RTM_CAPABILITIES:
     - rtm://smart/{name}
 
 BACKLOG_FEATURES:
-  search_rtm_tasks_smart: saved_queries_and_presets
+  rtm_bulk_add: natural_language_list_addition
+  rtm_bulk_complete: complete_filtered_tasks
+  rtm_bulk_update: batch_property_changes
+  rtm_migrate_tasks: move_between_lists
   analyze_rtm_task_context: intelligent_tagging
   create_rtm_task_smart: auto_tag_and_prioritize
   rtm_contacts_resource: structured_contact_data
@@ -156,7 +147,7 @@ BACKLOG_FEATURES:
 
 PROJECT_STRUCTURE:
   internal/:
-    rtm/: ✓complete[oauth,client,handlers,batch]
+    rtm/: ✓enhanced[oauth,client,handlers,batch,rate_limiter]
     longrunning/: ✓complete[manager,task,progress,cancellation]
     core/: ✓infrastructure.go[shared_setup]
     spektrix/: ∇skeleton_only

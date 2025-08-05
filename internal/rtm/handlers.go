@@ -17,7 +17,23 @@ import (
 type Handler struct {
 	// client is the underlying RTM API client
 	client *Client
+	// searchCache holds the last search results for pagination
+	searchCache *searchResultCache
 }
+
+// searchResultCache stores search results for pagination
+type searchResultCache struct {
+	query     string
+	tasks     []Task
+	timestamp time.Time
+}
+
+// Constants for pagination
+const (
+	defaultPageSize = 25
+	maxPageSize     = 100
+	cacheTTL        = 5 * time.Minute
+)
 
 // NewHandler creates an RTM handler with credentials from environment variables.
 // Requires RTM_API_KEY and RTM_API_SECRET environment variables to be set.
@@ -68,11 +84,14 @@ func (h *Handler) SetupTools(s *server.MCPServer) {
 		mcp.WithDescription("Get all Remember The Milk lists"),
 	), h.handleGetLists)
 
-	// rtm_search - Enhanced task search
+	// rtm_search - Enhanced task search with pagination
 	s.AddTool(mcp.NewTool("rtm_search",
-		mcp.WithDescription("Search tasks with RTM's search syntax"),
+		mcp.WithDescription("Search tasks with RTM's search syntax. Results are paginated."),
 		mcp.WithString("query", mcp.Required(), mcp.Description("RTM search: 'dueBefore:tomorrow AND tag:work', 'list:Shopping', 'priority:1'")),
 		mcp.WithString("include_completed", mcp.Description("Include completed tasks in results (true/false)")),
+		mcp.WithNumber("page", mcp.Description("Page number (1-based, default: 1)")),
+		mcp.WithNumber("page_size", mcp.Description("Results per page (default: 25, max: 100)")),
+		mcp.WithString("use_cache", mcp.Description("Use cached results if available (true/false, default: true)")),
 	), h.handleSearch)
 
 	// rtm_quick_add - Primary task creation tool using Smart Add
@@ -176,26 +195,94 @@ func (h *Handler) handleSearch(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError("search query is required"), nil
 	}
 
+	// Parse pagination params
+	page := 1
+	if pageFloat, ok := args["page"].(float64); ok {
+		page = int(pageFloat)
+		if page < 1 {
+			page = 1
+		}
+	}
+
+	pageSize := defaultPageSize
+	if pageSizeFloat, ok := args["page_size"].(float64); ok {
+		pageSize = int(pageSizeFloat)
+		if pageSize < 1 {
+			pageSize = defaultPageSize
+		}
+		if pageSize > maxPageSize {
+			pageSize = maxPageSize
+		}
+	}
+
+	useCache := true
+	if useCacheStr, ok := args["use_cache"].(string); ok {
+		useCache = useCacheStr != "false"
+	}
+
 	includeCompleted := false
 	if includeCompletedStr, ok := args["include_completed"].(string); ok {
 		includeCompleted = includeCompletedStr == "true"
 	}
 	if includeCompleted {
-		// Modify query to include completed tasks
 		query = "(" + query + ") OR (" + query + " AND completed:within \"1 week\")"
 	}
 
-	tasks, err := h.client.GetTasks(query, "")
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("Failed to search tasks: %v", err)), nil
+	// Check cache validity
+	var tasks []Task
+	if useCache && h.searchCache != nil &&
+		h.searchCache.query == query &&
+		time.Since(h.searchCache.timestamp) < cacheTTL {
+		// Use cached results
+		tasks = h.searchCache.tasks
+	} else {
+		// Fetch new results
+		var err error
+		tasks, err = h.client.GetTasks(query, "")
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to search tasks: %v", err)), nil
+		}
+		// Update cache
+		h.searchCache = &searchResultCache{
+			query:     query,
+			tasks:     tasks,
+			timestamp: time.Now(),
+		}
 	}
 
-	// Enhanced formatting with metadata
+	// Calculate pagination
+	totalTasks := len(tasks)
+	totalPages := (totalTasks + pageSize - 1) / pageSize
+	if page > totalPages && totalPages > 0 {
+		page = totalPages
+	}
+
+	startIdx := (page - 1) * pageSize
+	endIdx := startIdx + pageSize
+	if endIdx > totalTasks {
+		endIdx = totalTasks
+	}
+
+	var pagedTasks []Task
+	if startIdx < totalTasks {
+		pagedTasks = tasks[startIdx:endIdx]
+	}
+
+	// Enhanced result with pagination metadata
 	result := map[string]interface{}{
 		"query":       query,
-		"total_found": len(tasks),
-		"tasks":       tasks,
+		"total_found": totalTasks,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": totalPages,
+		"has_more":    page < totalPages,
+		"tasks":       pagedTasks,
 		"search_time": time.Now().Format("2006-01-02 15:04:05"),
+		"cache_used":  useCache && h.searchCache != nil && h.searchCache.query == query,
+	}
+
+	if totalTasks > pageSize {
+		result["pagination_tip"] = fmt.Sprintf("Showing tasks %d-%d of %d. Use page parameter to navigate.", startIdx+1, endIdx, totalTasks)
 	}
 
 	data, err := json.MarshalIndent(result, "", "  ")

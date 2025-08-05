@@ -19,6 +19,7 @@ func (h *Handler) SetupBatchTools(s *server.MCPServer, taskManager *longrunning.
 	handlerWithManager := &batchHandler{
 		Handler:     h,
 		taskManager: taskManager,
+		rateLimiter: NewRateLimiter(),
 	}
 
 	// Batch update due dates
@@ -59,6 +60,7 @@ func (h *Handler) SetupBatchTools(s *server.MCPServer, taskManager *longrunning.
 type batchHandler struct {
 	*Handler
 	taskManager *longrunning.Manager
+	rateLimiter *RateLimiter
 }
 
 // BatchOperation represents a batch operation function
@@ -158,31 +160,40 @@ func (h *batchHandler) handleBatchSetDueDate(ctx context.Context, task *longrunn
 		processor = longrunning.NewItemProcessor(task, len(tasks), "tasks")
 	}
 
-	for _, t := range tasks {
+	for i, t := range tasks {
 		// Check cancellation
 		if err := longrunning.CheckCancellation(ctx); err != nil {
 			return err
+		}
+
+		// Wait for rate limit
+		if err := h.rateLimiter.Wait(ctx); err != nil {
+			return fmt.Errorf("rate limit wait failed: %w", err)
 		}
 
 		// Update task
 		updates := map[string]string{"due": dueDate}
 		err := h.client.UpdateTask(t.ListID, t.SeriesID, t.ID, updates)
 		if err != nil {
-			// Log error but continue
-			// Log error but continue
+			// Check if it's a rate limit error
+			if rtmErr, ok := err.(*RTMError); ok && rtmErr.Code == 98 {
+				h.rateLimiter.HandleError503()
+			}
 			if task != nil {
 				progress, _ := task.GetProgress()
 				_ = task.UpdateProgress(progress, fmt.Sprintf("Failed to update task %s: %v", t.Name, err))
 			}
+		} else {
+			h.rateLimiter.ResetBackoff()
 		}
 
-		// Report progress
+		// Report progress with time estimate
 		if processor != nil {
-			_ = processor.ProcessItemWithName(t.Name)
+			remaining := len(tasks) - i - 1
+			estimatedTime := h.rateLimiter.EstimateDuration(remaining)
+			msg := fmt.Sprintf("%s (ETA: %v)", t.Name, estimatedTime.Round(time.Second))
+			_ = processor.ProcessItemWithName(msg)
 		}
-
-		// Rate limit (RTM API restriction)
-		time.Sleep(1 * time.Second)
 	}
 
 	return nil
@@ -204,22 +215,35 @@ func (h *batchHandler) handleBatchSetPriority(ctx context.Context, task *longrun
 		processor = longrunning.NewItemProcessor(task, len(tasks), "tasks")
 	}
 
-	for _, t := range tasks {
+	for i, t := range tasks {
 		if err := longrunning.CheckCancellation(ctx); err != nil {
 			return err
 		}
 
+		if err := h.rateLimiter.Wait(ctx); err != nil {
+			return fmt.Errorf("rate limit wait failed: %w", err)
+		}
+
 		updates := map[string]string{"priority": priority}
 		err := h.client.UpdateTask(t.ListID, t.SeriesID, t.ID, updates)
-		if err != nil && task != nil {
-			progress, _ := task.GetProgress()
-			_ = task.UpdateProgress(progress, fmt.Sprintf("Failed: %v", err))
+		if err != nil {
+			if rtmErr, ok := err.(*RTMError); ok && rtmErr.Code == 98 {
+				h.rateLimiter.HandleError503()
+			}
+			if task != nil {
+				progress, _ := task.GetProgress()
+				_ = task.UpdateProgress(progress, fmt.Sprintf("Failed: %v", err))
+			}
+		} else {
+			h.rateLimiter.ResetBackoff()
 		}
 
 		if processor != nil {
-			_ = processor.ProcessItemWithName(t.Name)
+			remaining := len(tasks) - i - 1
+			estimatedTime := h.rateLimiter.EstimateDuration(remaining)
+			msg := fmt.Sprintf("%s (ETA: %v)", t.Name, estimatedTime.Round(time.Second))
+			_ = processor.ProcessItemWithName(msg)
 		}
-		time.Sleep(1 * time.Second)
 	}
 
 	return nil
@@ -241,9 +265,13 @@ func (h *batchHandler) handleBatchAddTags(ctx context.Context, task *longrunning
 		processor = longrunning.NewItemProcessor(task, len(tasks), "tasks")
 	}
 
-	for _, t := range tasks {
+	for i, t := range tasks {
 		if err := longrunning.CheckCancellation(ctx); err != nil {
 			return err
+		}
+
+		if err := h.rateLimiter.Wait(ctx); err != nil {
+			return fmt.Errorf("rate limit wait failed: %w", err)
 		}
 
 		// Get existing tags and add new ones
@@ -256,15 +284,24 @@ func (h *batchHandler) handleBatchAddTags(ctx context.Context, task *longrunning
 
 		updates := map[string]string{"tags": allTags}
 		err := h.client.UpdateTask(t.ListID, t.SeriesID, t.ID, updates)
-		if err != nil && task != nil {
-			progress, _ := task.GetProgress()
-			_ = task.UpdateProgress(progress, fmt.Sprintf("Failed: %v", err))
+		if err != nil {
+			if rtmErr, ok := err.(*RTMError); ok && rtmErr.Code == 98 {
+				h.rateLimiter.HandleError503()
+			}
+			if task != nil {
+				progress, _ := task.GetProgress()
+				_ = task.UpdateProgress(progress, fmt.Sprintf("Failed: %v", err))
+			}
+		} else {
+			h.rateLimiter.ResetBackoff()
 		}
 
 		if processor != nil {
-			_ = processor.ProcessItemWithName(t.Name)
+			remaining := len(tasks) - i - 1
+			estimatedTime := h.rateLimiter.EstimateDuration(remaining)
+			msg := fmt.Sprintf("%s (ETA: %v)", t.Name, estimatedTime.Round(time.Second))
+			_ = processor.ProcessItemWithName(msg)
 		}
-		time.Sleep(1 * time.Second)
 	}
 
 	return nil
@@ -281,21 +318,34 @@ func (h *batchHandler) handleBatchComplete(ctx context.Context, task *longrunnin
 		processor = longrunning.NewItemProcessor(task, len(tasks), "tasks")
 	}
 
-	for _, t := range tasks {
+	for i, t := range tasks {
 		if err := longrunning.CheckCancellation(ctx); err != nil {
 			return err
 		}
 
+		if err := h.rateLimiter.Wait(ctx); err != nil {
+			return fmt.Errorf("rate limit wait failed: %w", err)
+		}
+
 		err := h.client.CompleteTask(t.ListID, t.SeriesID, t.ID)
-		if err != nil && task != nil {
-			progress, _ := task.GetProgress()
-			_ = task.UpdateProgress(progress, fmt.Sprintf("Failed: %v", err))
+		if err != nil {
+			if rtmErr, ok := err.(*RTMError); ok && rtmErr.Code == 98 {
+				h.rateLimiter.HandleError503()
+			}
+			if task != nil {
+				progress, _ := task.GetProgress()
+				_ = task.UpdateProgress(progress, fmt.Sprintf("Failed: %v", err))
+			}
+		} else {
+			h.rateLimiter.ResetBackoff()
 		}
 
 		if processor != nil {
-			_ = processor.ProcessItemWithName(t.Name)
+			remaining := len(tasks) - i - 1
+			estimatedTime := h.rateLimiter.EstimateDuration(remaining)
+			msg := fmt.Sprintf("%s (ETA: %v)", t.Name, estimatedTime.Round(time.Second))
+			_ = processor.ProcessItemWithName(msg)
 		}
-		time.Sleep(1 * time.Second)
 	}
 
 	return nil
