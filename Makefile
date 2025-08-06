@@ -107,6 +107,12 @@ integration-test:
 		$(GOTEST) -v -race -tags=integration -timeout 60s ./tests/integration/...; \
 	fi
 
+# Test Claude OAuth compliance - MUST PASS before deployment
+claude-test:
+	@echo "Testing Claude.ai OAuth compliance..."
+	$(GOTEST) -v -race -timeout 30s ./tests/integration -run TestClaudeOAuthCompliance
+	$(GOTEST) -v -race -timeout 30s ./tests/integration -run TestRTMOAuthFlow
+
 # Enhanced test output
 GOTESTSUM := $(shell which gotestsum 2>/dev/null)
 ifdef GOTESTSUM
@@ -179,7 +185,7 @@ deploy-core-tmp: build
 	fly deploy -a core-tmp -c fly-core-tmp.toml
 
 # Deploy RTM server to production
-deploy-rtm: test
+deploy-rtm: test claude-test
 	@echo "Building and deploying RTM server to rtm.fly.dev..."
 	$(GO) build -o $(OUTPUT_DIR)/$(RTM_BINARY_NAME) $(RTM_BUILD_DIR)
 	fly deploy -a rtm -c fly-rtm.toml

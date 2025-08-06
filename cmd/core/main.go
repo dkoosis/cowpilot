@@ -156,8 +156,32 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 			mux.HandleFunc("/rtm/check-auth", rtmAdapter.HandleCheckAuth)
 			mux.HandleFunc("/rtm/setup", rtmSetup.HandleSetup)
 
+			// OAuth discovery endpoints (RFC 9728 + Claude compatibility)
+			mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{
+					"authorization_servers": []string{serverURL},
+					"resource":              serverURL + "/mcp",
+				}); err != nil {
+					log.Printf("Failed to encode OAuth metadata: %v", err)
+				}
+			})
+			mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(map[string]interface{}{
+					"issuer":                           serverURL,
+					"authorization_endpoint":           serverURL + "/authorize",
+					"token_endpoint":                   serverURL + "/token",
+					"response_types_supported":         []string{"code"},
+					"grant_types_supported":            []string{"authorization_code"},
+					"code_challenge_methods_supported": []string{"S256"},
+				}); err != nil {
+					log.Printf("Failed to encode auth server metadata: %v", err)
+				}
+			})
+
 			// Add auth middleware that accepts RTM tokens
-			handler = rtmAuthMiddleware(rtmAdapter, rtmHandler)(handler)
+			handler = rtmAuthMiddleware(rtmAdapter, rtmHandler, serverURL)(handler)
 
 			log.Printf("OAuth: Enabled RTM OAuth adapter")
 		} else {
@@ -775,7 +799,7 @@ func getNumber(args map[string]any, key string) (float64, bool) {
 	return 0, false
 }
 
-// protocolDetectionMiddleware logs client protocol detection to prevent confusion
+// protocolDetectionMiddleware logs client protocol detection and fixes content-type
 func protocolDetectionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Detect client type by headers and method
@@ -783,6 +807,13 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 		accept := r.Header.Get("Accept")
 		contentType := r.Header.Get("Content-Type")
 		userAgent := r.Header.Get("User-Agent")
+
+		// Fix content-type for mcp-go v0.32.0 compatibility (Claude sends charset)
+		if strings.HasPrefix(contentType, "application/json") {
+			// Strip charset parameter that v0.32.0 rejects
+			r.Header.Set("Content-Type", "application/json")
+			contentType = "application/json"
+		}
 
 		if strings.Contains(accept, "text/event-stream") {
 			clientType = "SSE_BROWSER"
@@ -804,7 +835,7 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 }
 
 // rtmAuthMiddleware validates RTM bearer tokens
-func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(http.Handler) http.Handler {
+func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler, serverURL string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip auth for OAuth endpoints
@@ -821,6 +852,8 @@ func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler) func(
 			// Check Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				// CRITICAL: WWW-Authenticate header required for Claude.ai Connect button
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf("Bearer realm=\"%s/.well-known/oauth-protected-resource\"", serverURL))
 				http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
 				return
 			}

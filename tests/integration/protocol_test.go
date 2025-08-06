@@ -124,7 +124,7 @@ func TestProtocolConformance_ContentTypes(t *testing.T) {
 		expectError bool
 	}{
 		{"Valid JSON", "application/json", false},
-		{"Valid JSON with charset", "application/json; charset=utf-8", false},
+		{"Valid JSON with charset", "application/json; charset=utf-8", false}, // Fixed by middleware
 		{"Invalid content type", "text/plain", true},
 		{"Missing content type", "", true},
 	}

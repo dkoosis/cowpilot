@@ -1,0 +1,48 @@
+name: Claude OAuth Compliance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'internal/core/**'
+      - 'internal/rtm/**'
+      - 'internal/auth/**'
+      - 'cmd/rtm/**'
+      - 'tests/integration/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  oauth-compliance:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+    
+    - name: Install dependencies
+      run: go mod download
+    
+    - name: Run Claude OAuth Compliance Tests
+      run: |
+        # Start test server in background
+        go run cmd/rtm/main.go &
+        SERVER_PID=$!
+        
+        # Wait for server to start
+        sleep 5
+        
+        # Run compliance tests
+        go test -v -race -timeout 30s ./tests/integration -run TestClaudeOAuthCompliance
+        go test -v -race -timeout 30s ./tests/integration -run TestRTMOAuthFlow
+        
+        # Stop server
+        kill $SERVER_PID
+      env:
+        RTM_API_KEY: ${{ secrets.RTM_API_KEY }}
+        RTM_API_SECRET: ${{ secrets.RTM_API_SECRET }}
+        DISABLE_AUTH: "true"

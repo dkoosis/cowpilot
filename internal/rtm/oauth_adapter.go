@@ -164,7 +164,7 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 // HandleCallback handles the callback after RTM auth verification
 func (a *OAuthAdapter) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
-	log.Printf("RTM DEBUG: Callback hit for code %s", code)
+	log.Printf("RTM: Callback hit for code %s from %s", code, r.RemoteAddr)
 
 	if code == "" {
 		http.Error(w, "Missing code parameter", http.StatusBadRequest)
@@ -177,26 +177,45 @@ func (a *OAuthAdapter) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	a.sessionMutex.RUnlock()
 
 	if !exists {
+		log.Printf("RTM: Invalid code %s in callback", code)
 		http.Error(w, "Invalid code", http.StatusBadRequest)
 		return
 	}
 
 	// Verify token exists (should be set by check-auth endpoint)
 	if session.Token == "" {
-		log.Printf("RTM DEBUG: Callback hit but no token for code %s - auth not completed", code)
-		http.Error(w, "Authorization not completed", http.StatusBadRequest)
-		return
+		log.Printf("RTM: Callback hit but no token for code %s - trying immediate exchange", code)
+		// Try one more time to get the token
+		if err := a.client.GetToken(session.Frob); err == nil {
+			a.sessionMutex.Lock()
+			session.Token = a.client.GetAuthToken()
+			a.sessionMutex.Unlock()
+			log.Printf("RTM: Late token exchange successful for code %s", code)
+		} else {
+			log.Printf("RTM: Late token exchange failed: %v", err)
+			http.Error(w, "Authorization not completed. Please try again.", http.StatusBadRequest)
+			return
+		}
 	}
 
-	log.Printf("RTM DEBUG: Auth verified, redirecting to %s", session.RedirectURI)
+	log.Printf("RTM: Auth verified, redirecting to %s with code=%s state=%s",
+		session.RedirectURI, code, session.State)
 
 	// Redirect back to original redirect_uri with our code
-	u, _ := url.Parse(session.RedirectURI)
+	u, err := url.Parse(session.RedirectURI)
+	if err != nil {
+		log.Printf("RTM: Invalid redirect URI: %v", err)
+		http.Error(w, "Invalid redirect URI", http.StatusInternalServerError)
+		return
+	}
 	q := u.Query()
 	q.Set("code", code)
-	q.Set("state", session.State)
+	if session.State != "" {
+		q.Set("state", session.State)
+	}
 	u.RawQuery = q.Encode()
 
+	log.Printf("RTM: Final redirect URL: %s", u.String())
 	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
@@ -302,6 +321,7 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Connect Remember The Milk</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
@@ -331,7 +351,7 @@ func (a *OAuthAdapter) showAuthForm(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>`, clientID, state, redirectURI, csrfToken)
 
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	if _, err := fmt.Fprint(w, html); err != nil {
 		log.Printf("Failed to write auth form response: %v", err)
@@ -346,6 +366,7 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Authorize with Remember The Milk</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
@@ -423,22 +444,23 @@ func (a *OAuthAdapter) showIntermediatePage(w http.ResponseWriter, rtmURL, code,
 
         <div class="instructions">
             <p><strong>Step 1:</strong> Click the button below to open Remember The Milk in a new tab</p>
-            <p><strong>Step 2:</strong> On the RTM page, click the blue "Allow" button to grant access</p>
-            <p><strong>Step 3:</strong> Return to this tab - we'll detect when you're done</p>
-        </div>
-
-        <div class="warning" style="margin: 15px 0;">
-            <strong>⚠️ Important:</strong> You must click "Allow" on the Remember The Milk page, not just view it!
+            <p><strong>Step 2:</strong> On the RTM page, you'll see either:</p>
+            <ul style="text-align: left; display: inline-block;">
+                <li>An "OK, I'll allow it" button - click this to authorize</li>
+                <li>OR a success message if you've already authorized</li>
+            </ul>
+            <p><strong>Step 3:</strong> Return to this tab and click "I've Authorized"</p>
         </div>
 
         <a href="%s" target="_blank" class="button" onclick="setTimeout(startChecking, 1000)">Open Remember The Milk →</a>
 
         <div style="margin: 20px 0; padding: 15px; background: #f0f8ff; border: 1px solid #4682b4; border-radius: 4px;">
-            <p style="margin: 0; color: #333;">💡 <strong>What to look for:</strong> On the RTM page, you'll see:</p>
-            <ul style="margin: 10px 0; padding-left: 30px;">
-                <li>Your application name</li>
-                <li>Permission details</li>
-                <li>A blue <strong>"Allow"</strong> button - click this!</li>
+            <p style="margin: 0; color: #333;">💡 <strong>What you'll see on RTM:</strong></p>
+            <ul style="margin: 10px 0; padding-left: 30px; text-align: left;">
+                <li>Application name: <strong>API Application</strong></li>
+                <li>Permission level: <strong>delete</strong> (full access)</li>
+                <li>A button saying <strong>"OK, I'll allow it"</strong> - click this!</li>
+                <li>OR: "You have successfully authorized" if already done</li>
             </ul>
         </div>
 
@@ -465,6 +487,7 @@ func (a *OAuthAdapter) showError(w http.ResponseWriter, message string) {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Authorization Error</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
@@ -536,6 +559,17 @@ func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If we already have a token, return success immediately
+	if session.Token != "" {
+		w.Header().Set("Content-Type", "application/json")
+		if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
+			"authorized": true,
+		}); writeErr != nil {
+			log.Printf("Failed to write check auth cached response: %v", writeErr)
+		}
+		return
+	}
+
 	// Try to exchange frob for token
 	err := a.client.GetToken(session.Frob)
 	if err == nil {
@@ -543,6 +577,8 @@ func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
 		a.sessionMutex.Lock()
 		session.Token = a.client.GetAuthToken()
 		a.sessionMutex.Unlock()
+
+		log.Printf("RTM: Successfully exchanged frob for token for code %s", code)
 
 		w.Header().Set("Content-Type", "application/json")
 		if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
@@ -554,19 +590,23 @@ func (a *OAuthAdapter) HandleCheckAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if it's a "not authorized" error vs other errors
-	if rtmErr, ok := err.(*RTMError); ok && rtmErr.Code == 101 {
-		// User hasn't authorized yet, return pending
-		w.Header().Set("Content-Type", "application/json")
-		if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
-			"authorized": false,
-			"pending":    true,
-		}); writeErr != nil {
-			log.Printf("Failed to write check auth pending response: %v", writeErr)
+	if rtmErr, ok := err.(*RTMError); ok {
+		log.Printf("RTM: Check auth failed with code %d: %s", rtmErr.Code, rtmErr.Msg)
+		if rtmErr.Code == 101 {
+			// User hasn't authorized yet, return pending
+			w.Header().Set("Content-Type", "application/json")
+			if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
+				"authorized": false,
+				"pending":    true,
+			}); writeErr != nil {
+				log.Printf("Failed to write check auth pending response: %v", writeErr)
+			}
+			return
 		}
-		return
 	}
 
 	// Other error - frob expired or other issue
+	log.Printf("RTM: Check auth failed with error: %v", err)
 	w.Header().Set("Content-Type", "application/json")
 	if writeErr := json.NewEncoder(w).Encode(map[string]interface{}{
 		"authorized": false,

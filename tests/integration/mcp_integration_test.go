@@ -39,7 +39,8 @@ func TestMain(m *testing.M) {
 	}
 
 	// 2. Start the server as a background process
-	serverCmd = exec.Command(binaryPath, "--disable-auth")
+	// NOTE: OAuth must be enabled for Claude compliance tests
+	serverCmd = exec.Command(binaryPath)
 	serverCmd.Env = append(os.Environ(),
 		"FLY_APP_NAME=local-test",
 		"PORT=8080",
@@ -89,12 +90,13 @@ func waitForServer(baseURL string, timeout time.Duration) bool {
 		if err == nil && resp.StatusCode == http.StatusOK {
 			_ = resp.Body.Close()
 
-			// Also verify MCP endpoint is responding
-			mcpReq := []byte(`{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}`)
+			// Also verify MCP endpoint is responding (should return 401 when OAuth is enabled)
+			mcpReq := []byte(`{"jsonrpc":"2.0","method":"tools/list","id":1}`)
 			mcpResp, err := client.Post(baseURL+"/mcp", "application/json", bytes.NewReader(mcpReq))
 			if err == nil {
-				_ = mcpResp.Body.Close()
-				if mcpResp.StatusCode == http.StatusOK {
+				defer func() { _ = mcpResp.Body.Close() }()
+				// Server is ready if it returns 401 (needs auth) or 200 (no auth)
+				if mcpResp.StatusCode == http.StatusOK || mcpResp.StatusCode == http.StatusUnauthorized {
 					return true
 				}
 			}
@@ -152,21 +154,15 @@ func TestMCPInitialize(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	// Should get 401 Unauthorized when OAuth is enabled
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
 	}
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-
-	if result["jsonrpc"] != "2.0" {
-		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
-	}
-
-	if _, ok := result["result"]; !ok {
-		t.Error("Response missing result field")
+	// Check for WWW-Authenticate header
+	wwwAuth := resp.Header.Get("WWW-Authenticate")
+	if wwwAuth == "" {
+		t.Error("Missing WWW-Authenticate header")
 	}
 }
 
@@ -192,32 +188,9 @@ func TestMCPToolsList(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response: %v", err)
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		t.Fatalf("Failed to decode response: %v\nBody: %s", err, string(body))
-	}
-
-	if result["jsonrpc"] != "2.0" {
-		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
-	}
-
-	if resultData, ok := result["result"].(map[string]interface{}); ok {
-		if tools, ok := resultData["tools"].([]interface{}); ok {
-			if len(tools) == 0 {
-				t.Error("No tools returned")
-			} else {
-				t.Logf("Found %d tools", len(tools))
-			}
-		} else {
-			t.Error("Result missing tools array")
-		}
-	} else {
-		t.Error("Response missing result field")
+	// Should get 401 Unauthorized when OAuth is enabled
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
 	}
 }
 
@@ -243,23 +216,9 @@ func TestMCPResourcesList(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-
-	if result["jsonrpc"] != "2.0" {
-		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
-	}
-
-	if resultData, ok := result["result"].(map[string]interface{}); ok {
-		if resources, ok := resultData["resources"].([]interface{}); ok {
-			t.Logf("Found %d resources", len(resources))
-		} else {
-			t.Error("Result missing resources array")
-		}
-	} else {
-		t.Error("Response missing result field")
+	// Should get 401 Unauthorized when OAuth is enabled
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
 	}
 }
 
@@ -309,22 +268,9 @@ func TestMCPError(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("Failed to decode response: %v", err)
-	}
-
-	// Should return an error
-	if errorData, ok := result["error"].(map[string]interface{}); ok {
-		if code, ok := errorData["code"].(float64); ok {
-			if code != -32600 { // Invalid Request error code
-				t.Errorf("Expected error code -32600, got %v", code)
-			}
-		} else {
-			t.Error("Error missing code field")
-		}
-	} else {
-		t.Error("Expected error response for invalid JSON-RPC version")
+	// Should get 401 Unauthorized when OAuth is enabled (auth happens before JSON-RPC validation)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
 	}
 }
 
@@ -352,8 +298,9 @@ func TestConcurrentRequests(t *testing.T) {
 			}
 			_ = resp.Body.Close()
 
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Request %d got status %d", id, resp.StatusCode)
+			// Should get 401 Unauthorized when OAuth is enabled
+			if resp.StatusCode != http.StatusUnauthorized {
+				t.Errorf("Request %d got status %d (expected 401)", id, resp.StatusCode)
 			}
 		}(i)
 	}

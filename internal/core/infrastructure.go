@@ -247,7 +247,7 @@ func setupStandardEndpoints(mux *http.ServeMux) {
 	mux.HandleFunc("/logo", handleLogo)
 }
 
-// protocolDetectionMiddleware logs client protocol detection
+// protocolDetectionMiddleware logs client protocol detection and fixes content-type
 func protocolDetectionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Detect client type by headers and method
@@ -255,6 +255,13 @@ func protocolDetectionMiddleware(next http.Handler) http.Handler {
 		accept := r.Header.Get("Accept")
 		contentType := r.Header.Get("Content-Type")
 		userAgent := r.Header.Get("User-Agent")
+
+		// Fix content-type for mcp-go v0.32.0 compatibility
+		if strings.HasPrefix(contentType, "application/json") {
+			// Strip charset parameter that v0.32.0 rejects
+			r.Header.Set("Content-Type", "application/json")
+			contentType = "application/json"
+		}
 
 		if strings.Contains(accept, "text/event-stream") {
 			clientType = "SSE_BROWSER"

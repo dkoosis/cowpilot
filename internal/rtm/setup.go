@@ -63,6 +63,7 @@ func (h *SetupHandler) showSetupForm(w http.ResponseWriter, _ *http.Request) {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>RTM Setup</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
@@ -143,7 +144,7 @@ func (h *SetupHandler) showSetupForm(w http.ResponseWriter, _ *http.Request) {
 </body>
 </html>`
 
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	if _, err := fmt.Fprint(w, html); err != nil {
 		http.Error(w, "Failed to render form", http.StatusInternalServerError)
@@ -215,6 +216,7 @@ func (h *SetupHandler) showError(w http.ResponseWriter, message string) {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>RTM Setup - Error</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
@@ -244,6 +246,7 @@ func (h *SetupHandler) showSuccess(w http.ResponseWriter, message string) {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>RTM Setup - Success</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
