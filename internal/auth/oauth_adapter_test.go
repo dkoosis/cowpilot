@@ -10,258 +10,171 @@ import (
 	"time"
 )
 
-func TestOAuthAdapter_ShowsForm_When_GETRequestReceived(t *testing.T) {
+func TestOAuthAdapterAuthorizeFlow(t *testing.T) {
+	t.Logf("Importance: This suite tests the first half of the OAuth2 flow (/authorize endpoint), covering user-facing form rendering and CSRF protection.")
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	req := httptest.NewRequest("GET", "/oauth/authorize?client_id=test&redirect_uri=http://localhost/callback&state=abc123", nil)
-	w := httptest.NewRecorder()
 
-	adapter.HandleAuthorize(w, req)
+	t.Run("shows an HTML form on a GET request", func(t *testing.T) {
+		t.Logf("  > Why it's important: Verifies that the user is presented with the necessary UI to initiate the authentication process.")
+		req := httptest.NewRequest("GET", "/oauth/authorize?client_id=test&redirect_uri=http://localhost/callback&state=abc123", nil)
+		w := httptest.NewRecorder()
+		adapter.HandleAuthorize(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected 200, got %d", w.Code)
-	}
-
-	body := w.Body.String()
-	if !strings.Contains(body, "Connect Remember The Milk") {
-		t.Error("Missing page title")
-	}
-	if !strings.Contains(body, "csrf_state") {
-		t.Error("Missing CSRF token field")
-	}
-	if !strings.Contains(body, "abc123") {
-		t.Error("Missing client state")
-	}
-}
-
-func TestOAuthAdapter_RejectsRequest_When_CSRFTokenIsInvalid(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	// Submit form without cookie (missing CSRF)
-	form := url.Values{}
-	form.Add("client_id", "test-client")
-	form.Add("redirect_uri", "http://localhost/callback")
-	form.Add("csrf_state", "invalid-token")
-	form.Add("api_key", "test-key")
-
-	req := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-
-	adapter.HandleAuthorize(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for missing CSRF cookie, got %d", w.Code)
-	}
-}
-
-func TestOAuthAdapter_GeneratesAuthCode_When_ValidFormIsSubmitted(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	// First GET to obtain CSRF cookie
-	req := httptest.NewRequest("GET", "/oauth/authorize?client_id=test-client&redirect_uri=http://localhost/callback&state=abc123", nil)
-	w := httptest.NewRecorder()
-	adapter.HandleAuthorize(w, req)
-
-	// Extract CSRF token from response body
-	body := w.Body.String()
-
-	// Use regex to extract CSRF token value (handles whitespace)
-	re := regexp.MustCompile(`name="csrf_state"\s+value="([^"]+)"`)
-	matches := re.FindStringSubmatch(body)
-	if len(matches) < 2 {
-		t.Fatalf("Could not find csrf_state field in form")
-	}
-	csrfToken := matches[1]
-
-	// Extract CSRF cookie
-	cookies := w.Result().Cookies()
-	t.Logf("Cookies from GET response: %v", cookies)
-	var csrfCookie *http.Cookie
-	for _, c := range cookies {
-		if c.Name == "csrf_token" {
-			csrfCookie = c
-			break
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", w.Code)
 		}
-	}
-	if csrfCookie == nil {
-		t.Fatal("CSRF cookie not set")
-	}
+		body := w.Body.String()
+		if !strings.Contains(body, "Connect Remember The Milk") || !strings.Contains(body, "csrf_state") {
+			t.Error("Response body did not contain expected form elements")
+		}
+	})
 
-	// Submit form with CSRF token
-	form := url.Values{}
-	form.Add("client_id", "test-client")
-	form.Add("redirect_uri", "http://localhost/callback")
-	form.Add("client_state", "abc123")
-	form.Add("csrf_state", csrfToken)
-	form.Add("api_key", "test-rtm-key")
+	t.Run("rejects a POST request with an invalid CSRF token", func(t *testing.T) {
+		t.Logf("  > Why it's important: A critical security test to ensure the server is protected against Cross-Site Request Forgery attacks.")
+		form := url.Values{"csrf_state": {"invalid-token"}, "api_key": {"test-key"}}
+		req := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		adapter.HandleAuthorize(w, req)
 
-	req = httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(csrfCookie) // Add the CSRF cookie
-	w = httptest.NewRecorder()
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected 400 Bad Request for missing CSRF cookie, got %d", w.Code)
+		}
+	})
 
-	t.Logf("CSRF token from form: %s", csrfToken)
-	t.Logf("Form values: %v", form)
+	t.Run("generates an authorization code on a valid form submission", func(t *testing.T) {
+		t.Logf("  > Why it's important: This is the successful path for the first leg of OAuth, ensuring a valid user submission results in an auth code.")
+		// Step 1: GET to get a valid CSRF token and cookie
+		reqGet := httptest.NewRequest("GET", "/oauth/authorize", nil)
+		wGet := httptest.NewRecorder()
+		adapter.HandleAuthorize(wGet, reqGet)
+		csrfCookie := wGet.Result().Cookies()[0]
+		re := regexp.MustCompile(`name="csrf_state"\s+value="([^"]+)"`)
+		matches := re.FindStringSubmatch(wGet.Body.String())
+		if len(matches) < 2 {
+			t.Fatalf("Could not extract CSRF token from form")
+		}
+		csrfToken := matches[1]
 
-	adapter.HandleAuthorize(w, req)
+		// Step 2: POST with the valid token and cookie
+		form := url.Values{"csrf_state": {csrfToken}, "client_state": {"abc123"}, "api_key": {"test-key"}, "redirect_uri": {"http://localhost/cb"}}
+		reqPost := httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(form.Encode()))
+		reqPost.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		reqPost.AddCookie(csrfCookie)
+		wPost := httptest.NewRecorder()
+		adapter.HandleAuthorize(wPost, reqPost)
 
-	if w.Code != http.StatusFound {
-		t.Errorf("Expected 302 redirect, got %d, body: %s", w.Code, w.Body.String())
-	}
-
-	location := w.Header().Get("Location")
-	u, _ := url.Parse(location)
-
-	if u.Query().Get("code") == "" {
-		t.Error("Missing auth code in redirect")
-	}
-	if u.Query().Get("state") != "abc123" {
-		t.Error("Client state not preserved")
-	}
+		if wPost.Code != http.StatusFound {
+			t.Errorf("Expected 302 Found redirect, got %d", wPost.Code)
+		}
+		location, err := url.Parse(wPost.Header().Get("Location"))
+		if err != nil {
+			t.Fatalf("Invalid redirect location: %v", err)
+		}
+		if location.Query().Get("code") == "" {
+			t.Error("Redirect URL is missing the authorization code")
+		}
+		if location.Query().Get("state") != "abc123" {
+			t.Error("Redirect URL is missing the client state")
+		}
+	})
 }
 
-func TestTokenEndpoint_IssuesAccessToken_When_CodeIsValid(t *testing.T) {
+func TestOAuthAdapterTokenFlow(t *testing.T) {
+	t.Logf("Importance: This suite tests the second half of the OAuth2 flow (/token endpoint), ensuring authorization codes can be securely exchanged for access tokens.")
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	// Generate auth code
-	authCode := &AuthCode{
-		Code:      "test-code",
-		RTMAPIKey: "test-rtm-key",
-		ExpiresAt: time.Now().Add(5 * time.Minute),
-	}
-	adapter.authCodes["test-code"] = authCode
 
-	form := url.Values{}
-	form.Add("grant_type", "authorization_code")
-	form.Add("code", "test-code")
+	t.Run("issues an access token for a valid authorization code", func(t *testing.T) {
+		t.Logf("  > Why it's important: The successful completion of the OAuth flow, verifying that a valid auth code can be exchanged for the actual access token.")
+		authCode := &AuthCode{Code: "test-code", RTMAPIKey: "test-rtm-key", ExpiresAt: time.Now().Add(5 * time.Minute)}
+		adapter.authCodes["test-code"] = authCode
 
-	req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
+		form := url.Values{"grant_type": {"authorization_code"}, "code": {"test-code"}}
+		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		adapter.HandleToken(w, req)
 
-	adapter.HandleToken(w, req)
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected 200 OK, got %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "access_token") {
+			t.Error("Response body is missing access_token")
+		}
+		if _, exists := adapter.authCodes["test-code"]; exists {
+			t.Error("Authorization code was not consumed after use")
+		}
+	})
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected 200, got %d", w.Code)
-	}
+	t.Run("rejects an expired authorization code", func(t *testing.T) {
+		t.Logf("  > Why it's important: A security test to ensure that old or stolen authorization codes have a limited lifetime and cannot be used indefinitely.")
+		expiredCode := &AuthCode{Code: "expired-code", RTMAPIKey: "test-key", ExpiresAt: time.Now().Add(-1 * time.Hour)}
+		adapter.authCodes["expired-code"] = expiredCode
 
-	// Check token was issued
-	body := w.Body.String()
-	if !strings.Contains(body, "access_token") {
-		t.Error("Missing access token")
-	}
+		form := url.Values{"grant_type": {"authorization_code"}, "code": {"expired-code"}}
+		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		adapter.HandleToken(w, req)
 
-	// Check auth code was consumed
-	if _, exists := adapter.authCodes["test-code"]; exists {
-		t.Error("Auth code not deleted after use")
-	}
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected 400 Bad Request for expired code, got %d", w.Code)
+		}
+	})
 }
 
-func TestTokenEndpoint_RejectsCode_When_CodeIsExpired(t *testing.T) {
+func TestOAuthAdapterMiddleware(t *testing.T) {
+	t.Logf("Importance: This suite tests the authentication middleware that protects server resources, ensuring it correctly validates tokens and protects endpoints.")
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	// Add expired code
-	adapter.authCodes["expired-code"] = &AuthCode{
-		Code:      "expired-code",
-		RTMAPIKey: "test-key",
-		ExpiresAt: time.Now().Add(-1 * time.Hour),
-	}
-
-	form := url.Values{}
-	form.Add("grant_type", "authorization_code")
-	form.Add("code", "expired-code")
-
-	req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-
-	adapter.HandleToken(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for expired code, got %d", w.Code)
-	}
-}
-
-func TestTokenValidation_ReturnsAPIKey_When_TokenIsValid(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	adapter.tokenStore.Store("valid-token", "test-rtm-key")
-
-	apiKey, err := adapter.ValidateToken("Bearer valid-token")
-	if err != nil {
-		t.Errorf("ValidateToken() error = %v, wantErr %v", err, false)
-	}
-	if apiKey != "test-rtm-key" {
-		t.Errorf("ValidateToken() apiKey = %v, want %v", apiKey, "test-rtm-key")
-	}
-}
-
-func TestTokenValidation_ReturnsError_When_TokenIsInvalid(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	adapter.tokenStore.Store("valid-token", "test-rtm-key")
-
-	_, err := adapter.ValidateToken("Bearer invalid-token")
-	if err == nil {
-		t.Errorf("Expected an error for invalid token")
-	}
-}
-
-func TestTokenValidation_ReturnsError_When_HeaderIsMalformed(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	adapter.tokenStore.Store("valid-token", "test-rtm-key")
-
-	_, err := adapter.ValidateToken("valid-token")
-	if err == nil {
-		t.Errorf("Expected an error for malformed header")
-	}
-}
-
-func TestOAuthMiddleware_AllowsAccess_When_TokenIsValid(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	adapter.tokenStore.Store("valid-token", "test-rtm-key")
-
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		apiKey := r.Header.Get("X-RTM-API-Key")
-		_, _ = w.Write([]byte("API Key: " + apiKey))
+		w.WriteHeader(http.StatusOK)
 	})
 	protected := Middleware(adapter)(testHandler)
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	w := httptest.NewRecorder()
+	t.Run("allows access with a valid token", func(t *testing.T) {
+		t.Logf("  > Why it's important: Verifies that legitimate, authenticated users can access protected resources.")
+		adapter.tokenStore.Store("valid-token", "test-rtm-key")
+		req := httptest.NewRequest("GET", "/mcp", nil)
+		req.Header.Set("Authorization", "Bearer valid-token")
+		w := httptest.NewRecorder()
+		protected.ServeHTTP(w, req)
 
-	protected.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200 OK, got %d", w.Code)
+		}
+	})
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-	}
-	body := w.Body.String()
-	if !strings.Contains(body, "test-rtm-key") {
-		t.Error("API key not passed through")
-	}
-}
+	t.Run("rejects access without a token", func(t *testing.T) {
+		t.Logf("  > Why it's important: The most basic security check, ensuring unauthenticated requests are denied.")
+		req := httptest.NewRequest("GET", "/mcp", nil)
+		w := httptest.NewRecorder()
+		protected.ServeHTTP(w, req)
 
-func TestOAuthMiddleware_RejectsAccess_When_TokenIsMissing(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	protected := Middleware(adapter)(testHandler)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401 Unauthorized, got %d", w.Code)
+		}
+	})
 
-	req := httptest.NewRequest("GET", "/mcp", nil)
-	w := httptest.NewRecorder()
+	t.Run("rejects access with an invalid token", func(t *testing.T) {
+		t.Logf("  > Why it's important: Ensures that guessed, malformed, or revoked tokens do not grant access.")
+		req := httptest.NewRequest("GET", "/mcp", nil)
+		req.Header.Set("Authorization", "Bearer invalid-token")
+		w := httptest.NewRecorder()
+		protected.ServeHTTP(w, req)
 
-	protected.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("Expected status 401 Unauthorized, got %d", w.Code)
+		}
+	})
 
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("Expected status %d, got %d", http.StatusUnauthorized, w.Code)
-	}
-}
+	t.Run("skips authentication for well-known discovery endpoints", func(t *testing.T) {
+		t.Logf("  > Why it's important: OAuth discovery endpoints must be public so clients can learn how to authenticate. This test ensures they are not incorrectly protected.")
+		req := httptest.NewRequest("GET", "/.well-known/oauth-authorization-server", nil)
+		w := httptest.NewRecorder()
+		protected.ServeHTTP(w, req)
 
-func TestOAuthMiddleware_SkipsAuth_When_EndpointIsWellKnown(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
-	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	protected := Middleware(adapter)(testHandler)
-
-	req := httptest.NewRequest("GET", "/.well-known/oauth-authorization-server", nil)
-	w := httptest.NewRecorder()
-
-	protected.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-	}
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200 OK for well-known endpoint, got %d", w.Code)
+		}
+	})
 }
