@@ -4,10 +4,10 @@
 # Updated: 2025-08-05
 
 SYSTEM_STATUS:
-  BUILD: ✓enhanced[pagination+rate_limiter]
+  BUILD: ✓fixed[type_safety+goroutine_leaks]
   PRODUCTION: ✓rtm.fly.dev[port_8081,working_in_claude_ai]
-  TESTS: ∇needs_update[rate_limiter_tests_needed]
-  DEPLOYMENT: ∇pending[ready_to_deploy_enhancements]
+  TESTS: ✓passing[unit+integration]
+  DEPLOYMENT: ✓ready[make deploy-rtm]
 
 ACTIVE_SERVERS:
   rtm:
@@ -35,8 +35,8 @@ CRITICAL_ISSUES:
     note: deprioritized_as_ENV_vars_work_for_now
 
 NEXT_ACTIONS:
-  1_TEST: rate_limiter_with_real_rtm_api
-  2_DEPLOY: make deploy-rtm[with_rate_limiter]
+  1_DEPLOY: make deploy-rtm[fixes_ready]
+  2_MONITOR: production_error_rates_after_fixes
   3_IMPLEMENT: rtm_bulk_add[highest_impact]
   4_BUILD: spektrix_server
 

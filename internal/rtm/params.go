@@ -13,11 +13,11 @@ type AuthURLParams struct {
 
 // SearchParams for rtm_search tool
 type SearchParams struct {
-	Query           string  `json:"query"`
+	Query            string  `json:"query"`
 	IncludeCompleted string  `json:"include_completed,omitempty"`
-	Page            float64 `json:"page,omitempty"`
-	PageSize        float64 `json:"page_size,omitempty"` 
-	UseCache        string  `json:"use_cache,omitempty"`
+	Page             float64 `json:"page,omitempty"`
+	PageSize         float64 `json:"page_size,omitempty"`
+	UseCache         string  `json:"use_cache,omitempty"`
 }
 
 // QuickAddParams for rtm_quick_add tool
@@ -61,11 +61,11 @@ func parseParams[T any](args interface{}) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var params T
 	if err := json.Unmarshal(data, &params); err != nil {
 		return nil, err
 	}
-	
+
 	return &params, nil
 }

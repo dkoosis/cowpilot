@@ -178,6 +178,12 @@ deploy-core-tmp: build
 	fly apps create core-tmp || true
 	fly deploy -a core-tmp -c fly-core-tmp.toml
 
+# Deploy RTM server to production
+deploy-rtm: test
+	@echo "Building and deploying RTM server to rtm.fly.dev..."
+	$(GO) build -o $(OUTPUT_DIR)/$(RTM_BINARY_NAME) $(RTM_BUILD_DIR)
+	fly deploy -a rtm -c fly-rtm.toml
+
 # Cleanup ephemeral test server
 cleanup-core-tmp:
 	@echo "Destroying ephemeral core-tmp app..."
