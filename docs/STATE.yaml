@@ -197,6 +197,11 @@ RECENT_FIXES_2025_08_05:
     file: internal/rtm/client.go  
     issue: silent_failure_on_error_code_parsing
     fix: preserve_unparseable_code_in_error_message_use_-1_sentinel
+    
+  token_store_goroutine_leak:
+    file: internal/auth/token_store_factory.go
+    issue: cleanup_goroutine_never_terminated_on_shutdown
+    fix: added_done_channel_and_proper_Close_method
 
 VALID_CODE_ISSUES:
   file_naming:

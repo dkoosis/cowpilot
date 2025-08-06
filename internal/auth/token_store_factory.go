@@ -35,9 +35,14 @@ func CreateTokenStore() TokenStoreInterface {
 		go func() {
 			ticker := time.NewTicker(1 * time.Hour)
 			defer ticker.Stop()
-			for range ticker.C {
-				if err := store.CleanupExpired(24 * time.Hour); err != nil {
-					log.Printf("Token cleanup error: %v", err)
+			for {
+				select {
+				case <-ticker.C:
+					if err := store.CleanupExpired(24 * time.Hour); err != nil {
+						log.Printf("Token cleanup error: %v", err)
+					}
+				case <-store.done:
+					return
 				}
 			}
 		}()
@@ -51,8 +56,9 @@ func CreateTokenStore() TokenStoreInterface {
 
 // SQLiteTokenStore implements persistent token storage
 type SQLiteTokenStore struct {
-	db *sql.DB
-	mu sync.RWMutex
+	db   *sql.DB
+	mu   sync.RWMutex
+	done chan struct{}
 }
 
 // NewSQLiteTokenStore creates a new SQLite-backed token store
@@ -87,7 +93,10 @@ func NewSQLiteTokenStore(dbPath string) (*SQLiteTokenStore, error) {
 		return nil, fmt.Errorf("create db directory: %w", err)
 	}
 
-	return &SQLiteTokenStore{db: db}, nil
+	return &SQLiteTokenStore{
+		db:   db,
+		done: make(chan struct{}),
+	}, nil
 }
 
 // Store saves a token-apiKey mapping
@@ -154,7 +163,8 @@ func (s *SQLiteTokenStore) CleanupExpired(maxAge time.Duration) error {
 	return nil
 }
 
-// Close closes the database connection
+// Close closes the database connection and stops the cleanup goroutine
 func (s *SQLiteTokenStore) Close() error {
+	close(s.done)
 	return s.db.Close()
 }
