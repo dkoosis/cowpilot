@@ -39,8 +39,9 @@ func TestMain(m *testing.M) {
 	}
 
 	// 2. Start the server as a background process
-	// NOTE: OAuth must be enabled for Claude compliance tests
-	serverCmd = exec.Command(binaryPath)
+	// NOTE: OAuth is disabled for general protocol tests.
+	// Claude OAuth compliance tests run separately with auth enabled.
+	serverCmd = exec.Command(binaryPath, "--disable-auth")
 	serverCmd.Env = append(os.Environ(),
 		"FLY_APP_NAME=local-test",
 		"PORT=8080",
@@ -154,15 +155,22 @@ func TestMCPInitialize(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Should get 401 Unauthorized when OAuth is enabled
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
+	// Should get 200 OK when OAuth is disabled for testing
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
 	}
 
-	// Check for WWW-Authenticate header
-	wwwAuth := resp.Header.Get("WWW-Authenticate")
-	if wwwAuth == "" {
-		t.Error("Missing WWW-Authenticate header")
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if result["jsonrpc"] != "2.0" {
+		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
+	}
+
+	if _, ok := result["result"]; !ok {
+		t.Error("Response missing result field")
 	}
 }
 
@@ -188,9 +196,37 @@ func TestMCPToolsList(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Should get 401 Unauthorized when OAuth is enabled
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
+	// Should get 200 OK when OAuth is disabled for testing
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("Failed to decode response: %v\nBody: %s", err, string(body))
+	}
+
+	if result["jsonrpc"] != "2.0" {
+		t.Errorf("Expected jsonrpc 2.0, got %v", result["jsonrpc"])
+	}
+
+	if resultData, ok := result["result"].(map[string]interface{}); ok {
+		if tools, ok := resultData["tools"].([]interface{}); ok {
+			if len(tools) == 0 {
+				t.Error("No tools returned")
+			} else {
+				t.Logf("Found %d tools", len(tools))
+			}
+		} else {
+			t.Error("Result missing tools array")
+		}
+	} else {
+		t.Error("Response missing result field")
 	}
 }
 

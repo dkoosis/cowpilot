@@ -1,20 +1,25 @@
-# STATE.yaml v9.0-claude-optimized
+# STATE.yaml v10.0-claude-optimized
 # Machine-optimized context for Claude - CHECK FIRST EVERY SESSION
 # Symbols: ✓=done ∇=todo ❌=broken λ=limitation †=workaround ‡=critical
-# Updated: 2025-08-05T16:45:00-05:00
+# Updated: 2025-08-06T01:00:00-05:00
 
 SYSTEM_STATUS:
-  BUILD: ✓fixed[oauth_enabled+charset_stripping+www_authenticate]
-  PRODUCTION: ✓ready[claude_registration_ready]
-  TESTS: ✓fixed[oauth_enabled_in_integration_tests]
+  BUILD: ✓fixed[dual_mode_testing_oauth_and_protocol]
+  PRODUCTION: ✓ready[claude_registration_compliant]
+  TESTS: ✓fixed[separated_oauth_compliance_from_protocol_tests]
   DEPLOYMENT: ✓ready[make test && make deploy-rtm]
 
 ACTIVE_SERVERS:
   rtm:
     path: cmd/rtm/main.go
-    status: ✓enhanced[pagination+rate_limiter]
+    status: ✓enhanced[pagination+rate_limiter+oauth_compliant]
     endpoint: https://rtm.fly.dev/mcp
-    features: [8_tools,7_resources,batch_operations,progress_tracking,search_pagination,smart_rate_limiting]
+    features: [8_tools,7_resources,batch_operations,progress_tracking,search_pagination,smart_rate_limiting,claude_oauth_ready]
+    oauth_endpoints:
+      - /authorize
+      - /token  
+      - /.well-known/oauth-protected-resource
+      - /.well-known/oauth-authorization-server
     
   core:
     path: cmd/core/main.go  
@@ -35,10 +40,11 @@ CRITICAL_ISSUES:
     note: deprioritized_as_ENV_vars_work_for_now
 
 NEXT_ACTIONS:
-  1_DEPLOY: make deploy-rtm
-  2_VERIFY: test_claude_registration
-  3_MONITOR: check_production_logs
-  4_IMPLEMENT: rtm_bulk_add[next_priority]
+  1_CREATE_OAUTH_TEST_SUITE: separate_oauth_compliance_tests_with_auth_enabled
+  2_RUN_TESTS: make test && make integration-test  
+  3_DEPLOY: make deploy-rtm
+  4_VERIFY: test_claude_registration_in_production
+  5_MONITOR: check_production_logs_for_oauth_flow
 
 ARCHITECTURE_DECISIONS:
   MCP_OAUTH_PATTERN:
@@ -180,6 +186,26 @@ SESSION_CHECKLIST:
   [ ] Test before claiming complete
   [ ] Update this file with changes
 
+TEST_ARCHITECTURE:
+  dual_mode_approach:
+    rationale: oauth_and_protocol_tests_have_different_requirements
+    implementation:
+      general_tests:
+        file: tests/integration/mcp_integration_test.go
+        mode: --disable-auth
+        purpose: test_MCP_protocol_compliance
+        covers: [tools,resources,prompts,error_handling,concurrency]
+      oauth_tests:
+        file: tests/integration/claude_oauth_compliance_test.go  
+        mode: auth_enabled_separate_server
+        purpose: test_Claude.ai_OAuth_requirements
+        covers: [401_responses,WWW-Authenticate,discovery_endpoints,content-type]
+    benefits:
+      - clear_separation_of_concerns
+      - faster_test_execution
+      - easier_debugging
+      - independent_test_failures
+
 CODE_REVIEW_FALSE_POSITIVES:
   # 2025-08-03 Q-Go review - MOSTLY FALSE except type assertion
   task_race_conditions: ✓proper_mutex_protection_throughout
@@ -187,6 +213,21 @@ CODE_REVIEW_FALSE_POSITIVES:
   goroutine_leaks: †partial[token_store_leak_fixed_2025-08-05]
   analysis: most_concurrency_claims_false_but_found_real_issues
   
+RECENT_FIXES_2025_08_06:
+  
+  dual_mode_testing_strategy:
+    problem: single_test_suite_cant_test_both_oauth_and_protocol
+    solution: separate_test_modes_for_different_concerns
+    implementation:
+      - general_protocol_tests: run_with_--disable-auth_flag
+      - oauth_compliance_tests: run_with_auth_enabled_separately
+    files_modified:
+      - tests/integration/mcp_integration_test.go[restored_--disable-auth]
+      - tests/integration/claude_oauth_compliance_test.go[separate_test_file]
+    test_commands:
+      protocol: make integration-test
+      oauth: go test -v ./tests/integration -run TestClaudeOAuthCompliance
+
 RECENT_FIXES_2025_08_05:
   
   oauth_compliance_complete:

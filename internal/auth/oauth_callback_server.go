@@ -186,7 +186,7 @@ func (s *OAuthCallbackServer) createCallbackHandler() http.HandlerFunc {
 		}
 
 		// Success page
-		s.successPage(w, code, state)
+		s.successPage(w)
 
 		// Signal success
 		s.mu.Lock()
@@ -260,7 +260,7 @@ func (s *OAuthCallbackServer) errorPage(w http.ResponseWriter, status int, title
 }
 
 // successPage renders a success page
-func (s *OAuthCallbackServer) successPage(w http.ResponseWriter, code, state string) {
+func (s *OAuthCallbackServer) successPage(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	html := `<!DOCTYPE html>
