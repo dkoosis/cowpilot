@@ -134,16 +134,16 @@ func (h *Handler) SetupTools(s *server.MCPServer) {
 }
 
 func (h *Handler) handleAuthURL(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
-		args = make(map[string]any)
+	params, err := parseParams[AuthURLParams](request.Params.Arguments)
+	if err != nil {
+		// Default params if parsing fails
+		params = &AuthURLParams{Permissions: "read"}
 	}
-	perms, ok := args["permissions"].(string)
-	if !ok {
-		perms = "read"
+	if params.Permissions == "" {
+		params.Permissions = "read"
 	}
 
-	url := h.client.AuthURL(perms)
+	url := h.client.AuthURL(params.Permissions)
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
@@ -182,48 +182,35 @@ func (h *Handler) handleGetLists(ctx context.Context, request mcp.CallToolReques
 }
 
 func (h *Handler) handleSearch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
+	params, err := parseParams[SearchParams](request.Params.Arguments)
+	if err != nil {
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
 	if h.client.AuthToken == "" {
 		return mcp.NewToolResultError("RTM authentication required. Use rtm_auth_url first."), nil
 	}
 
-	query, ok := args["query"].(string)
-	if !ok || query == "" {
+	if params.Query == "" {
 		return mcp.NewToolResultError("search query is required"), nil
 	}
 
-	// Parse pagination params
+	// Parse pagination params with defaults
 	page := 1
-	if pageFloat, ok := args["page"].(float64); ok {
-		page = int(pageFloat)
-		if page < 1 {
-			page = 1
-		}
+	if params.Page > 0 {
+		page = int(params.Page)
 	}
 
 	pageSize := defaultPageSize
-	if pageSizeFloat, ok := args["page_size"].(float64); ok {
-		pageSize = int(pageSizeFloat)
-		if pageSize < 1 {
-			pageSize = defaultPageSize
-		}
+	if params.PageSize > 0 {
+		pageSize = int(params.PageSize)
 		if pageSize > maxPageSize {
 			pageSize = maxPageSize
 		}
 	}
 
-	useCache := true
-	if useCacheStr, ok := args["use_cache"].(string); ok {
-		useCache = useCacheStr != "false"
-	}
-
-	includeCompleted := false
-	if includeCompletedStr, ok := args["include_completed"].(string); ok {
-		includeCompleted = includeCompletedStr == "true"
-	}
+	useCache := params.UseCache != "false"
+	includeCompleted := params.IncludeCompleted == "true"
+	query := params.Query
 	if includeCompleted {
 		query = "(" + query + ") OR (" + query + " AND completed:within \"1 week\")"
 	}
@@ -301,23 +288,19 @@ func (h *Handler) handleSearch(ctx context.Context, request mcp.CallToolRequest)
 }
 
 func (h *Handler) handleQuickAdd(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
+	params, err := parseParams[QuickAddParams](request.Params.Arguments)
+	if err != nil {
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
 	if h.client.AuthToken == "" {
 		return mcp.NewToolResultError("RTM authentication required. Use rtm_auth_url first."), nil
 	}
 
-	taskText, ok := args["task"].(string)
-	if !ok || taskText == "" {
+	if params.Task == "" {
 		return mcp.NewToolResultError("Task text is required"), nil
 	}
 
-	parseOnly := false
-	if parseOnlyStr, ok := args["parse_only"].(string); ok {
-		parseOnly = parseOnlyStr == "true"
-	}
+	parseOnly := params.ParseOnly == "true"
 
 	if parseOnly {
 		// Return what would be parsed without adding
@@ -325,14 +308,14 @@ func (h *Handler) handleQuickAdd(ctx context.Context, request mcp.CallToolReques
 			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("Smart Add would interpret: '%s'\n\nNote: RTM's Smart Add parsing happens on the server. Examples:\n- 'Buy milk tomorrow !2' = high priority, due tomorrow\n- 'Meeting @office #work ^Monday 2pm' = tagged work, location office, Monday 2pm\n- 'Review report =1hour' = 1 hour time estimate", taskText),
+					Text: fmt.Sprintf("Smart Add would interpret: '%s'\n\nNote: RTM's Smart Add parsing happens on the server. Examples:\n- 'Buy milk tomorrow !2' = high priority, due tomorrow\n- 'Meeting @office #work ^Monday 2pm' = tagged work, location office, Monday 2pm\n- 'Review report =1hour' = 1 hour time estimate", params.Task),
 				},
 			},
 		}, nil
 	}
 
 	// Use Smart Add - RTM's addTask API supports Smart Add syntax
-	task, err := h.client.AddTask(taskText, "")
+	task, err := h.client.AddTask(params.Task, "")
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to add task: %v", err)), nil
 	}
@@ -346,33 +329,29 @@ func (h *Handler) handleQuickAdd(ctx context.Context, request mcp.CallToolReques
 		Content: []mcp.Content{
 			mcp.TextContent{
 				Type: "text",
-				Text: fmt.Sprintf("Task added using Smart Add:\n%s\n\nOriginal: %s", data, taskText),
+				Text: fmt.Sprintf("Task added using Smart Add:\n%s\n\nOriginal: %s", data, params.Task),
 			},
 		},
 	}, nil
 }
 
 func (h *Handler) handleComplete(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
+	params, err := parseParams[CompleteParams](request.Params.Arguments)
+	if err != nil {
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
 	if h.client.AuthToken == "" {
 		return mcp.NewToolResultError("RTM authentication required. Use rtm_auth_url first."), nil
 	}
 
-	listIDs, ok1 := args["list_id"].(string)
-	seriesIDs, ok2 := args["series_id"].(string)
-	taskIDs, ok3 := args["task_id"].(string)
-
-	if !ok1 || !ok2 || !ok3 {
+	if params.ListID == "" || params.SeriesID == "" || params.TaskID == "" {
 		return mcp.NewToolResultError("list_id, series_id, and task_id are required"), nil
 	}
 
 	// Support comma-separated IDs for bulk operations
-	listIDList := strings.Split(listIDs, ",")
-	seriesIDList := strings.Split(seriesIDs, ",")
-	taskIDList := strings.Split(taskIDs, ",")
+	listIDList := strings.Split(params.ListID, ",")
+	seriesIDList := strings.Split(params.SeriesID, ",")
+	taskIDList := strings.Split(params.TaskID, ",")
 
 	if len(listIDList) != len(seriesIDList) || len(seriesIDList) != len(taskIDList) {
 		return mcp.NewToolResultError("list_id, series_id, and task_id must have same number of comma-separated values"), nil
@@ -406,19 +385,15 @@ func (h *Handler) handleComplete(ctx context.Context, request mcp.CallToolReques
 }
 
 func (h *Handler) handleUpdateTask(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
+	params, err := parseParams[UpdateTaskParams](request.Params.Arguments)
+	if err != nil {
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
 	if h.client.AuthToken == "" {
 		return mcp.NewToolResultError("RTM authentication required. Use rtm_auth_url first."), nil
 	}
 
-	listID, ok1 := args["list_id"].(string)
-	seriesID, ok2 := args["series_id"].(string)
-	taskID, ok3 := args["task_id"].(string)
-
-	if !ok1 || !ok2 || !ok3 {
+	if params.ListID == "" || params.SeriesID == "" || params.TaskID == "" {
 		return mcp.NewToolResultError("list_id, series_id, and task_id are required"), nil
 	}
 
@@ -426,33 +401,33 @@ func (h *Handler) handleUpdateTask(ctx context.Context, request mcp.CallToolRequ
 	var messages []string
 
 	// Check each optional field
-	if name, ok := args["name"].(string); ok && name != "" {
-		updates["name"] = name
+	if params.Name != "" {
+		updates["name"] = params.Name
 		messages = append(messages, "name updated")
 	}
 
-	if due, ok := args["due"].(string); ok && due != "" {
-		updates["due"] = due
+	if params.Due != "" {
+		updates["due"] = params.Due
 		messages = append(messages, "due date updated")
 	}
 
-	if priority, ok := args["priority"].(string); ok && priority != "" {
-		updates["priority"] = priority
+	if params.Priority != "" {
+		updates["priority"] = params.Priority
 		messages = append(messages, "priority updated")
 	}
 
-	if estimate, ok := args["estimate"].(string); ok && estimate != "" {
-		updates["estimate"] = estimate
+	if params.Estimate != "" {
+		updates["estimate"] = params.Estimate
 		messages = append(messages, "time estimate updated")
 	}
 
-	if tags, ok := args["tags"].(string); ok && tags != "" {
-		updates["tags"] = tags
+	if params.Tags != "" {
+		updates["tags"] = params.Tags
 		messages = append(messages, "tags updated")
 	}
 
-	if listName, ok := args["list_name"].(string); ok && listName != "" {
-		updates["list"] = listName
+	if params.ListName != "" {
+		updates["list"] = params.ListName
 		messages = append(messages, "moved to different list")
 	}
 
@@ -461,7 +436,7 @@ func (h *Handler) handleUpdateTask(ctx context.Context, request mcp.CallToolRequ
 	}
 
 	// Apply updates using RTM API
-	err := h.client.UpdateTask(listID, seriesID, taskID, updates)
+	err = h.client.UpdateTask(params.ListID, params.SeriesID, params.TaskID, updates)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to update task: %v", err)), nil
 	}
@@ -477,27 +452,25 @@ func (h *Handler) handleUpdateTask(ctx context.Context, request mcp.CallToolRequ
 }
 
 func (h *Handler) handleManageList(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]any)
-	if !ok {
+	params, err := parseParams[ManageListParams](request.Params.Arguments)
+	if err != nil {
 		return mcp.NewToolResultError("invalid arguments format"), nil
 	}
 	if h.client.AuthToken == "" {
 		return mcp.NewToolResultError("RTM authentication required. Use rtm_auth_url first."), nil
 	}
 
-	action, ok := args["action"].(string)
-	if !ok || action == "" {
+	if params.Action == "" {
 		return mcp.NewToolResultError("action is required"), nil
 	}
 
-	switch action {
+	switch params.Action {
 	case "create":
-		name, ok := args["name"].(string)
-		if !ok || name == "" {
+		if params.Name == "" {
 			return mcp.NewToolResultError("name is required for create action"), nil
 		}
 
-		list, err := h.client.CreateList(name)
+		list, err := h.client.CreateList(params.Name)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to create list: %v", err)), nil
 		}
@@ -506,19 +479,17 @@ func (h *Handler) handleManageList(ctx context.Context, request mcp.CallToolRequ
 			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("List '%s' created with ID: %s", name, list.ID),
+					Text: fmt.Sprintf("List '%s' created with ID: %s", params.Name, list.ID),
 				},
 			},
 		}, nil
 
 	case "rename":
-		listID, ok1 := args["list_id"].(string)
-		newName, ok2 := args["new_name"].(string)
-		if !ok1 || !ok2 || listID == "" || newName == "" {
+		if params.ListID == "" || params.NewName == "" {
 			return mcp.NewToolResultError("list_id and new_name are required for rename action"), nil
 		}
 
-		err := h.client.RenameList(listID, newName)
+		err := h.client.RenameList(params.ListID, params.NewName)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to rename list: %v", err)), nil
 		}
@@ -527,28 +498,27 @@ func (h *Handler) handleManageList(ctx context.Context, request mcp.CallToolRequ
 			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("List renamed to '%s'", newName),
+					Text: fmt.Sprintf("List renamed to '%s'", params.NewName),
 				},
 			},
 		}, nil
 
 	case "archive", "unarchive":
-		listID, ok := args["list_id"].(string)
-		if !ok || listID == "" {
+		if params.ListID == "" {
 			return mcp.NewToolResultError("list_id is required for archive/unarchive action"), nil
 		}
 
-		archive := action == "archive"
-		err := h.client.ArchiveList(listID, archive)
+		archive := params.Action == "archive"
+		err := h.client.ArchiveList(params.ListID, archive)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to %s list: %v", action, err)), nil
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to %s list: %v", params.Action, err)), nil
 		}
 
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				mcp.TextContent{
 					Type: "text",
-					Text: fmt.Sprintf("List %sd", action),
+					Text: fmt.Sprintf("List %sd", params.Action),
 				},
 			},
 		}, nil

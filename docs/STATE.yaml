@@ -202,6 +202,12 @@ RECENT_FIXES_2025_08_05:
     file: internal/auth/token_store_factory.go
     issue: cleanup_goroutine_never_terminated_on_shutdown
     fix: added_done_channel_and_proper_Close_method
+    
+  tool_parameter_structs:
+    file: internal/rtm/params.go+handlers.go
+    issue: raw_map_parameter_extraction_type_unsafe
+    fix: created_parameter_structs_for_all_RTM_tools
+    benefit: type_safety_cleaner_validation_ready_for_official_SDK
 
 VALID_CODE_ISSUES:
   file_naming:
