@@ -181,11 +181,11 @@ SESSION_CHECKLIST:
   [ ] Update this file with changes
 
 CODE_REVIEW_FALSE_POSITIVES:
-  # 2025-08-03 Q-Go review claimed concurrency issues - VERIFIED FALSE
+  # 2025-08-03 Q-Go review - MOSTLY FALSE except type assertion
   task_race_conditions: ✓proper_mutex_protection_throughout
   oauth_deadlock_risk: ✓single_mutex_no_nesting_found  
-  goroutine_leaks: ✓proper_cleanup_with_defer_and_timeouts
-  analysis: internal/longrunning+rtm/oauth_adapter_have_correct_patterns
+  goroutine_leaks: †partial[token_store_leak_fixed_2025-08-05]
+  analysis: most_concurrency_claims_false_but_found_real_issues
   
 RECENT_FIXES_2025_08_05:
   manager_type_assertion:
