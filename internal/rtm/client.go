@@ -201,8 +201,12 @@ func (c *Client) Call(method string, params map[string]string) ([]byte, error) {
 		if errorCheck.Rsp.Stat == "fail" {
 			code := 0
 			if _, err := fmt.Sscanf(errorCheck.Rsp.Err.Code, "%d", &code); err != nil {
-				// If parsing fails, use 0 as error code
-				code = 0
+				// Log parsing failure and include original code in error message
+				msg := fmt.Sprintf("%s (unparseable code: %s)", errorCheck.Rsp.Err.Msg, errorCheck.Rsp.Err.Code)
+				return nil, &RTMError{
+					Code: -1, // Use -1 to indicate parsing failure
+					Msg:  msg,
+				}
 			}
 			return nil, &RTMError{
 				Code: code,

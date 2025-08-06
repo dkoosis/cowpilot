@@ -124,10 +124,10 @@ func (m *Manager) CancelSessionTasks(sessionID string) {
 
 // HandleCancellation processes cancellation notifications from clients
 func (m *Manager) HandleCancellation(notification mcp.Notification) {
-	// FIX: Access the AdditionalFields map and perform type assertions on its values.
-	additionalFields := notification.Params.AdditionalFields
-	if additionalFields == nil {
-		log.Printf("Invalid cancellation notification: AdditionalFields is nil")
+	// Safely type assert AdditionalFields to map
+	additionalFields, ok := notification.Params.AdditionalFields.(map[string]interface{})
+	if !ok || additionalFields == nil {
+		log.Printf("Invalid cancellation notification: AdditionalFields is not a map or is nil")
 		return
 	}
 
