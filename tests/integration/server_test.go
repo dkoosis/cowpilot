@@ -34,7 +34,7 @@ func TestServerHealthEndpoint(t *testing.T) {
 	})
 }
 
-func TestMCPServerCreation(t *testing.T) {
+func TestMcpServerCreation(t *testing.T) {
 	// Importance: This test verifies that the underlying MCP server object from the
 	// mark3labs/mcp-go library can be instantiated. A failure here would indicate a
 	// fundamental problem with the core dependency.

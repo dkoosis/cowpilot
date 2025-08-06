@@ -24,7 +24,7 @@ func clientWithCookieJar() *http.Client {
 	}
 }
 
-func TestGenericOAuthFlow(t *testing.T) {
+func TestGenericOauthFlow(t *testing.T) {
 	// Importance: This suite simulates the full, multi-step authentication flow for the generic
 	// (non-RTM) OAuth adapter. It verifies that CSRF protection, code generation, and token
 	// exchange all work together correctly. A failure here indicates a broken login process.

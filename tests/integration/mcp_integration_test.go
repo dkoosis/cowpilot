@@ -126,8 +126,8 @@ func findProjectRoot() string {
 	}
 }
 
-// TestMCPInitialize tests the MCP initialization handshake
-func TestMCPInitialize(t *testing.T) {
+// TestMcpInitialize tests the MCP initialization handshake
+func TestMcpInitialize(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	reqBody := map[string]interface{}{
@@ -174,8 +174,8 @@ func TestMCPInitialize(t *testing.T) {
 	}
 }
 
-// TestMCPToolsList tests the tools/list method
-func TestMCPToolsList(t *testing.T) {
+// TestMcpToolsList tests the tools/list method
+func TestMcpToolsList(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	reqBody := map[string]interface{}{
@@ -230,8 +230,8 @@ func TestMCPToolsList(t *testing.T) {
 	}
 }
 
-// TestMCPResourcesList tests the resources/list method
-func TestMCPResourcesList(t *testing.T) {
+// TestMcpResourcesList tests the resources/list method
+func TestMcpResourcesList(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	reqBody := map[string]interface{}{
@@ -281,8 +281,8 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 }
 
-// TestMCPError tests error handling for malformed requests
-func TestMCPError(t *testing.T) {
+// TestMcpError tests error handling for malformed requests
+func TestMcpError(t *testing.T) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	// Send request with invalid JSON-RPC version

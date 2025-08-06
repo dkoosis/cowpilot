@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestRTMServer(t *testing.T) {
+func TestRtmServer(t *testing.T) {
 	serverURL := os.Getenv("MCP_SERVER_URL")
 	if serverURL == "" {
 		t.Skip("MCP_SERVER_URL not set, skipping RTM server test")

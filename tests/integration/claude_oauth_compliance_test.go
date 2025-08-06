@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestClaudeOAuthCompliance verifies ALL requirements for Claude.ai MCP integration.
+// TestClaudeOauthCompliance verifies ALL requirements for Claude.ai MCP integration.
 // This test starts its own server WITH OAuth enabled to test auth requirements.
 // DO NOT MODIFY WITHOUT UNDERSTANDING IMPACT ON CLAUDE REGISTRATION
-func TestClaudeOAuthCompliance(t *testing.T) {
+func TestClaudeOauthCompliance(t *testing.T) {
 	// Start a separate server instance with OAuth ENABLED for these tests
 	authServerURL := startAuthEnabledServer(t)
 
@@ -41,7 +41,7 @@ func TestClaudeOAuthCompliance(t *testing.T) {
 			"CRITICAL: WWW-Authenticate must have exact format for Claude")
 	})
 
-	t.Run("provides correct Protected Resource metadata", func(t *testing.T) {
+	t.Run("provides correct protected resource metadata", func(t *testing.T) {
 		// RFC 9728 - Required for Claude discovery
 		resp, err := http.Get(authServerURL + "/.well-known/oauth-protected-resource")
 		require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestClaudeOAuthCompliance(t *testing.T) {
 		assert.Equal(t, expectedResource, metadata["resource"], "Resource must point to /mcp endpoint")
 	})
 
-	t.Run("provides correct Authorization Server metadata", func(t *testing.T) {
+	t.Run("provides correct authorization server metadata", func(t *testing.T) {
 		// RFC 8414 - Required for Claude to know OAuth endpoints
 		resp, err := http.Get(authServerURL + "/.well-known/oauth-authorization-server")
 		require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestClaudeOAuthCompliance(t *testing.T) {
 		assert.NotEqual(t, http.StatusNotFound, resp.StatusCode, "/oauth/token endpoint must exist")
 	})
 
-	t.Run("accepts Content-Type header with charset", func(t *testing.T) {
+	t.Run("accepts content-type header with charset", func(t *testing.T) {
 		// Claude sends "application/json; charset=utf-8"
 		req, err := http.NewRequest("POST", authServerURL+"/mcp",
 			strings.NewReader(`{"jsonrpc":"2.0","method":"tools/list","id":1}`))

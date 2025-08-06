@@ -51,7 +51,7 @@ func (m *MockRTMClient) SetAuthToken(token string)            {}
 func (m *MockRTMClient) Sign(params map[string]string) string { return "mock-signature" }
 func (m *MockRTMClient) GetLists() ([]rtm.List, error)        { return []rtm.List{}, nil }
 
-func TestRTMOAuthFlow(t *testing.T) {
+func TestRtmOauthFlow(t *testing.T) {
 	// Importance: This suite tests the complex, custom OAuth adapter for Remember The Milk.
 	// RTM does not use standard OAuth, so this adapter is critical for bridging RTM's legacy
 	// authentication with the modern flow expected by clients like Claude.ai.
