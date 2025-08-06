@@ -21,8 +21,8 @@ func Middleware(adapter *OAuthAdapter) func(http.Handler) http.Handler {
 			// Check for Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				// Return 401 with WWW-Authenticate header (June 2025 spec)
-				w.Header().Set("WWW-Authenticate", `Bearer realm="`+adapter.serverURL+`"`)
+				// Return 401 with WWW-Authenticate header pointing to discovery endpoint
+				w.Header().Set("WWW-Authenticate", `Bearer realm="`+adapter.serverURL+`/.well-known/oauth-protected-resource"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -30,7 +30,7 @@ func Middleware(adapter *OAuthAdapter) func(http.Handler) http.Handler {
 			// Validate token
 			apiKey, err := adapter.ValidateToken(authHeader)
 			if err != nil {
-				w.Header().Set("WWW-Authenticate", `Bearer realm="`+adapter.serverURL+`" error="invalid_token"`)
+				w.Header().Set("WWW-Authenticate", `Bearer realm="`+adapter.serverURL+`/.well-known/oauth-protected-resource" error="invalid_token"`)
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}

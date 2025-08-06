@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/mcp" // Corrected import path
 	"github.com/mark3labs/mcp-go/server"
 	testutil "github.com/vcto/mcp-adapters/internal/testutil"
-	"github.comcom/mark3labs/mcp-go/mcp"
 )
 
 // Importance: This test suite validates the core, non-RTM-specific tools of the "everything" server.

@@ -193,18 +193,25 @@ TEST_ARCHITECTURE:
       general_tests:
         file: tests/integration/mcp_integration_test.go
         mode: --disable-auth
+        port: 8080
         purpose: test_MCP_protocol_compliance
         covers: [tools,resources,prompts,error_handling,concurrency]
       oauth_tests:
         file: tests/integration/claude_oauth_compliance_test.go  
         mode: auth_enabled_separate_server
+        port: 8081
         purpose: test_Claude.ai_OAuth_requirements
         covers: [401_responses,WWW-Authenticate,discovery_endpoints,content-type]
+        features:
+          - starts_own_server_with_auth_enabled
+          - uses_t.Run_for_clean_test_names
+          - t.Cleanup_for_server_lifecycle
     benefits:
       - clear_separation_of_concerns
       - faster_test_execution
       - easier_debugging
       - independent_test_failures
+      - parallel_test_execution_possible
 
 CODE_REVIEW_FALSE_POSITIVES:
   # 2025-08-03 Q-Go review - MOSTLY FALSE except type assertion

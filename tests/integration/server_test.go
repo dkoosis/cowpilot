@@ -16,14 +16,20 @@ func TestServerHealthEndpoint(t *testing.T) {
 	t.Run("returns StatusOK when server is running", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/health", nil)
 		rec := httptest.NewRecorder()
+
+		// Direct handler test
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("OK"))
 		})
-		handler.ServeHTTP(rec, rec)
+
+		handler.ServeHTTP(rec, req) // Corrected argument order: (ResponseWriter, *Request)
 
 		if rec.Code != http.StatusOK {
 			t.Errorf("Expected status 200 OK, but got %d", rec.Code)
+		}
+		if rec.Body.String() != "OK" {
+			t.Errorf("Expected body 'OK', got '%s'", rec.Body.String())
 		}
 	})
 }

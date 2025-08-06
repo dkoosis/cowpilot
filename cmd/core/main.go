@@ -203,6 +203,9 @@ func runHTTPServer(mcpServer *server.MCPServer, debugStorage debug.Storage, debu
 			mux.HandleFunc("/oauth/authorize", oauthAdapter.HandleAuthorize)
 			mux.HandleFunc("/oauth/token", oauthAdapter.HandleToken)
 			mux.HandleFunc("/oauth/register", oauthAdapter.HandleRegister)
+			// Also add endpoints without /oauth/ prefix for compatibility
+			mux.HandleFunc("/authorize", oauthAdapter.HandleAuthorize)
+			mux.HandleFunc("/token", oauthAdapter.HandleToken)
 			log.Printf("OAuth: Enabled generic OAuth adapter")
 		}
 	} else {

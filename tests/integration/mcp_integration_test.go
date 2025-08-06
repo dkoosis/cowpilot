@@ -252,9 +252,9 @@ func TestMCPResourcesList(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Should get 401 Unauthorized when OAuth is enabled
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
+	// Should get 200 OK when OAuth is disabled for testing
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200 (OAuth disabled), got %d", resp.StatusCode)
 	}
 }
 
@@ -304,9 +304,25 @@ func TestMCPError(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Should get 401 Unauthorized when OAuth is enabled (auth happens before JSON-RPC validation)
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("Expected status 401 (OAuth enabled), got %d", resp.StatusCode)
+	// Should get 200 with error in JSON-RPC response (mcp-go returns errors in body, not HTTP status)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	// Check for error in JSON-RPC response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("Failed to decode response: %v\nBody: %s", err, string(body))
+	}
+
+	// Should have an error field for invalid JSON-RPC version
+	if _, hasError := result["error"]; !hasError {
+		t.Error("Expected error in response for invalid JSON-RPC version")
 	}
 }
 
@@ -334,9 +350,9 @@ func TestConcurrentRequests(t *testing.T) {
 			}
 			_ = resp.Body.Close()
 
-			// Should get 401 Unauthorized when OAuth is enabled
-			if resp.StatusCode != http.StatusUnauthorized {
-				t.Errorf("Request %d got status %d (expected 401)", id, resp.StatusCode)
+			// Should get 200 OK when OAuth is disabled for testing
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("Request %d got status %d (expected 200)", id, resp.StatusCode)
 			}
 		}(i)
 	}

@@ -41,7 +41,7 @@ func NewOAuthAdapter(serverURL string, callbackPort int) *OAuthAdapter {
 // HandleProtectedResourceMetadata handles /.well-known/oauth-protected-resource
 func (a *OAuthAdapter) HandleProtectedResourceMetadata(w http.ResponseWriter, r *http.Request) {
 	metadata := map[string]interface{}{
-		"resource":              a.serverURL,
+		"resource":              a.serverURL + "/mcp",
 		"authorization_servers": []string{a.serverURL},
 	}
 
