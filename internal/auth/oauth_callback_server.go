@@ -123,14 +123,18 @@ func (s *OAuthCallbackServer) Start(ctx context.Context) error {
 	}
 
 	// Start server in goroutine
+	// Capture server and channel references to avoid race conditions
+	localServer := s.server
+	localResultChan := s.resultChan
+	
 	go func() {
 		fmt.Printf("OAuth callback server starting on %s\n", addr)
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := localServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("Callback server error: %v\n", err)
 
 			s.mu.Lock()
-			if s.resultChan != nil {
-				s.resultChan <- err
+			if localResultChan != nil {
+				localResultChan <- err
 			}
 			s.mu.Unlock()
 		}
@@ -141,9 +145,13 @@ func (s *OAuthCallbackServer) Start(ctx context.Context) error {
 
 // createCallbackHandler creates the main callback handler
 func (s *OAuthCallbackServer) createCallbackHandler() http.HandlerFunc {
+	// Don't lock here - Start() already holds the lock when calling this
+	// Just use the resultChan that was already created
+	localResultChan := s.resultChan
+	
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Log request for debugging
-		fmt.Printf("OAuth callback received: method=%s path=%s query=%s\n",
+		fmt.Printf("[OAuth Callback] Received: method=%s path=%s query=%s\n",
 			r.Method, r.URL.Path, r.URL.RawQuery)
 
 		// Only accept GET requests
@@ -161,40 +169,42 @@ func (s *OAuthCallbackServer) createCallbackHandler() http.HandlerFunc {
 
 		// Handle OAuth errors
 		if errorParam != "" {
+			fmt.Printf("[OAuth Callback] ERROR: OAuth error received: %s - %s\n", errorParam, errorDesc)
 			s.errorPage(w, http.StatusBadRequest, "Authorization Failed",
 				fmt.Sprintf("OAuth error: %s - %s", errorParam, errorDesc))
 
-			s.mu.Lock()
-			if s.resultChan != nil {
-				s.resultChan <- fmt.Errorf("oauth error: %s", errorParam)
+			if localResultChan != nil {
+				localResultChan <- fmt.Errorf("oauth error: %s", errorParam)
 			}
-			s.mu.Unlock()
 			return
 		}
 
 		// Validate required parameters
 		if code == "" || state == "" {
+			fmt.Printf("[OAuth Callback] ERROR: Missing parameters - code: %v, state: %v\n", 
+				code != "", state != "")
 			s.errorPage(w, http.StatusBadRequest, "Invalid Request",
 				"Missing required parameters: code and state.")
 
-			s.mu.Lock()
-			if s.resultChan != nil {
-				s.resultChan <- fmt.Errorf("missing code or state")
+			if localResultChan != nil {
+				localResultChan <- fmt.Errorf("missing code or state")
 			}
-			s.mu.Unlock()
 			return
 		}
 
 		// Success page
+		fmt.Printf("[OAuth Callback] SUCCESS: code=%s, state=%s\n", code, state)
 		s.successPage(w)
 
 		// Signal success
 		s.mu.Lock()
 		s.activeCallback = true
-		if s.resultChan != nil {
-			s.resultChan <- nil
-		}
 		s.mu.Unlock()
+		
+		if localResultChan != nil {
+			fmt.Printf("[OAuth Callback] Signaling success through result channel\n")
+			localResultChan <- nil
+		}
 	}
 }
 
@@ -299,13 +309,40 @@ func (s *OAuthCallbackServer) successPage(w http.ResponseWriter) {
             color: #28a745;
         }
     </style>
+    <script>
+        // Auto-close the window after a short delay
+        setTimeout(function() {
+            // Try to close the window
+            window.close();
+            
+            // If window.close() doesn't work (e.g., not opened by script),
+            // try to notify parent window if this is in an iframe or popup
+            if (window.opener && window.opener !== window) {
+                try {
+                    window.opener.postMessage({ type: 'oauth-success' }, '*');
+                } catch (e) {
+                    console.log('Could not notify parent window');
+                }
+            }
+            
+            // Also try parent frame communication
+            if (window.parent && window.parent !== window) {
+                try {
+                    window.parent.postMessage({ type: 'oauth-success' }, '*');
+                } catch (e) {
+                    console.log('Could not notify parent frame');
+                }
+            }
+        }, 2000); // 2 second delay to let user see the success message
+    </script>
 </head>
 <body>
     <div class="container">
         <div class="checkmark">✓</div>
         <h1>Authorization Successful!</h1>
-        <p>You have successfully authorized the application.</p>
-        <p>You can now close this window and return to Claude.</p>
+        <p>You have successfully connected to Remember The Milk.</p>
+        <p>This window will close automatically in a moment...</p>
+        <p style="font-size: 0.9em; color: #999; margin-top: 1rem;">If this window doesn't close automatically, you can close it manually and return to Claude.</p>
     </div>
 </body>
 </html>`
@@ -319,9 +356,12 @@ func (s *OAuthCallbackServer) successPage(w http.ResponseWriter) {
 // Stop gracefully shuts down the callback server
 func (s *OAuthCallbackServer) Stop() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	server := s.server
+	s.server = nil
+	// Don't nil out resultChan yet - WaitForCallback might still need it
+	s.mu.Unlock()
 
-	if s.server == nil {
+	if server == nil {
 		return nil
 	}
 
@@ -332,26 +372,35 @@ func (s *OAuthCallbackServer) Stop() error {
 	defer cancel()
 
 	// Attempt graceful shutdown
-	if err := s.server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctx); err != nil {
 		fmt.Printf("Error shutting down callback server: %v\n", err)
 		return err
 	}
 
-	s.server = nil
-
-	// Close result channel
+	// Now close result channel after server is fully stopped
+	s.mu.Lock()
 	if s.resultChan != nil {
 		close(s.resultChan)
 		s.resultChan = nil
 	}
+	s.mu.Unlock()
 
 	return nil
 }
 
 // WaitForCallback waits for callback completion with timeout
 func (s *OAuthCallbackServer) WaitForCallback(timeout time.Duration) error {
+	// Capture channel reference to avoid race conditions
+	s.mu.Lock()
+	localResultChan := s.resultChan
+	s.mu.Unlock()
+	
+	if localResultChan == nil {
+		return fmt.Errorf("result channel not initialized")
+	}
+	
 	select {
-	case err := <-s.resultChan:
+	case err := <-localResultChan:
 		return err
 	case <-time.After(timeout):
 		return fmt.Errorf("callback timeout after %v", timeout)

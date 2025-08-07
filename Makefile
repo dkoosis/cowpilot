@@ -93,25 +93,25 @@ run-debug-proxy: build-debug
 unit-test:
 	@echo "Running unit tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+		GO_TEST=1 $(GOTESTSUM) --format testdox -- -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	else \
-		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+		GO_TEST=1 $(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	fi
 
 # Run integration tests using TestMain (no shell scripts)
 integration-test:
 	@echo "Running integration tests with Go TestMain..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -race -tags=integration -timeout 60s ./tests/integration/...; \
+		GO_TEST=1 $(GOTESTSUM) --format testdox -- -race -tags=integration -timeout 60s ./tests/integration/...; \
 	else \
-		$(GOTEST) -v -race -tags=integration -timeout 60s ./tests/integration/...; \
+		GO_TEST=1 $(GOTEST) -v -race -tags=integration -timeout 60s ./tests/integration/...; \
 	fi
 
 # Test Claude OAuth compliance - MUST PASS before deployment
 claude-test:
 	@echo "Testing Claude.ai OAuth compliance..."
-	$(GOTEST) -v -race -timeout 30s ./tests/integration -run TestClaudeOAuthCompliance
-	$(GOTEST) -v -race -timeout 30s ./tests/integration -run TestRTMOAuthFlow
+	GO_TEST=1 $(GOTEST) -v -race -timeout 30s ./tests/integration -run TestClaudeOAuthCompliance
+	GO_TEST=1 $(GOTEST) -v -race -timeout 30s ./tests/integration -run TestRTMOAuthFlow
 
 # Enhanced test output
 GOTESTSUM := $(shell which gotestsum 2>/dev/null)
@@ -125,15 +125,15 @@ endif
 test-verbose:
 	@echo "Running unit tests with verbose output..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+		GO_TEST=1 $(GOTESTSUM) --format testdox -- -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	else \
-		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
+		GO_TEST=1 $(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) $(UNIT_TEST_DIRS); \
 	fi
 	@echo "Running integration tests..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --format testdox -- -race ./tests/integration/...; \
+		GO_TEST=1 $(GOTESTSUM) --format testdox -- -race ./tests/integration/...; \
 	else \
-		$(GOTEST) -v -race ./tests/integration/...; \
+		GO_TEST=1 $(GOTEST) -v -race ./tests/integration/...; \
 	fi
 
 # Clean build artifacts
@@ -200,10 +200,35 @@ cleanup-core-tmp:
 test-ci:
 	@echo "Running tests for CI..."
 	@if [ -n "$(GOTESTSUM)" ]; then \
-		$(GOTESTSUM) --junitfile test-results.xml --format testname -- -race -coverprofile=$(COVERAGE_FILE) ./...; \
+		GO_TEST=1 $(GOTESTSUM) --junitfile test-results.xml --format testname -- -race -coverprofile=$(COVERAGE_FILE) ./...; \
 	else \
-		$(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) ./...; \
+		GO_TEST=1 $(GOTEST) -v -race -coverprofile=$(COVERAGE_FILE) ./...; \
 	fi
+
+# OAuth diagnostics commands
+diagnose: diagnose-setup
+	@echo "Running OAuth diagnostics..."
+	@bash scripts/diagnostics/run_diagnostics.sh
+
+diagnose-local: diagnose-setup
+	@echo "Running OAuth diagnostics (local)..."
+	@bash scripts/diagnostics/run_diagnostics.sh local
+
+diagnose-setup:
+	@echo "Setting up diagnostic tools..."
+	@chmod +x scripts/diagnostics/*.sh
+	@cd scripts/diagnostics && go build -o oauth_trace oauth_trace.go
+
+monitor-oauth:
+	@echo "Starting OAuth real-time monitor..."
+	@go run scripts/diagnostics/monitor_realtime.go
+
+diagnose-prod:
+	@echo "Checking production OAuth endpoints..."
+	@go run scripts/diagnostics/oauth_trace.go
+	@echo ""
+	@echo "Fetching production logs..."
+	@flyctl logs --app rtm | tail -100 | grep -E "\[OAuth|ERROR|401|token|callback" || echo "No OAuth-related logs found"
 
 # Show help
 include makefile_help.mk

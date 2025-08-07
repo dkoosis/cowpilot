@@ -53,13 +53,51 @@ func NewOAuthAdapter(apiKey, secret, serverURL string) *OAuthAdapter {
 
 // HandleAuthorize implements OAuth authorize endpoint
 func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+	// For GET requests with all params, skip the form and process immediately
 	if r.Method == "GET" {
-		// Show authorization form
+		clientID := r.URL.Query().Get("client_id")
+		redirectURI := r.URL.Query().Get("redirect_uri")
+		state := r.URL.Query().Get("state")
+		
+		// If we have all required params, process immediately without showing form
+		if clientID != "" && redirectURI != "" {
+			log.Printf("[OAuth] Processing immediate authorization for client_id=%s", clientID)
+			// Create a fake code and redirect immediately
+			// We'll handle RTM auth when they exchange the code for a token
+			code := uuid.New().String()
+			
+			// Store minimal session for later
+			session := &AuthSession{
+				Code:        code,
+				CreatedAt:   time.Now(),
+				State:       state,
+				RedirectURI: redirectURI,
+				ClientID:    clientID,
+			}
+			a.sessionMutex.Lock()
+			a.sessions[code] = session
+			a.sessionMutex.Unlock()
+			
+			// Redirect immediately with code
+			u, _ := url.Parse(redirectURI)
+			q := u.Query()
+			q.Set("code", code)
+			if state != "" {
+				q.Set("state", state)
+			}
+			u.RawQuery = q.Encode()
+			
+			log.Printf("[OAuth] Immediate redirect to: %s", u.String())
+			http.Redirect(w, r, u.String(), http.StatusFound)
+			return
+		}
+		
+		// Show authorization form for manual flow
 		a.showAuthForm(w, r)
 		return
 	}
 
-	// POST - process authorization
+	// POST - process authorization (for manual form submission)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return

@@ -13,6 +13,7 @@ import (
 func TestOAuthAdapterAuthorizeFlow(t *testing.T) {
 	t.Logf("Importance: This suite tests the first half of the OAuth2 flow (/authorize endpoint), covering user-facing form rendering and CSRF protection.")
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
+	defer adapter.Close() // Clean up resources
 
 	t.Run("shows an HTML form on a GET request", func(t *testing.T) {
 		t.Logf("  > Why it's important: Verifies that the user is presented with the necessary UI to initiate the authentication process.")
@@ -83,6 +84,7 @@ func TestOAuthAdapterAuthorizeFlow(t *testing.T) {
 func TestOAuthAdapterTokenFlow(t *testing.T) {
 	t.Logf("Importance: This suite tests the second half of the OAuth2 flow (/token endpoint), ensuring authorization codes can be securely exchanged for access tokens.")
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
+	defer adapter.Close() // Clean up resources
 
 	t.Run("issues an access token for a valid authorization code", func(t *testing.T) {
 		t.Logf("  > Why it's important: The successful completion of the OAuth flow, verifying that a valid auth code can be exchanged for the actual access token.")
@@ -126,6 +128,7 @@ func TestOAuthAdapterTokenFlow(t *testing.T) {
 func TestOAuthAdapterMiddleware(t *testing.T) {
 	t.Logf("Importance: This suite tests the authentication middleware that protects server resources, ensuring it correctly validates tokens and protects endpoints.")
 	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
+	defer adapter.Close() // Clean up resources
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})

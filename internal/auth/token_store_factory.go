@@ -17,6 +17,7 @@ type TokenStoreInterface interface {
 	Store(token, apiKey string)
 	Get(token string) (string, bool)
 	Delete(token string)
+	Close() error // For cleanup
 }
 
 // CreateTokenStore creates appropriate token store based on environment

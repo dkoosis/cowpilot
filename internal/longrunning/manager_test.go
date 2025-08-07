@@ -110,7 +110,7 @@ func TestProgressReporting(t *testing.T) {
 		task, _ := manager.StartTask(ctx, mcp.ProgressToken("step-tracker-test"), "session-st")
 		tracker := NewStepTracker(task, 3) // 3 total steps
 
-		_ = tracker.NextStep("Step 1: Initialization")
+		_ = tracker.NextStep("Initialization")
 		progress, total := task.GetProgress()
 		assert.Equal(t, float64(1), progress)
 		assert.Equal(t, float64(3), total)

@@ -9,6 +9,7 @@ import (
 type TokenStore struct {
 	mu     sync.RWMutex
 	tokens map[string]*Token
+	done   chan struct{} // For stopping cleanup goroutine
 }
 
 // Token represents an OAuth token with metadata
@@ -23,6 +24,7 @@ type Token struct {
 func NewTokenStore() *TokenStore {
 	store := &TokenStore{
 		tokens: make(map[string]*Token),
+		done:   make(chan struct{}),
 	}
 	// Start cleanup goroutine
 	go store.cleanupExpired()
@@ -66,14 +68,25 @@ func (s *TokenStore) cleanupExpired() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		s.mu.Lock()
-		now := time.Now()
-		for token, t := range s.tokens {
-			if now.After(t.ExpiresAt) {
-				delete(s.tokens, token)
+	for {
+		select {
+		case <-ticker.C:
+			s.mu.Lock()
+			now := time.Now()
+			for token, t := range s.tokens {
+				if now.After(t.ExpiresAt) {
+					delete(s.tokens, token)
+				}
 			}
+			s.mu.Unlock()
+		case <-s.done:
+			return
 		}
-		s.mu.Unlock()
 	}
+}
+
+// Close stops the cleanup goroutine
+func (s *TokenStore) Close() error {
+	close(s.done)
+	return nil
 }

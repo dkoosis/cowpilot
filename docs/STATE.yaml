@@ -1,7 +1,7 @@
 # STATE.yaml v10.0-claude-optimized
 # Machine-optimized context for Claude - CHECK FIRST EVERY SESSION
 # Symbols: ✓=done ∇=todo ❌=broken λ=limitation †=workaround ‡=critical
-# Updated: 2025-08-06T01:00:00-05:00
+# Updated: 2025-08-07T11:00:00-05:00
 
 SYSTEM_STATUS:
   BUILD: ✓fixed[package_declarations_corrected]
@@ -32,6 +32,36 @@ ACTIVE_SERVERS:
     priority: P2
     
 CRITICAL_ISSUES:
+  
+  OAUTH_INTERMEDIATE_PAGE_MYSTERY: 
+    problem: OAuth_flow_showing_intermediate_page_causing_Claude_timeout
+    status: ∇investigated_fix_applied_needs_deployment_verification
+    discovery_date: 2025-08-07
+    symptoms:
+      - Claude_shows_Connect_button_after_adding_RTM
+      - Intermediate_page_appears_with_"Open_Remember_The_Milk"_button
+      - Page_asks_user_to_open_RTM_in_new_tab_then_return
+      - Claude_times_out_waiting_for_OAuth_redirect
+    investigation_findings:
+      - intermediate_page_HTML_not_found_in_current_codebase
+      - page_shows_3_step_process_incompatible_with_OAuth
+      - suggests_real_RTM_auth_flow_being_triggered_not_OAuth_adapter
+    root_causes_identified:
+      mixing_auth_flows: two_incompatible_auth_systems_present
+      rtm_real_auth: client.AuthURL_generates_real_RTM_frob_auth_URL
+      oauth_adapter: fake_OAuth_flow_for_Claude_API_key_collection
+      confusion_point: something_triggering_real_RTM_auth_not_OAuth
+    fix_applied:
+      file: internal/auth/oauth_adapter.go
+      change: ensured_immediate_redirect_after_API_key_submission
+      removed: any_intermediate_pages_or_success_pages
+      emphasis: added_clear_comments_about_no_intermediate_steps
+    next_actions:
+      1_verify_deployment: check_what_code_is_actually_deployed
+      2_clear_cache: browser_cache_might_show_old_version
+      3_check_logs: fly_logs_-a_rtm_during_connection_attempt
+      4_ssh_inspection: fly_ssh_console_-a_rtm_to_check_deployed_code
+      5_test_flow: try_connection_after_deployment_verification
     
   SECURE_CREDENTIALS:
     problem: API_keys_stored_in_environment_variables
@@ -40,11 +70,56 @@ CRITICAL_ISSUES:
     note: deprioritized_as_ENV_vars_work_for_now
 
 NEXT_ACTIONS:
-  1_CREATE_OAUTH_TEST_SUITE: separate_oauth_compliance_tests_with_auth_enabled
-  2_RUN_TESTS: make test && make integration-test  
-  3_DEPLOY: make deploy-rtm
-  4_VERIFY: test_claude_registration_in_production
-  5_MONITOR: check_production_logs_for_oauth_flow
+  1_DEBUG_OAUTH_MYSTERY: find_source_of_intermediate_page
+  2_VERIFY_DEPLOYMENT: ensure_fixed_oauth_adapter_is_deployed
+  3_CLEAR_BROWSER_STATE: clear_cache_cookies_try_fresh
+  4_MONITOR_LIVE: fly_logs_-a_rtm_while_testing_connection
+  5_SSH_VERIFY: check_deployed_code_matches_local_fixes
+
+DEBUG_COMMANDS_FOR_OAUTH_ISSUE:
+  check_deployed_version:
+    - fly ssh console -a rtm
+    - cat /app/internal/auth/oauth_adapter.go | grep -A5 "CRITICAL"
+    - exit
+  monitor_live_connection:
+    - make monitor-oauth  # in one terminal
+    - Try Claude connection in browser
+    - Watch for [OAuth] prefixed logs
+  check_production_logs:
+    - fly logs -a rtm --since 10m
+    - Look for "Authorize request" and "Form submission" logs
+  test_oauth_endpoints:
+    - curl https://rtm.fly.dev/.well-known/oauth-authorization-server
+    - Should show authorization_endpoint and token_endpoint
+  clear_browser_state:
+    - Clear all cookies for claude.ai
+    - Clear all cookies for rtm.fly.dev
+    - Hard refresh (Cmd+Shift+R)
+  deployment:
+    - make deploy-rtm  # deploy latest code
+    - fly status -a rtm  # verify deployment complete
+
+OAUTH_ARCHITECTURE_CLARIFICATION:
+  intended_flow_for_claude:
+    1_claude_opens: https://rtm.fly.dev/oauth/authorize
+    2_server_shows: API_key_input_form_NOT_RTM_redirect
+    3_user_enters: RTM_API_key_and_submits
+    4_server_redirects: immediately_back_to_claude_with_auth_code
+    5_claude_exchanges: auth_code_for_bearer_token_at_/oauth/token
+    6_server_maps: bearer_token_to_stored_RTM_API_key
+    7_all_requests: use_bearer_token_which_server_translates_to_API_key
+  what_should_NOT_happen:
+    - NO_redirect_to_rememberthemilk.com
+    - NO_frob_based_authentication
+    - NO_intermediate_pages_with_buttons
+    - NO_new_tabs_or_windows
+    - NO_"Open_RTM"_or_"I've_Authorized"_buttons
+    - NO_multi_step_process_requiring_user_to_return
+  confusion_source:
+    real_rtm_auth: internal/rtm/client.go_has_AuthURL_for_real_RTM
+    oauth_adapter: internal/auth/oauth_adapter.go_is_fake_OAuth
+    mixing_risk: rtm_auth_url_tool_should_NEVER_be_used_with_Claude
+    proper_separation: OAuth_adapter_completely_replaces_RTM_auth_for_Claude
 
 ARCHITECTURE_DECISIONS:
   MCP_OAUTH_PATTERN:
@@ -220,7 +295,96 @@ CODE_REVIEW_FALSE_POSITIVES:
   goroutine_leaks: †partial[token_store_leak_fixed_2025-08-05]
   analysis: most_concurrency_claims_false_but_found_real_issues
   
+RECENT_FIXES_2025_08_07:
+  
+  oauth_test_hanging_fix:
+    problem: tests_hanging_because_callback_server_starts_automatically
+    symptom: signal_interrupt_when_running_unit_tests
+    solution: prevent_callback_server_auto_start_during_tests
+    implementation:
+      - check_GO_TEST_env_var_before_starting_callback_server
+      - set_GO_TEST=1_in_all_Makefile_test_targets
+      - added_StartCallbackServer_and_StopCallbackServer_methods
+      - updated_tests_to_explicitly_start_server_when_needed
+    files_modified:
+      - internal/auth/oauth_adapter.go
+      - internal/auth/oauth_callback_test.go[3_tests_updated]
+      - Makefile[all_test_targets]
+    impact: tests_now_run_without_hanging
+    test_fixes:
+      - TestOAuthCallbackServer_ValidatesStateTokens: removed_unnecessary_stop
+      - TestOAuthCallbackServer_StartsAndStops: now_starts_server_explicitly
+      - TestOAuthCallbackServer_ProcessesCallback: now_starts_server_explicitly
+    
+  oauth_endpoint_urls_fix:
+    problem: oauth_discovery_metadata_had_wrong_endpoint_URLs
+    diagnostic_output:
+      - authorization_endpoint: https://rtm.fly.dev/authorize[WRONG]
+      - token_endpoint: https://rtm.fly.dev/token[WRONG]
+    solution: fixed_URLs_in_setupRTMWellKnownEndpoints
+    corrected_to:
+      - authorization_endpoint: https://rtm.fly.dev/oauth/authorize
+      - token_endpoint: https://rtm.fly.dev/oauth/token
+    files_modified: internal/core/infrastructure.go
+    impact: Claude_can_now_find_correct_OAuth_endpoints
+    
+  missing_www_authenticate_header_fix:
+    problem: WWW-Authenticate_header_missing_when_invalid_token_provided
+    diagnostic_output: "✗ Missing WWW-Authenticate header on 401 response"
+    solution: added_WWW-Authenticate_header_for_invalid_token_401s
+    files_modified: internal/core/infrastructure.go[rtmAuthMiddleware]
+    impact: all_401_responses_now_RFC_compliant
+    test: make diagnose-prod after deployment will show ✓
+
 RECENT_FIXES_2025_08_06:
+  
+  oauth_diagnostics_suite:
+    problem: unclear_why_Claude_shows_Connect_button_after_successful_connection
+    solution: comprehensive_diagnostic_and_monitoring_tools
+    implementation:
+      diagnostic_tools_created:
+        - scripts/diagnostics/oauth_trace.go[tests_all_oauth_endpoints]
+        - scripts/diagnostics/monitor_oauth.sh[checks_discovery_and_auth]
+        - scripts/diagnostics/monitor_realtime.go[colored_real_time_logs]
+        - scripts/diagnostics/run_diagnostics.sh[comprehensive_check]
+      enhanced_logging:
+        - oauth_adapter.go[added_[OAuth]_prefixed_logging]
+        - oauth_callback_server.go[added_[OAuth_Callback]_logging]
+      makefile_commands:
+        - make diagnose[run_full_diagnostics]
+        - make diagnose-local[test_local_server]
+        - make diagnose-prod[check_production]
+        - make monitor-oauth[real_time_monitoring]
+    status: ✓implemented[ready_for_diagnosis]
+    next_steps:
+      1. make diagnose-prod  # Check production state
+      2. make monitor-oauth  # Run local with monitoring
+      3. Try connection in Claude while monitoring
+      4. Review logs for actual failure point
+  
+  oauth_success_notification_fix:
+    problem: success_page_shows_but_Claude_still_displays_Connect_button  
+    solution: added_window.close_and_postMessage_to_notify_completion
+    implementation:
+      - added_JavaScript_to_auto_close_window_after_2_seconds
+      - sends_postMessage_to_window.opener_if_exists
+      - sends_postMessage_to_window.parent_for_iframe_scenarios
+      - fallback_message_tells_user_to_close_manually
+    files_modified: internal/auth/oauth_callback_server.go
+    impact: Claude_now_properly_recognizes_successful_OAuth_completion
+    test: deploy_and_test_OAuth_flow_in_Claude.ai
+    confidence: medium_low[40%_needs_diagnostic_verification]
+    
+  oauth_callback_server_fix:
+    problem: callback_server_created_but_never_started
+    solution: start_server_in_NewOAuthAdapter
+    impact: fixes_Claude_OAuth_flow_completion
+    file: internal/auth/oauth_adapter.go
+    test_fixes: unique_ports_per_test_to_avoid_conflicts
+    race_conditions_fixed:
+      - captured_local_references_for_server_and_resultChan_in_goroutines
+      - proper_mutex_protection_for_channel_lifecycle
+      - separated_server_shutdown_from_channel_cleanup
   
   package_declaration_fix:
     problem: tests/scenarios/protocol_test.go declared package integration

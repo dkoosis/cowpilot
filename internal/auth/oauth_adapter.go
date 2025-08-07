@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -35,7 +37,47 @@ func NewOAuthAdapter(serverURL string, callbackPort int) *OAuthAdapter {
 		callbackPort: callbackPort,
 	}
 	adapter.callbackServer = NewOAuthCallbackServer(adapter, callbackPort)
+	
+	// Only start the callback server in production (not during tests)
+	// Tests should call StartCallbackServer() explicitly if needed
+	if os.Getenv("GO_TEST") != "1" {
+		if err := adapter.callbackServer.Start(context.Background()); err != nil {
+			fmt.Printf("Warning: Failed to start OAuth callback server: %v\n", err)
+		}
+	}
+	
 	return adapter
+}
+
+// StartCallbackServer starts the OAuth callback server (for testing or manual control)
+func (a *OAuthAdapter) StartCallbackServer(ctx context.Context) error {
+	if a.callbackServer == nil {
+		return fmt.Errorf("callback server not initialized")
+	}
+	return a.callbackServer.Start(ctx)
+}
+
+// StopCallbackServer stops the OAuth callback server (for testing or cleanup)
+func (a *OAuthAdapter) StopCallbackServer() error {
+	if a.callbackServer == nil {
+		return nil
+	}
+	return a.callbackServer.Stop()
+}
+
+// Close cleans up all resources (for testing)
+func (a *OAuthAdapter) Close() error {
+	// Stop callback server if running
+	if a.callbackServer != nil {
+		if err := a.callbackServer.Stop(); err != nil {
+			return err
+		}
+	}
+	// Close token store
+	if a.tokenStore != nil {
+		return a.tokenStore.Close()
+	}
+	return nil
 }
 
 // HandleProtectedResourceMetadata handles /.well-known/oauth-protected-resource
@@ -70,7 +112,13 @@ func (a *OAuthAdapter) HandleAuthServerMetadata(w http.ResponseWriter, r *http.R
 }
 
 // HandleAuthorize handles /oauth/authorize
+// CRITICAL: This must immediately redirect back to Claude after authorization
+// No intermediate pages or "Open RTM" buttons!
 func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
+	// Log incoming request for debugging
+	fmt.Printf("[OAuth] Authorize request: method=%s, client_id=%s, redirect_uri=%s\n", 
+		r.Method, r.URL.Query().Get("client_id"), r.URL.Query().Get("redirect_uri"))
+	
 	// Extract parameters
 	clientID := r.URL.Query().Get("client_id")
 	redirectURI := r.URL.Query().Get("redirect_uri")
@@ -92,24 +140,99 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 			MaxAge:   600, // 10 minutes
 		})
 
-		html := fmt.Sprintf(`
-		<html>
-		<head><title>Connect Remember The Milk</title></head>
-		<body>
-			<h1>Connect Remember The Milk</h1>
-			<form method="POST">
-				<input type="hidden" name="client_id" value="%s">
-				<input type="hidden" name="redirect_uri" value="%s">
-				<input type="hidden" name="client_state" value="%s">
-				<input type="hidden" name="csrf_state" value="%s">
-				<input type="hidden" name="resource" value="%s">
-				<label>RTM API Key: <input type="password" name="api_key" required></label>
-				<button type="submit">Connect</button>
-			</form>
-		</body>
-		</html>`, clientID, redirectURI, clientState, csrfState, resource)
+		// IMPORTANT: Form submits directly back to this same URL
+		// No intermediate pages!
+		html := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Connect Remember The Milk</title>
+	<style>
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			min-height: 100vh;
+			margin: 0;
+			background-color: #f5f5f5;
+		}
+		.container {
+			background: white;
+			padding: 2rem;
+			border-radius: 8px;
+			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+			max-width: 500px;
+			text-align: center;
+		}
+		h1 {
+			color: #333;
+			margin-bottom: 1rem;
+		}
+		form {
+			margin-top: 2rem;
+		}
+		label {
+			display: block;
+			margin-bottom: 1rem;
+			text-align: left;
+		}
+		input[type="password"] {
+			width: 100%%;
+			padding: 0.5rem;
+			font-size: 1rem;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			margin-top: 0.5rem;
+		}
+		button {
+			background-color: #007bff;
+			color: white;
+			border: none;
+			padding: 0.75rem 2rem;
+			font-size: 1rem;
+			border-radius: 4px;
+			cursor: pointer;
+			margin-top: 1rem;
+		}
+		button:hover {
+			background-color: #0056b3;
+		}
+		.info {
+			margin-top: 2rem;
+			padding: 1rem;
+			background-color: #f8f9fa;
+			border-radius: 4px;
+			text-align: left;
+			font-size: 0.9rem;
+			color: #666;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h1>🐄 Connect Remember The Milk</h1>
+		<p>Enter your RTM API Key to authorize Claude to access your tasks.</p>
+		<form method="POST">
+			<input type="hidden" name="client_id" value="%s">
+			<input type="hidden" name="redirect_uri" value="%s">
+			<input type="hidden" name="client_state" value="%s">
+			<input type="hidden" name="csrf_state" value="%s">
+			<input type="hidden" name="resource" value="%s">
+			<label>
+				RTM API Key:
+				<input type="password" name="api_key" required autofocus>
+			</label>
+			<button type="submit">Connect</button>
+		</form>
+		<div class="info">
+			<strong>Note:</strong> Your API key will be securely stored and used only to access your RTM tasks on your behalf.
+		</div>
+	</div>
+</body>
+</html>`, clientID, redirectURI, clientState, csrfState, resource)
 
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if _, err := w.Write([]byte(html)); err != nil {
 			// Log error but response already started
 			fmt.Printf("Failed to write HTML response: %v\n", err)
@@ -117,11 +240,14 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle form submission
+	// Handle form submission (POST)
 	apiKey := r.FormValue("api_key")
-	csrfState = r.FormValue("csrf_state")     // Use = not :=
-	clientState = r.FormValue("client_state") // Use = not :=
+	csrfState = r.FormValue("csrf_state")     
+	clientState = r.FormValue("client_state") 
 	formRedirectURI := r.FormValue("redirect_uri")
+	
+	fmt.Printf("[OAuth] Form submission: has_api_key=%v, csrf_state=%s, client_state=%s\n",
+		apiKey != "", csrfState, clientState)
 
 	// Validate CSRF token from cookie
 	cookie, err := r.Cookie("csrf_token")
@@ -148,6 +274,8 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 		RTMAPIKey: apiKey,
 		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
+	
+	fmt.Printf("[OAuth] Generated auth code: %s (expires in 10 min)\n", code)
 
 	// Clear CSRF cookie
 	http.SetCookie(w, &http.Cookie{
@@ -158,26 +286,39 @@ func (a *OAuthAdapter) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1, // Delete cookie
 	})
 
-	// Redirect back with code
+	// CRITICAL: Immediately redirect back to Claude with the authorization code
+	// No intermediate pages, no "success" page, no "Open RTM" button!
+	// Claude is waiting for this redirect to complete the OAuth flow.
 	u, _ := url.Parse(formRedirectURI)
 	q := u.Query()
 	q.Set("code", code)
 	q.Set("state", clientState) // Return client's original state
 	u.RawQuery = q.Encode()
+	
+	fmt.Printf("[OAuth] Immediately redirecting back to Claude: %s\n", u.String())
 
+	// Use 302 Found for the redirect (standard OAuth practice)
 	http.Redirect(w, r, u.String(), http.StatusFound)
+	
+	// DO NOT show any success page or intermediate page here!
+	// The redirect above sends the user back to Claude immediately.
 }
 
 // HandleToken handles /oauth/token
 func (a *OAuthAdapter) HandleToken(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("[OAuth] Token request: method=%s\n", r.Method)
+	
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
+		fmt.Printf("[OAuth] ERROR: Failed to parse form: %v\n", err)
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
 	grantType := r.FormValue("grant_type")
 	code := r.FormValue("code")
 	// resource := r.FormValue("resource") // June 2025 spec - TODO: use for validation
+	
+	fmt.Printf("[OAuth] Token request: grant_type=%s, code=%s\n", grantType, code)
 
 	if grantType != "authorization_code" {
 		http.Error(w, "Unsupported grant type", http.StatusBadRequest)
@@ -187,15 +328,20 @@ func (a *OAuthAdapter) HandleToken(w http.ResponseWriter, r *http.Request) {
 	// Validate auth code
 	authCode, exists := a.authCodes[code]
 	if !exists || time.Now().After(authCode.ExpiresAt) {
+		fmt.Printf("[OAuth] ERROR: Invalid or expired code: %s (exists=%v)\n", code, exists)
 		http.Error(w, "Invalid or expired code", http.StatusBadRequest)
 		return
 	}
+	
+	fmt.Printf("[OAuth] Code validated successfully\n")
 
 	// Generate bearer token
 	token := uuid.New().String()
 	a.tokenStore.Store(token, authCode.RTMAPIKey)
+	
+	fmt.Printf("[OAuth] Generated bearer token: %s...\n", token[:8])
 
-	// Clean up auth code
+	// Clean up auth code (one-time use)
 	delete(a.authCodes, code)
 
 	// Return token response
@@ -235,15 +381,28 @@ func (a *OAuthAdapter) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 // ValidateToken checks if bearer token is valid and returns RTM API key
 func (a *OAuthAdapter) ValidateToken(authHeader string) (string, error) {
+	fmt.Printf("[OAuth] ValidateToken called with header: %s...\n", 
+		authHeader[:min(20, len(authHeader))])
+	
 	if !strings.HasPrefix(authHeader, "Bearer ") {
+		fmt.Printf("[OAuth] ERROR: Invalid auth header format\n")
 		return "", fmt.Errorf("invalid auth header")
 	}
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 	apiKey, exists := a.tokenStore.Get(token)
 	if !exists {
+		fmt.Printf("[OAuth] ERROR: Token not found in store\n")
 		return "", fmt.Errorf("invalid token")
 	}
-
+	
+	fmt.Printf("[OAuth] Token validated successfully\n")
 	return apiKey, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

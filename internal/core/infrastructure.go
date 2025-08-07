@@ -225,8 +225,8 @@ func setupRTMWellKnownEndpoints(mux *http.ServeMux, serverURL string) {
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
 		metadata := map[string]interface{}{
 			"issuer":                           serverURL,
-			"authorization_endpoint":           serverURL + "/authorize",
-			"token_endpoint":                   serverURL + "/token",
+			"authorization_endpoint":           serverURL + "/oauth/authorize",  // FIX: Added /oauth prefix
+			"token_endpoint":                   serverURL + "/oauth/token",       // FIX: Added /oauth prefix
 			"registration_endpoint":            serverURL + "/oauth/register",
 			"scopes_supported":                 []string{"rtm:read", "rtm:write"},
 			"response_types_supported":         []string{"code"},
@@ -318,6 +318,8 @@ func rtmAuthMiddleware(adapter *rtm.OAuthAdapter, rtmHandler *rtm.Handler, confi
 
 			token := strings.TrimPrefix(authHeader, bearerPrefix)
 			if !adapter.ValidateBearer(token) {
+				// CRITICAL: WWW-Authenticate header required for ALL 401 responses
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf("Bearer realm=\"%s/.well-known/oauth-protected-resource\"", config.ServerURL))
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}

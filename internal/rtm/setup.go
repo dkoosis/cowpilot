@@ -173,9 +173,16 @@ func (h *SetupHandler) processSetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate credentials with RTM API
-	if err := h.validateRTMCredentials(apiKey, secret); err != nil {
-		h.showError(w, fmt.Sprintf("Invalid RTM credentials: %v", err))
-		return
+	if h.validator != nil {
+		if err := h.validator(apiKey, secret); err != nil {
+			h.showError(w, fmt.Sprintf("Invalid RTM credentials: %v", err))
+			return
+		}
+	} else {
+		if err := h.validateRTMCredentials(apiKey, secret); err != nil {
+			h.showError(w, fmt.Sprintf("Invalid RTM credentials: %v", err))
+			return
+		}
 	}
 
 	// Store encrypted credentials

@@ -69,7 +69,7 @@ func TestSetupHandlerPOST(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create credential store for testing: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	t.Run("succeeds with valid credentials and stores them", func(t *testing.T) {
 		t.Logf("  > Why it's important: This is the 'happy path' test, ensuring that correct, validated credentials are securely stored and the user gets a success message.")

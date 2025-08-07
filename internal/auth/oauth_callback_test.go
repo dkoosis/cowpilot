@@ -9,8 +9,11 @@ import (
 )
 
 func TestOAuthCallbackServer_ValidatesStateTokens_When_CheckingCSRF(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
+	adapter := NewOAuthAdapter("http://localhost:8080", 9092)
+	defer adapter.Close() // Clean up all resources
 	server := adapter.callbackServer
+	// No need to start/stop since we're not actually running the server for this test
+	
 	clientID := "test-client"
 	state := server.GenerateStateToken(clientID)
 
@@ -32,18 +35,31 @@ func TestOAuthCallbackServer_ValidatesStateTokens_When_CheckingCSRF(t *testing.T
 }
 
 func TestOAuthCallbackServer_StartsAndStops_When_LifecycleMethodsCalled(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
+	adapter := NewOAuthAdapter("http://localhost:8080", 9093)
+	defer adapter.Close() // Clean up all resources
 	server := adapter.callbackServer
-	ctx := context.Background()
 
-	// Start server
+	// Since GO_TEST=1, server should NOT be running yet
+	ctx := context.Background()
+	
+	// Should be able to start the server
 	if err := server.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
+	}
+	defer func() {
+		if err := server.Stop(); err != nil {
+			t.Logf("Failed to stop server in cleanup: %v", err)
+		}
+	}()
+	
+	// Should fail to start again while already running
+	if err := server.Start(ctx); err == nil {
+		t.Error("Should fail to start already running server")
 	}
 
 	// Verify it's running
 	time.Sleep(100 * time.Millisecond)
-	resp, err := http.Get("http://localhost:9090/health")
+	resp, err := http.Get("http://localhost:9093/health")
 	if err == nil {
 		if err := resp.Body.Close(); err != nil {
 			t.Logf("Failed to close response body: %v", err)
@@ -55,18 +71,25 @@ func TestOAuthCallbackServer_StartsAndStops_When_LifecycleMethodsCalled(t *testi
 		t.Errorf("Failed to stop server: %v", err)
 	}
 
-	// Should fail to start again while running
-	server2 := NewOAuthCallbackServer(adapter, 9090)
-	if err := server2.Start(ctx); err != nil {
-		t.Logf("Expected behavior: %v", err)
+	// Should be able to start again after stopping
+	if err := server.Start(ctx); err != nil {
+		t.Errorf("Failed to restart server: %v", err)
+	}
+
+	// Clean up (final stop)
+	if err := server.Stop(); err != nil {
+		t.Errorf("Failed to stop server in final cleanup: %v", err)
 	}
 }
 
 func TestOAuthCallbackServer_ProcessesCallback_When_RequestIsValid(t *testing.T) {
-	adapter := NewOAuthAdapter("http://localhost:8080", 9090)
+	// Create adapter with test mode enabled
+	adapter := NewOAuthAdapter("http://localhost:8080", 9094)
+	defer adapter.Close() // Clean up all resources
+	server := adapter.callbackServer
+	
+	// Start the server since GO_TEST=1 prevents auto-start
 	ctx := context.Background()
-	server := NewOAuthCallbackServer(adapter, 9091)
-
 	if err := server.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
@@ -79,7 +102,7 @@ func TestOAuthCallbackServer_ProcessesCallback_When_RequestIsValid(t *testing.T)
 	// Test successful callback
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		resp, err := http.Get("http://localhost:9091/callback?code=test-code&state=test-state")
+		resp, err := http.Get("http://localhost:9094/callback?code=test-code&state=test-state")
 		if err != nil {
 			fmt.Printf("Callback request failed: %v\n", err)
 			return

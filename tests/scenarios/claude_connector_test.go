@@ -67,7 +67,7 @@ func TestClaudeConnectorIntegration(t *testing.T) {
 
 		// Expect a timeout because a successful SSE connection stays open.
 		if err == nil {
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			t.Fatalf("Expected a timeout error for an open SSE stream, but the request completed.")
 		}
 		if ue, ok := err.(*url.Error); !ok || !ue.Timeout() {
@@ -90,7 +90,7 @@ func TestClaudeConnectorIntegration(t *testing.T) {
 			t.Fatalf("Step 1 Failed: Could not GET auth form: %v", err)
 		}
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		// Extract CSRF token from the HTML form
 		re := regexp.MustCompile(`name="csrf_state" value="([^"]+)"`)
@@ -109,7 +109,7 @@ func TestClaudeConnectorIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Step 2 Failed: Could not POST to auth form: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusFound {
 			t.Fatalf("Step 2 Failed: Expected redirect after form submission, got %d", resp.StatusCode)
@@ -128,7 +128,7 @@ func TestClaudeConnectorIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Step 4 Failed: Could not exchange token: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var tokenResp map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
