@@ -62,7 +62,7 @@ func main() {
 		for scanner.Scan() {
 			line := scanner.Text()
 			timestamp := time.Now().Format("15:04:05")
-			
+
 			// Highlight OAuth-related lines
 			if strings.Contains(line, "[OAuth") {
 				fmt.Printf("\033[1;36m%s | %s\033[0m\n", timestamp, line)
@@ -70,9 +70,9 @@ func main() {
 				fmt.Printf("\033[1;31m%s | %s\033[0m\n", timestamp, line)
 			} else if strings.Contains(line, "SUCCESS") || strings.Contains(line, "✓") {
 				fmt.Printf("\033[1;32m%s | %s\033[0m\n", timestamp, line)
-			} else if strings.Contains(strings.ToLower(line), "auth") || 
-			          strings.Contains(strings.ToLower(line), "token") ||
-			          strings.Contains(strings.ToLower(line), "callback") {
+			} else if strings.Contains(strings.ToLower(line), "auth") ||
+				strings.Contains(strings.ToLower(line), "token") ||
+				strings.Contains(strings.ToLower(line), "callback") {
 				fmt.Printf("\033[1;33m%s | %s\033[0m\n", timestamp, line)
 			} else {
 				fmt.Printf("%s | %s\n", timestamp, line)

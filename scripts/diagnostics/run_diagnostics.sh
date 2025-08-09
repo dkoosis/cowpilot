@@ -14,14 +14,8 @@ echo "1. Running OAuth endpoint monitoring..."
 ./scripts/diagnostics/monitor_oauth.sh $1
 
 echo ""
-echo "2. Compiling OAuth trace tool..."
-cd scripts/diagnostics
-go build -o oauth_trace oauth_trace.go
-cd ../..
-
-echo ""
-echo "3. Running OAuth trace..."
-./scripts/diagnostics/oauth_trace $1
+echo "2. Running OAuth trace..."
+go run ./scripts/diagnostics/oauth-trace $1
 
 echo ""
 echo "4. Checking local logs (if running locally)..."

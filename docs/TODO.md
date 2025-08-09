@@ -11,6 +11,16 @@
 
 ## 🟠 P1 - High Priority
 
+### Implement Simple Metrics
+- [ ] Add counter to each MCP tool handler
+- [ ] Track: tool calls, errors, response times
+- [ ] Weekly metrics.json dump
+- [ ] Start tracking wrong tool selections
+- [ ] Create weekly review habit
+- **Reference**: `prompts/G-Metrics-Implementation.yaml`
+- **Impact**: Actually know if we're improving
+- **Estimate**: 4 hours initial, 15 min/week ongoing
+
 ### Secure Credential Storage
 - [ ] Research keyring libraries (99designs/keyring recommended)
 - [ ] Implement secure storage interface

@@ -58,7 +58,7 @@ func testDiscoveryEndpoints() {
 			fmt.Printf("ERROR: %v\n", err)
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		dumpResponse(resp)
 	}
@@ -76,7 +76,7 @@ func testAuthorizationEndpoint() {
 		fmt.Printf("ERROR: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	fmt.Printf("Status: %s\n", resp.Status)
 	fmt.Printf("Headers:\n")
@@ -110,7 +110,7 @@ func testTokenEndpoint() {
 		fmt.Printf("ERROR: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	dumpResponse(resp)
 }
@@ -130,7 +130,7 @@ func testAuthenticatedEndpoint() {
 
 func testMCPEndpoint(authHeader string) {
 	mcpURL := serverURL + "/mcp"
-	
+
 	// Create MCP initialize request
 	initRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -147,7 +147,7 @@ func testMCPEndpoint(authHeader string) {
 	}
 
 	jsonData, _ := json.Marshal(initRequest)
-	
+
 	req, err := http.NewRequest("POST", mcpURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Printf("ERROR creating request: %v\n", err)
@@ -161,14 +161,14 @@ func testMCPEndpoint(authHeader string) {
 	}
 
 	fmt.Printf("POST %s\n", mcpURL)
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("ERROR: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	dumpResponse(resp)
 
@@ -184,7 +184,7 @@ func testMCPEndpoint(authHeader string) {
 
 func dumpResponse(resp *http.Response) {
 	fmt.Printf("Status: %s\n", resp.Status)
-	
+
 	// Dump headers
 	fmt.Printf("Headers:\n")
 	for k, v := range resp.Header {

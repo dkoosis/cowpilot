@@ -10,10 +10,14 @@ import (
 
 func TestOAuthCallbackServer_ValidatesStateTokens_When_CheckingCSRF(t *testing.T) {
 	adapter := NewOAuthAdapter("http://localhost:8080", 9092)
-	defer adapter.Close() // Clean up all resources
+	t.Cleanup(func() {
+		if err := adapter.Close(); err != nil {
+			t.Logf("Failed to close adapter: %v", err)
+		}
+	})
 	server := adapter.callbackServer
 	// No need to start/stop since we're not actually running the server for this test
-	
+
 	clientID := "test-client"
 	state := server.GenerateStateToken(clientID)
 
@@ -36,12 +40,16 @@ func TestOAuthCallbackServer_ValidatesStateTokens_When_CheckingCSRF(t *testing.T
 
 func TestOAuthCallbackServer_StartsAndStops_When_LifecycleMethodsCalled(t *testing.T) {
 	adapter := NewOAuthAdapter("http://localhost:8080", 9093)
-	defer adapter.Close() // Clean up all resources
+	t.Cleanup(func() {
+		if err := adapter.Close(); err != nil {
+			t.Logf("Failed to close adapter: %v", err)
+		}
+	})
 	server := adapter.callbackServer
 
 	// Since GO_TEST=1, server should NOT be running yet
 	ctx := context.Background()
-	
+
 	// Should be able to start the server
 	if err := server.Start(ctx); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
@@ -51,7 +59,7 @@ func TestOAuthCallbackServer_StartsAndStops_When_LifecycleMethodsCalled(t *testi
 			t.Logf("Failed to stop server in cleanup: %v", err)
 		}
 	}()
-	
+
 	// Should fail to start again while already running
 	if err := server.Start(ctx); err == nil {
 		t.Error("Should fail to start already running server")
@@ -85,9 +93,13 @@ func TestOAuthCallbackServer_StartsAndStops_When_LifecycleMethodsCalled(t *testi
 func TestOAuthCallbackServer_ProcessesCallback_When_RequestIsValid(t *testing.T) {
 	// Create adapter with test mode enabled
 	adapter := NewOAuthAdapter("http://localhost:8080", 9094)
-	defer adapter.Close() // Clean up all resources
+	t.Cleanup(func() {
+		if err := adapter.Close(); err != nil {
+			t.Logf("Failed to close adapter: %v", err)
+		}
+	})
 	server := adapter.callbackServer
-	
+
 	// Start the server since GO_TEST=1 prevents auto-start
 	ctx := context.Background()
 	if err := server.Start(ctx); err != nil {

@@ -225,8 +225,8 @@ func setupRTMWellKnownEndpoints(mux *http.ServeMux, serverURL string) {
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
 		metadata := map[string]interface{}{
 			"issuer":                           serverURL,
-			"authorization_endpoint":           serverURL + "/oauth/authorize",  // FIX: Added /oauth prefix
-			"token_endpoint":                   serverURL + "/oauth/token",       // FIX: Added /oauth prefix
+			"authorization_endpoint":           serverURL + "/oauth/authorize", // FIX: Added /oauth prefix
+			"token_endpoint":                   serverURL + "/oauth/token",     // FIX: Added /oauth prefix
 			"registration_endpoint":            serverURL + "/oauth/register",
 			"scopes_supported":                 []string{"rtm:read", "rtm:write"},
 			"response_types_supported":         []string{"code"},

@@ -6,7 +6,32 @@ MCP (Model Context Protocol) server implementation in Go - comprehensive everyth
 [![MCP Version](https://img.shields.io/badge/MCP-v2025--03--26-blue)](docs/protocol-standards.md)
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8)](go.mod)
 
+## 🎯 Testing Philosophy
+
+**`make` runs EVERYTHING** - all unit tests, integration tests, Claude OAuth compliance, and production validation. This takes 1-2 minutes but catches ALL issues before they become problems.
+
+For offline work: `make quick` (skips production tests)
+
 ## 🚀 Quick Start
+
+### RTM (Remember The Milk) Server
+
+**Production URL**: `https://rtm.fly.dev/mcp`
+
+Connect to Claude Desktop:
+```json
+{
+  "mcpServers": {
+    "rtm": {
+      "url": "https://rtm.fly.dev/mcp"
+    }
+  }
+}
+```
+
+Then click "Connect" in Claude to authorize with Remember The Milk.
+
+### Core Server
 
 ```bash
 # Clone and test production server
@@ -14,8 +39,11 @@ git clone https://github.com/vcto/mcp-adapters.git
 cd mcp-adapters
 curl https://mcp-adapters.fly.dev/health  # Should return: OK
 
-# Build and test locally
-make build  # Runs all tests then builds
+# Build and test EVERYTHING (default)
+make        # Runs ALL tests including production, then builds
+
+# Or for offline/quick iteration
+make quick  # Skip production tests
 ./bin/mcp-adapters  # Run in stdio mode
 
 # Run with HTTP/SSE server
@@ -52,6 +80,10 @@ FLY_APP_NAME=local-test ./bin/mcp-adapters
 # Quick validation
 make test          # Unit + integration + scenarios
 
+# Production validation
+make rtm-health-test  # Test RTM production health
+make production-test  # Full production validation suite
+
 # Development workflow
 make test-verbose  # Human-readable output
 make coverage      # Generate coverage report
@@ -85,10 +117,16 @@ func weatherHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 ### Development Commands
 
 ```bash
-make all      # Clean, format, lint, test, build
-make build    # Test and build
+make          # DEFAULT: Test EVERYTHING (including production), then build
+make quick    # Skip production tests (for offline work)
+make build    # Build only (assumes tests already passed)
 make run      # Build and run
-make deploy   # Test and deploy to production
+
+# RTM-specific commands
+make rtm-status      # Quick production health check
+make rtm-logs        # View production logs
+make monitor-oauth   # Monitor OAuth flow
+make deploy-rtm      # Deploy RTM to Fly.io
 ```
 
 ## 🚢 Deployment

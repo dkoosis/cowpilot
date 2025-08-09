@@ -126,7 +126,7 @@ func (s *OAuthCallbackServer) Start(ctx context.Context) error {
 	// Capture server and channel references to avoid race conditions
 	localServer := s.server
 	localResultChan := s.resultChan
-	
+
 	go func() {
 		fmt.Printf("OAuth callback server starting on %s\n", addr)
 		if err := localServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -148,7 +148,7 @@ func (s *OAuthCallbackServer) createCallbackHandler() http.HandlerFunc {
 	// Don't lock here - Start() already holds the lock when calling this
 	// Just use the resultChan that was already created
 	localResultChan := s.resultChan
-	
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Log request for debugging
 		fmt.Printf("[OAuth Callback] Received: method=%s path=%s query=%s\n",
@@ -181,7 +181,7 @@ func (s *OAuthCallbackServer) createCallbackHandler() http.HandlerFunc {
 
 		// Validate required parameters
 		if code == "" || state == "" {
-			fmt.Printf("[OAuth Callback] ERROR: Missing parameters - code: %v, state: %v\n", 
+			fmt.Printf("[OAuth Callback] ERROR: Missing parameters - code: %v, state: %v\n",
 				code != "", state != "")
 			s.errorPage(w, http.StatusBadRequest, "Invalid Request",
 				"Missing required parameters: code and state.")
@@ -200,7 +200,7 @@ func (s *OAuthCallbackServer) createCallbackHandler() http.HandlerFunc {
 		s.mu.Lock()
 		s.activeCallback = true
 		s.mu.Unlock()
-		
+
 		if localResultChan != nil {
 			fmt.Printf("[OAuth Callback] Signaling success through result channel\n")
 			localResultChan <- nil
@@ -394,11 +394,11 @@ func (s *OAuthCallbackServer) WaitForCallback(timeout time.Duration) error {
 	s.mu.Lock()
 	localResultChan := s.resultChan
 	s.mu.Unlock()
-	
+
 	if localResultChan == nil {
 		return fmt.Errorf("result channel not initialized")
 	}
-	
+
 	select {
 	case err := <-localResultChan:
 		return err
